@@ -640,7 +640,7 @@ math::matrix::add() {
     local -a _result=()
     local i
     for (( i = 0; i < size; i++ )); do
-        _result+=("$(( _a[i] + _b[i] ))")
+        _result+=("$(( _a[$i] + _b[$i] ))")
     done
     echo "${_result[@]}"
 }
@@ -657,7 +657,7 @@ math::matrix::add::fast() {
     _out=()
     local i
     for (( i = 0; i < size; i++ )); do
-        _out+=("$(( _a[i] + _b[i] ))")
+        _out+=("$(( _a[$i] + _b[$i] ))")
     done
 }
 
@@ -673,7 +673,7 @@ math::matrix::addf() {
     local -a _result=()
     local i
     for (( i = 0; i < size; i++ )); do
-        _result+=("$(math::bc "${_a[i]} + ${_b[i]}" "$scale")")
+        _result+=("$(math::bc "${_a[$i]} + ${_b[$i]}" "$scale")")
     done
     echo "${_result[@]}"
 }
@@ -690,7 +690,7 @@ math::matrix::addf::fast() {
     _out=()
     local i
     for (( i = 0; i < size; i++ )); do
-        _out+=("$(math::bc "${_a[i]} + ${_b[i]}" "$scale")")
+        _out+=("$(math::bc "${_a[$i]} + ${_b[$i]}" "$scale")")
     done
 }
 
@@ -710,7 +710,7 @@ math::matrix::sub() {
     local -a _result=()
     local i
     for (( i = 0; i < size; i++ )); do
-        _result+=("$(( _a[i] - _b[i] ))")
+        _result+=("$(( _a[$i] - _b[$i] ))")
     done
     echo "${_result[@]}"
 }
@@ -727,7 +727,7 @@ math::matrix::sub::fast() {
     _out=()
     local i
     for (( i = 0; i < size; i++ )); do
-        _out+=("$(( _a[i] - _b[i] ))")
+        _out+=("$(( _a[$i] - _b[$i] ))")
     done
 }
 
@@ -743,7 +743,7 @@ math::matrix::subf() {
     local -a _result=()
     local i
     for (( i = 0; i < size; i++ )); do
-        _result+=("$(math::bc "${_a[i]} - ${_b[i]}" "$scale")")
+        _result+=("$(math::bc "${_a[$i]} - ${_b[$i]}" "$scale")")
     done
     echo "${_result[@]}"
 }
@@ -760,7 +760,7 @@ math::matrix::subf::fast() {
     _out=()
     local i
     for (( i = 0; i < size; i++ )); do
-        _out+=("$(math::bc "${_a[i]} - ${_b[i]}" "$scale")")
+        _out+=("$(math::bc "${_a[$i]} - ${_b[$i]}" "$scale")")
     done
 }
 
@@ -780,7 +780,7 @@ math::matrix::scale() {
     local -a _result=()
     local i
     for (( i = 0; i < size; i++ )); do
-        _result+=("$(( _a[i] * scalar ))")
+        _result+=("$(( _a[$i] * scalar ))")
     done
     echo "${_result[@]}"
 }
@@ -797,7 +797,7 @@ math::matrix::scale::fast() {
     _out=()
     local i
     for (( i = 0; i < size; i++ )); do
-        _out+=("$(( _a[i] * scalar ))")
+        _out+=("$(( _a[$i] * scalar ))")
     done
 }
 
@@ -813,7 +813,7 @@ math::matrix::scalef() {
     local -a _result=()
     local i
     for (( i = 0; i < size; i++ )); do
-        _result+=("$(math::bc "${_a[i]} * $scalar" "$scale")")
+        _result+=("$(math::bc "${_a[$i]} * $scalar" "$scale")")
     done
     echo "${_result[@]}"
 }
@@ -830,7 +830,7 @@ math::matrix::scalef::fast() {
     _out=()
     local i
     for (( i = 0; i < size; i++ )); do
-        _out+=("$(math::bc "${_a[i]} * $scalar" "$scale")")
+        _out+=("$(math::bc "${_a[$i]} * $scalar" "$scale")")
     done
 }
 
@@ -859,7 +859,7 @@ math::matrix::mul() {
         for (( j = 0; j < cols_b; j++ )); do
             sum=0
             for (( k = 0; k < cols_a; k++ )); do
-                sum=$(( sum + _a[i * cols_a + k] * _b[k * cols_b + j] ))
+                sum=$(( sum + _a[$i * $cols_a + $k] * _b[$k * $cols_b + $j] ))
             done
             _result+=("$sum")
         done
@@ -888,7 +888,7 @@ math::matrix::mul::fast() {
         for (( j = 0; j < cols_b; j++ )); do
             sum=0
             for (( k = 0; k < cols_a; k++ )); do
-                sum=$(( sum + _a[i * cols_a + k] * _b[k * cols_b + j] ))
+                sum=$(( sum + _a[$i * $cols_a + $k] * _b[$k * $cols_b + $j] ))
             done
             _out+=("$sum")
         done
@@ -916,7 +916,7 @@ math::matrix::mulf() {
         for (( j = 0; j < cols_b; j++ )); do
             sum="0"
             for (( k = 0; k < cols_a; k++ )); do
-                sum=$(math::bc "$sum + ${_a[i * cols_a + k]} * ${_b[k * cols_b + j]}" "$scale")
+                sum=$(math::bc "$sum + ${_a[$i * $cols_a + $k]} * ${_b[$k * $cols_b + $j]}" "$scale")
             done
             _result+=("$sum")
         done
@@ -945,7 +945,7 @@ math::matrix::mulf::fast() {
         for (( j = 0; j < cols_b; j++ )); do
             sum="0"
             for (( k = 0; k < cols_a; k++ )); do
-                sum=$(math::bc "$sum + ${_a[i * cols_a + k]} * ${_b[k * cols_b + j]}" "$scale")
+                sum=$(math::bc "$sum + ${_a[$i * $cols_a + $k]} * ${_b[$k * $cols_b + $j]}" "$scale")
             done
             _out+=("$sum")
         done
@@ -969,7 +969,7 @@ math::matrix::transpose() {
     local i j
     for (( j = 0; j < cols; j++ )); do
         for (( i = 0; i < rows; i++ )); do
-            _result+=("${_a[i * cols + j]}")
+            _result+=("${_a[$i * $cols + $j]}")
         done
     done
     echo "${_result[@]}"
@@ -988,7 +988,7 @@ math::matrix::transpose::fast() {
     local i j
     for (( j = 0; j < cols; j++ )); do
         for (( i = 0; i < rows; i++ )); do
-            _out+=("${_a[i * cols + j]}")
+            _out+=("${_a[$i * $cols + $j]}")
         done
     done
 }
@@ -1044,9 +1044,534 @@ math::matrix::eq() {
     _math::matrix::unpack2 _a _b "$size" "$size" "${@:2}"
     local i
     for (( i = 0; i < size; i++ )); do
-        [[ "${_a[i]}" != "${_b[i]}" ]] && return 1
+        [[ "${_a[$i]}" != "${_b[$i]}" ]] && return 1
     done
     return 0
+}
+
+# ==============================================================================
+# math::matrix::is_square
+# ==============================================================================
+
+# Check if a matrix is square (rows == cols)
+# Usage: math::matrix::is_square "RxC"
+# Returns: 0 if square, 1 otherwise
+math::matrix::is_square() {
+    local rows cols
+    _math::matrix::dim "$1" rows cols
+    (( rows == cols ))
+}
+
+# ==============================================================================
+# math::matrix::trace
+# ==============================================================================
+
+# Sum of diagonal elements — square matrices only
+# Usage: math::matrix::trace "NxN" a
+# Returns: scalar integer
+# Note: for float input use math::matrix::tracef
+math::matrix::trace() {
+    local rows cols
+    _math::matrix::dim "$1" rows cols
+    local size=$(( rows * cols ))
+    local -a _a
+    _math::matrix::unpack _a "$size" "${@:2}"
+    local sum=0 i
+    for (( i = 0; i < rows; i++ )); do
+        sum=$(( sum + _a[$i * $cols + $i] ))
+    done
+    echo "$sum"
+}
+
+# Sum of diagonal elements with floating point precision
+# Usage: math::matrix::tracef scale "NxN" a
+# Returns: scalar float
+math::matrix::tracef() {
+    local scale=$1 rows cols
+    _math::matrix::dim "$2" rows cols
+    local size=$(( rows * cols ))
+    local -a _a
+    _math::matrix::unpack _a "$size" "${@:3}"
+    local sum="0" i
+    for (( i = 0; i < rows; i++ )); do
+        sum=$(math::bc "$sum + ${_a[$i * $cols + $i]}" "$scale")
+    done
+    echo "$sum"
+}
+
+# ==============================================================================
+# math::matrix::diagonal
+# ==============================================================================
+
+# Extract diagonal elements as a flat list
+# Usage: math::matrix::diagonal "NxN" a
+# Returns: flat space-separated element list
+math::matrix::diagonal() {
+    local rows cols
+    _math::matrix::dim "$1" rows cols
+    local size=$(( rows * cols ))
+    local -a _a
+    _math::matrix::unpack _a "$size" "${@:2}"
+    local -a _result=()
+    local i
+    for (( i = 0; i < rows; i++ )); do
+        _result+=("${_a[$i * $cols + $i]}")
+    done
+    echo "${_result[@]}"
+}
+
+# ==============================================================================
+# math::matrix::flatten
+# ==============================================================================
+
+# Flatten a matrix to a newline-separated list (one element per line)
+# Usage: math::matrix::flatten "RxC" a
+# Returns: one element per line
+math::matrix::flatten() {
+    local rows cols
+    _math::matrix::dim "$1" rows cols
+    local size=$(( rows * cols ))
+    local -a _a
+    _math::matrix::unpack _a "$size" "${@:2}"
+    printf '%s\n' "${_a[@]}"
+}
+
+# ==============================================================================
+# math::matrix::print
+# ==============================================================================
+
+# Print a matrix in row-major human-readable format
+# Usage: math::matrix::print "RxC" a
+math::matrix::print() {
+    local rows cols
+    _math::matrix::dim "$1" rows cols
+    local size=$(( rows * cols ))
+    local -a _a
+    _math::matrix::unpack _a "$size" "${@:2}"
+    local i j
+    for (( i = 0; i < rows; i++ )); do
+        for (( j = 0; j < cols; j++ )); do
+            printf '%s ' "${_a[$i * $cols + $j]}"
+        done
+        echo
+    done
+}
+
+# ==============================================================================
+# math::matrix::hadamard — Element-wise multiplication
+# ==============================================================================
+
+# Multiply two matrices element-wise (Hadamard product)
+# Usage: math::matrix::hadamard "RxC" a b
+# Returns: flat space-separated element list
+math::matrix::hadamard() {
+    local rows cols
+    _math::matrix::dim "$1" rows cols
+    local size=$(( rows * cols ))
+    local -a _a _b
+    _math::matrix::unpack2 _a _b "$size" "$size" "${@:2}"
+    local -a _result=()
+    local i
+    for (( i = 0; i < size; i++ )); do
+        _result+=("$(( _a[$i] * _b[$i] ))")
+    done
+    echo "${_result[@]}"
+}
+
+# Hadamard product, writing into output array
+# Usage: math::matrix::hadamard::fast result "RxC" a b
+math::matrix::hadamard::fast() {
+    local -n _out="$1"; shift
+    local rows cols
+    _math::matrix::dim "$1" rows cols
+    local size=$(( rows * cols ))
+    local -a _a _b
+    _math::matrix::unpack2 _a _b "$size" "$size" "${@:2}"
+    _out=()
+    local i
+    for (( i = 0; i < size; i++ )); do
+        _out+=("$(( _a[$i] * _b[$i] ))")
+    done
+}
+
+# Hadamard product with floating point precision
+# Usage: math::matrix::hadamardf scale "RxC" a b
+# Returns: flat space-separated element list
+math::matrix::hadamardf() {
+    local scale=$1 rows cols
+    _math::matrix::dim "$2" rows cols
+    local size=$(( rows * cols ))
+    local -a _a _b
+    _math::matrix::unpack2 _a _b "$size" "$size" "${@:3}"
+    local -a _result=()
+    local i
+    for (( i = 0; i < size; i++ )); do
+        _result+=("$(math::bc "${_a[$i]} * ${_b[$i]}" "$scale")")
+    done
+    echo "${_result[@]}"
+}
+
+# Hadamard product with floating point precision, writing into output array
+# Usage: math::matrix::hadamardf::fast result scale "RxC" a b
+math::matrix::hadamardf::fast() {
+    local -n _out="$1"; shift
+    local scale=$1 rows cols
+    _math::matrix::dim "$2" rows cols
+    local size=$(( rows * cols ))
+    local -a _a _b
+    _math::matrix::unpack2 _a _b "$size" "$size" "${@:3}"
+    _out=()
+    local i
+    for (( i = 0; i < size; i++ )); do
+        _out+=("$(math::bc "${_a[$i]} * ${_b[$i]}" "$scale")")
+    done
+}
+
+# ==============================================================================
+# math::matrix::minor
+# ==============================================================================
+
+# Compute the minor of a matrix — submatrix with row i and col j removed
+# Usage: math::matrix::minor "NxN" row col a
+# Returns: flat space-separated element list of the (N-1)x(N-1) submatrix
+# Note: row and col are 0-indexed
+math::matrix::minor() {
+    local rows cols
+    _math::matrix::dim "$1" rows cols
+    local skip_row=$2 skip_col=$3
+    local size=$(( rows * cols ))
+    local -a _a
+    _math::matrix::unpack _a "$size" "${@:4}"
+    local -a _result=()
+    local i j
+    for (( i = 0; i < rows; i++ )); do
+        (( i == skip_row )) && continue
+        for (( j = 0; j < cols; j++ )); do
+            (( j == skip_col )) && continue
+            _result+=("${_a[$i * $cols + $j]}")
+        done
+    done
+    echo "${_result[@]}"
+}
+
+# ==============================================================================
+# math::matrix::determinant — via LU decomposition (float, requires bc)
+# ==============================================================================
+
+# Compute determinant of a square matrix — requires bc
+# Usage: math::matrix::determinant scale "NxN" a
+# Returns: scalar float
+# Note: uses LU decomposition internally for O(n³) performance.
+#   intermediate steps use scale+4 precision to reduce rounding drift.
+#   bc represents fractions as repeating decimals, so results for integer
+#   matrices may have small floating point drift (e.g. -2.00000004 instead
+#   of -2). use a higher scale and round the result if exact integers are needed.
+# Warning: scale 0 will produce incorrect results due to intermediate truncation
+math::matrix::determinant() {
+    local scale=$1 rows cols
+    local work_scale=$(( scale + 4 ))
+    _math::matrix::dim "$2" rows cols
+    if (( rows != cols )); then
+        echo "Error: math::matrix::determinant: matrix must be square" >&2
+        return 1
+    fi
+    local size=$(( rows * cols ))
+    local -a _a
+    _math::matrix::unpack _a "$size" "${@:3}"
+
+    # LU decomposition — Doolittle method
+    # U stored in upper triangle, L in lower (diagonal of L is 1)
+    local n=$rows
+    local -a _lu=("${_a[@]}")
+    local sign=1
+    local i j k pivot tmp
+
+    for (( k = 0; k < n; k++ )); do
+        # Partial pivoting
+        local max_val="${_lu[$k * $n + $k]}"
+        local max_row=$k
+        for (( i = k + 1; i < n; i++ )); do
+            local val="${_lu[$i * $n + $k]}"
+            local abs_val abs_max
+            abs_val=$(math::bc "if ($val < 0) { -($val) } else { ($val) }" "$work_scale")
+            abs_max=$(math::bc "if ($max_val < 0) { -($max_val) } else { ($max_val) }" "$work_scale")
+            if [[ $(math::bc "$abs_val > $abs_max" "$work_scale") -eq 1 ]]; then
+                max_val="$val"
+                max_row=$i
+            fi
+        done
+
+        # Swap rows if needed
+        if (( max_row != k )); then
+            for (( j = 0; j < n; j++ )); do
+                tmp="${_lu[$k * $n + $j]}"
+                _lu[$k * $n + $j]="${_lu[$max_row * $n + $j]}"
+                _lu[$max_row * $n + $j]="$tmp"
+            done
+            sign=$(( sign * -1 ))
+        fi
+
+        local pivot_val="${_lu[$k * $n + $k]}"
+        if [[ $(math::bc "$pivot_val == 0" "$work_scale") -eq 1 ]]; then
+            echo "0"
+            return 0
+        fi
+
+        for (( i = k + 1; i < n; i++ )); do
+            local factor
+            factor=$(math::bc "${_lu[$i * $n + $k]} / $pivot_val" "$work_scale")
+            _lu[$i * $n + $k]="$factor"
+            for (( j = k + 1; j < n; j++ )); do
+                _lu[$i * $n + $j]=$(math::bc "${_lu[$i * $n + $j]} - $factor * ${_lu[$k * $n + $j]}" "$work_scale")
+            done
+        done
+    done
+
+    # Determinant = sign * product of U diagonal, rounded to requested scale
+    local det="$sign"
+    for (( i = 0; i < n; i++ )); do
+        det=$(math::bc "$det * ${_lu[$i * $n + $i]}" "$work_scale")
+    done
+    math::bc "$det" "$scale"
+}
+
+# ==============================================================================
+# math::matrix::lu — LU decomposition (requires bc)
+# ==============================================================================
+
+# LU decomposition of a square matrix — requires bc
+# Writes L and U into separate output arrays
+# Usage: math::matrix::lu scale "NxN" L_out U_out a
+# Note: L is lower triangular with 1s on diagonal, U is upper triangular
+math::matrix::lu() {
+    local scale=$1 rows cols
+    _math::matrix::dim "$2" rows cols
+    if (( rows != cols )); then
+        echo "Error: math::matrix::lu: matrix must be square" >&2
+        return 1
+    fi
+    local -n _L="$3" _U="$4"
+    local size=$(( rows * cols ))
+    local -a _a
+    _math::matrix::unpack _a "$size" "${@:5}"
+
+    local n=$rows
+    local -a _lu=("${_a[@]}")
+    local i j k
+
+    for (( k = 0; k < n; k++ )); do
+        local pivot_val="${_lu[$k * $n + $k]}"
+        for (( i = k + 1; i < n; i++ )); do
+            local factor
+            factor=$(math::bc "${_lu[$i * $n + $k]} / $pivot_val" "$scale")
+            _lu[$i * $n + $k]="$factor"
+            for (( j = k + 1; j < n; j++ )); do
+                _lu[$i * $n + $j]=$(math::bc "${_lu[$i * $n + $j]} - $factor * ${_lu[$k * $n + $j]}" "$scale")
+            done
+        done
+    done
+
+    # Extract L and U
+    _L=()
+    _U=()
+    for (( i = 0; i < n; i++ )); do
+        for (( j = 0; j < n; j++ )); do
+            if (( i > j )); then
+                _L+=("${_lu[$i * $n + $j]}")
+                _U+=(0)
+            elif (( i == j )); then
+                _L+=(1)
+                _U+=("${_lu[$i * $n + $j]}")
+            else
+                _L+=(0)
+                _U+=("${_lu[$i * $n + $j]}")
+            fi
+        done
+    done
+}
+
+# ==============================================================================
+# math::matrix::cofactor
+# ==============================================================================
+
+# Compute the cofactor matrix — requires bc
+# Usage: math::matrix::cofactor scale "NxN" a
+# Returns: flat space-separated element list
+math::matrix::cofactor() {
+    local scale=$1 rows cols
+    _math::matrix::dim "$2" rows cols
+    local size=$(( rows * cols ))
+    local -a _a
+    _math::matrix::unpack _a "$size" "${@:3}"
+    local n=$rows
+    local -a _result=()
+    local i j sign minor_list det
+
+    for (( i = 0; i < n; i++ )); do
+        for (( j = 0; j < n; j++ )); do
+            read -ra minor_list <<< "$(math::matrix::minor "${n}x${n}" "$i" "$j" "${_a[@]}")"
+            local sub_dim="$(( n - 1 ))x$(( n - 1 ))"
+            det=$(math::matrix::determinant "$scale" "$sub_dim" "${minor_list[@]}")
+            sign=$(( (i + j) % 2 == 0 ? 1 : -1 ))
+            _result+=("$(math::bc "$sign * $det" "$scale")")
+        done
+    done
+    echo "${_result[@]}"
+}
+
+# ==============================================================================
+# math::matrix::adjugate
+# ==============================================================================
+
+# Compute the adjugate (transpose of cofactor matrix) — requires bc
+# Usage: math::matrix::adjugate scale "NxN" a
+# Returns: flat space-separated element list
+math::matrix::adjugate() {
+    local scale=$1 dim=$2
+    local rows cols
+    _math::matrix::dim "$dim" rows cols
+    local size=$(( rows * cols ))
+    local -a _a
+    _math::matrix::unpack _a "$size" "${@:3}"
+    local -a cof
+    read -ra cof <<< "$(math::matrix::cofactor "$scale" "$dim" "${_a[@]}")"
+    math::matrix::transpose "$dim" "${cof[@]}"
+}
+
+# ==============================================================================
+# math::matrix::inverse — requires bc
+# ==============================================================================
+
+# Compute the inverse of a square matrix — requires bc
+# Usage: math::matrix::inverse scale "NxN" a
+# Returns: flat space-separated element list
+# Warning: returns error if matrix is singular (determinant = 0)
+math::matrix::inverse() {
+    local scale=$1 dim=$2
+    local rows cols
+    _math::matrix::dim "$dim" rows cols
+    local size=$(( rows * cols ))
+    local -a _a
+    _math::matrix::unpack _a "$size" "${@:3}"
+
+    local det
+    det=$(math::matrix::determinant "$scale" "$dim" "${_a[@]}")
+    if [[ $(math::bc "$det == 0" "$scale") -eq 1 ]]; then
+        echo "Error: math::matrix::inverse: matrix is singular (determinant = 0)" >&2
+        return 1
+    fi
+
+    local inv_det
+    inv_det=$(math::bc "1 / $det" "$scale")
+    local -a adj
+    read -ra adj <<< "$(math::matrix::adjugate "$scale" "$dim" "${_a[@]}")"
+    math::matrix::scalef "$scale" "$dim" "$inv_det" "${adj[@]}"
+}
+
+# ==============================================================================
+# math::matrix::pow
+# ==============================================================================
+
+# Raise a square matrix to an integer power via repeated multiplication
+# Usage: math::matrix::pow "NxN" exponent a
+# Returns: flat space-separated element list
+# Note: exponent must be a non-negative integer. pow 0 returns identity matrix.
+math::matrix::pow() {
+    local dim=$1 exp=$2
+    local rows cols
+    _math::matrix::dim "$dim" rows cols
+    local size=$(( rows * cols ))
+    local -a _a
+    _math::matrix::unpack _a "$size" "${@:3}"
+
+    if (( exp == 0 )); then
+        math::matrix::identity "$dim"
+        return
+    fi
+
+    local -a _result=("${_a[@]}")
+    local i
+    for (( i = 1; i < exp; i++ )); do
+        read -ra _result <<< "$(math::matrix::mul "$dim" "$dim" "${_result[@]}" "${_a[@]}")"
+    done
+    echo "${_result[@]}"
+}
+
+# Raise a square matrix to an integer power with floating point precision
+# Usage: math::matrix::powf scale "NxN" exponent a
+# Returns: flat space-separated element list
+math::matrix::powf() {
+    local scale=$1 dim=$2 exp=$3
+    local rows cols
+    _math::matrix::dim "$dim" rows cols
+    local size=$(( rows * cols ))
+    local -a _a
+    _math::matrix::unpack _a "$size" "${@:4}"
+
+    if (( exp == 0 )); then
+        math::matrix::identity "$dim"
+        return
+    fi
+
+    local -a _result=("${_a[@]}")
+    local i
+    for (( i = 1; i < exp; i++ )); do
+        read -ra _result <<< "$(math::matrix::mulf "$scale" "$dim" "$dim" "${_result[@]}" "${_a[@]}")"
+    done
+    echo "${_result[@]}"
+}
+
+# ==============================================================================
+# math::matrix::rank — via row reduction (requires bc)
+# ==============================================================================
+
+# Compute the rank of a matrix via Gaussian elimination — requires bc
+# Usage: math::matrix::rank scale "RxC" a
+# Returns: integer rank
+math::matrix::rank() {
+    local scale=$1 rows cols
+    _math::matrix::dim "$2" rows cols
+    local size=$(( rows * cols ))
+    local -a _a
+    _math::matrix::unpack _a "$size" "${@:3}"
+
+    local -a _m=("${_a[@]}")
+    local rank=0 row=0 i j k factor pivot
+
+    for (( j = 0; j < cols && row < rows; j++ )); do
+        # Find pivot in column j from row onwards
+        local pivot_row=-1
+        for (( i = row; i < rows; i++ )); do
+            if [[ $(math::bc "${_m[$i * $cols + $j]} != 0" "$scale") -eq 1 ]]; then
+                pivot_row=$i
+                break
+            fi
+        done
+        (( pivot_row == -1 )) && continue
+
+        # Swap pivot row into position
+        if (( pivot_row != row )); then
+            local tmp
+            for (( k = 0; k < cols; k++ )); do
+                tmp="${_m[$row * $cols + $k]}"
+                _m[$row * $cols + $k]="${_m[$pivot_row * $cols + $k]}"
+                _m[$pivot_row * $cols + $k]="$tmp"
+            done
+        fi
+
+        pivot="${_m[$row * $cols + $j]}"
+        for (( i = row + 1; i < rows; i++ )); do
+            factor=$(math::bc "${_m[$i * $cols + $j]} / $pivot" "$scale")
+            for (( k = j; k < cols; k++ )); do
+                _m[$i * $cols + $k]=$(math::bc "${_m[$i * $cols + $k]} - $factor * ${_m[$row * $cols + $k]}" "$scale")
+            done
+        done
+
+        (( rank++ ))
+        (( row++ ))
+    done
+
+    echo "$rank"
 }
 
 # ==============================================================================
