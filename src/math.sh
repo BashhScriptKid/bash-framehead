@@ -552,6 +552,504 @@ math::vec3::eq() {
 }
 
 # ==============================================================================
+# math::matrix — Matrix operations
+#
+# Dimensions are passed as "RxC" strings: "2x3" = 2 rows, 3 cols
+# Elements are passed either as a named array (nameref) or flat args (spaghetti)
+# The function auto-detects the calling pattern by checking if the first
+# element arg looks like a number or an identifier.
+#
+# Two variants:
+#   math::matrix::*        — echoes result as space-separated flat list
+#   math::matrix::*::fast  — first arg is output array name, no subshell
+#
+# CALLING PATTERNS:
+#
+#   # Nameref style — pass array names
+#   local -a a=(1 2 3 4) b=(5 6 7 8)
+#   read -ra result <<< "$(math::matrix::mul "2x2" "2x2" a b)"
+#
+#   # Spaghetti style — pass elements directly
+#   read -ra result <<< "$(math::matrix::mul "2x2" "2x2" 1 2 3 4 5 6 7 8)"
+#
+#   # Fast variant — output array written in place, no subshell
+#   local -a result=()
+#   math::matrix::mul::fast result "2x2" "2x2" a b
+#   math::matrix::mul::fast result "2x2" "2x2" 1 2 3 4 5 6 7 8
+#
+# Warning: in nameref style, pass the array NAME not the expanded value.
+#   Correct: math::matrix::mul "2x2" "2x2" a b
+#   Wrong:   math::matrix::mul "2x2" "2x2" "${a[@]}" "${b[@]}"
+# ==============================================================================
+
+# ------------------------------------------------------------------------------
+# Internal helpers — parsing and unpacking only, no bc calls
+# ------------------------------------------------------------------------------
+
+# Parse a dimension string into rows and cols
+# Usage: _math::matrix::dim "2x3" rows_var cols_var
+_math::matrix::dim() {
+    local -n _rows="$2" _cols="$3"
+    IFS='x' read -r _rows _cols <<< "$1"
+}
+
+# Unpack a single matrix from either nameref or spaghetti args into a target array
+# Usage: _math::matrix::unpack target_var size [name_or_elements...]
+# Returns: number of args consumed via _math_unpack_consumed
+_math::matrix::unpack() {
+    local -n _target="$1"
+    local size="$2"; shift 2
+    if [[ "$1" =~ ^-?[0-9] ]]; then
+        _target=("${@:1:$size}")
+        _math_unpack_consumed="$size"
+    else
+        local -n _src="$1"
+        _target=("${_src[@]}")
+        _math_unpack_consumed=1
+    fi
+}
+
+# Unpack two matrices from either nameref or spaghetti args
+# Usage: _math::matrix::unpack2 target_a target_b size_a size_b [args...]
+_math::matrix::unpack2() {
+    local -n _ta="$1" _tb="$2"
+    local size_a="$3" size_b="$4"; shift 4
+    if [[ "$1" =~ ^-?[0-9] ]]; then
+        _ta=("${@:1:$size_a}")
+        _tb=("${@:$(( size_a + 1 )):$size_b}")
+    else
+        local -n _sa="$1" _sb="$2"
+        _ta=("${_sa[@]}")
+        _tb=("${_sb[@]}")
+    fi
+}
+
+# ==============================================================================
+# math::matrix::add — Element-wise addition
+# ==============================================================================
+
+# Add two matrices element-wise
+# Usage: math::matrix::add "RxC" a b
+# Returns: flat space-separated element list
+math::matrix::add() {
+    local rows cols
+    _math::matrix::dim "$1" rows cols
+    local size=$(( rows * cols ))
+    local -a _a _b
+    _math::matrix::unpack2 _a _b "$size" "$size" "${@:2}"
+    local -a _result=()
+    local i
+    for (( i = 0; i < size; i++ )); do
+        _result+=("$(( _a[i] + _b[i] ))")
+    done
+    echo "${_result[@]}"
+}
+
+# Add two matrices element-wise, writing result into output array
+# Usage: math::matrix::add::fast result "RxC" a b
+math::matrix::add::fast() {
+    local -n _out="$1"; shift
+    local rows cols
+    _math::matrix::dim "$1" rows cols
+    local size=$(( rows * cols ))
+    local -a _a _b
+    _math::matrix::unpack2 _a _b "$size" "$size" "${@:2}"
+    _out=()
+    local i
+    for (( i = 0; i < size; i++ )); do
+        _out+=("$(( _a[i] + _b[i] ))")
+    done
+}
+
+# Add two matrices element-wise with floating point precision
+# Usage: math::matrix::addf scale "RxC" a b
+# Returns: flat space-separated element list
+math::matrix::addf() {
+    local scale=$1 rows cols
+    _math::matrix::dim "$2" rows cols
+    local size=$(( rows * cols ))
+    local -a _a _b
+    _math::matrix::unpack2 _a _b "$size" "$size" "${@:3}"
+    local -a _result=()
+    local i
+    for (( i = 0; i < size; i++ )); do
+        _result+=("$(math::bc "${_a[i]} + ${_b[i]}" "$scale")")
+    done
+    echo "${_result[@]}"
+}
+
+# Add two matrices element-wise with floating point precision, writing into output array
+# Usage: math::matrix::addf::fast result scale "RxC" a b
+math::matrix::addf::fast() {
+    local -n _out="$1"; shift
+    local scale=$1 rows cols
+    _math::matrix::dim "$2" rows cols
+    local size=$(( rows * cols ))
+    local -a _a _b
+    _math::matrix::unpack2 _a _b "$size" "$size" "${@:3}"
+    _out=()
+    local i
+    for (( i = 0; i < size; i++ )); do
+        _out+=("$(math::bc "${_a[i]} + ${_b[i]}" "$scale")")
+    done
+}
+
+# ==============================================================================
+# math::matrix::sub — Element-wise subtraction
+# ==============================================================================
+
+# Subtract matrix b from matrix a element-wise
+# Usage: math::matrix::sub "RxC" a b
+# Returns: flat space-separated element list
+math::matrix::sub() {
+    local rows cols
+    _math::matrix::dim "$1" rows cols
+    local size=$(( rows * cols ))
+    local -a _a _b
+    _math::matrix::unpack2 _a _b "$size" "$size" "${@:2}"
+    local -a _result=()
+    local i
+    for (( i = 0; i < size; i++ )); do
+        _result+=("$(( _a[i] - _b[i] ))")
+    done
+    echo "${_result[@]}"
+}
+
+# Subtract matrix b from matrix a element-wise, writing into output array
+# Usage: math::matrix::sub::fast result "RxC" a b
+math::matrix::sub::fast() {
+    local -n _out="$1"; shift
+    local rows cols
+    _math::matrix::dim "$1" rows cols
+    local size=$(( rows * cols ))
+    local -a _a _b
+    _math::matrix::unpack2 _a _b "$size" "$size" "${@:2}"
+    _out=()
+    local i
+    for (( i = 0; i < size; i++ )); do
+        _out+=("$(( _a[i] - _b[i] ))")
+    done
+}
+
+# Subtract matrix b from matrix a element-wise with floating point precision
+# Usage: math::matrix::subf scale "RxC" a b
+# Returns: flat space-separated element list
+math::matrix::subf() {
+    local scale=$1 rows cols
+    _math::matrix::dim "$2" rows cols
+    local size=$(( rows * cols ))
+    local -a _a _b
+    _math::matrix::unpack2 _a _b "$size" "$size" "${@:3}"
+    local -a _result=()
+    local i
+    for (( i = 0; i < size; i++ )); do
+        _result+=("$(math::bc "${_a[i]} - ${_b[i]}" "$scale")")
+    done
+    echo "${_result[@]}"
+}
+
+# Subtract matrix b from matrix a element-wise with floating point precision, writing into output array
+# Usage: math::matrix::subf::fast result scale "RxC" a b
+math::matrix::subf::fast() {
+    local -n _out="$1"; shift
+    local scale=$1 rows cols
+    _math::matrix::dim "$2" rows cols
+    local size=$(( rows * cols ))
+    local -a _a _b
+    _math::matrix::unpack2 _a _b "$size" "$size" "${@:3}"
+    _out=()
+    local i
+    for (( i = 0; i < size; i++ )); do
+        _out+=("$(math::bc "${_a[i]} - ${_b[i]}" "$scale")")
+    done
+}
+
+# ==============================================================================
+# math::matrix::scale — Scalar multiplication
+# ==============================================================================
+
+# Multiply every element of a matrix by a scalar
+# Usage: math::matrix::scale "RxC" scalar a
+# Returns: flat space-separated element list
+math::matrix::scale() {
+    local scalar=$2 rows cols
+    _math::matrix::dim "$1" rows cols
+    local size=$(( rows * cols ))
+    local -a _a
+    _math::matrix::unpack _a "$size" "${@:3}"
+    local -a _result=()
+    local i
+    for (( i = 0; i < size; i++ )); do
+        _result+=("$(( _a[i] * scalar ))")
+    done
+    echo "${_result[@]}"
+}
+
+# Multiply every element of a matrix by a scalar, writing into output array
+# Usage: math::matrix::scale::fast result "RxC" scalar a
+math::matrix::scale::fast() {
+    local -n _out="$1"; shift
+    local scalar=$2 rows cols
+    _math::matrix::dim "$1" rows cols
+    local size=$(( rows * cols ))
+    local -a _a
+    _math::matrix::unpack _a "$size" "${@:3}"
+    _out=()
+    local i
+    for (( i = 0; i < size; i++ )); do
+        _out+=("$(( _a[i] * scalar ))")
+    done
+}
+
+# Multiply every element of a matrix by a scalar with floating point precision
+# Usage: math::matrix::scalef scale "RxC" scalar a
+# Returns: flat space-separated element list
+math::matrix::scalef() {
+    local scale=$1 scalar=$3 rows cols
+    _math::matrix::dim "$2" rows cols
+    local size=$(( rows * cols ))
+    local -a _a
+    _math::matrix::unpack _a "$size" "${@:4}"
+    local -a _result=()
+    local i
+    for (( i = 0; i < size; i++ )); do
+        _result+=("$(math::bc "${_a[i]} * $scalar" "$scale")")
+    done
+    echo "${_result[@]}"
+}
+
+# Multiply every element of a matrix by a scalar with floating point precision, writing into output array
+# Usage: math::matrix::scalef::fast result scale "RxC" scalar a
+math::matrix::scalef::fast() {
+    local -n _out="$1"; shift
+    local scale=$1 scalar=$3 rows cols
+    _math::matrix::dim "$2" rows cols
+    local size=$(( rows * cols ))
+    local -a _a
+    _math::matrix::unpack _a "$size" "${@:4}"
+    _out=()
+    local i
+    for (( i = 0; i < size; i++ )); do
+        _out+=("$(math::bc "${_a[i]} * $scalar" "$scale")")
+    done
+}
+
+# ==============================================================================
+# math::matrix::mul — Matrix multiplication
+# ==============================================================================
+
+# Multiply two matrices — cols of a must equal rows of b
+# Usage: math::matrix::mul "RxC" "RxC" a b
+# Returns: flat space-separated element list
+# Warning: cols_a must equal rows_b — "2x3" * "3x2" is valid, "2x3" * "2x3" is not
+math::matrix::mul() {
+    local rows_a cols_a rows_b cols_b
+    _math::matrix::dim "$1" rows_a cols_a
+    _math::matrix::dim "$2" rows_b cols_b
+    if (( cols_a != rows_b )); then
+        echo "Error: math::matrix::mul: incompatible dimensions $1 * $2" >&2
+        return 1
+    fi
+    local size_a=$(( rows_a * cols_a )) size_b=$(( rows_b * cols_b ))
+    local -a _a _b
+    _math::matrix::unpack2 _a _b "$size_a" "$size_b" "${@:3}"
+    local -a _result=()
+    local i j k sum
+    for (( i = 0; i < rows_a; i++ )); do
+        for (( j = 0; j < cols_b; j++ )); do
+            sum=0
+            for (( k = 0; k < cols_a; k++ )); do
+                sum=$(( sum + _a[i * cols_a + k] * _b[k * cols_b + j] ))
+            done
+            _result+=("$sum")
+        done
+    done
+    echo "${_result[@]}"
+}
+
+# Multiply two matrices, writing result into output array
+# Usage: math::matrix::mul::fast result "RxC" "RxC" a b
+# Warning: cols_a must equal rows_b
+math::matrix::mul::fast() {
+    local -n _out="$1"; shift
+    local rows_a cols_a rows_b cols_b
+    _math::matrix::dim "$1" rows_a cols_a
+    _math::matrix::dim "$2" rows_b cols_b
+    if (( cols_a != rows_b )); then
+        echo "Error: math::matrix::mul::fast: incompatible dimensions $1 * $2" >&2
+        return 1
+    fi
+    local size_a=$(( rows_a * cols_a )) size_b=$(( rows_b * cols_b ))
+    local -a _a _b
+    _math::matrix::unpack2 _a _b "$size_a" "$size_b" "${@:3}"
+    _out=()
+    local i j k sum
+    for (( i = 0; i < rows_a; i++ )); do
+        for (( j = 0; j < cols_b; j++ )); do
+            sum=0
+            for (( k = 0; k < cols_a; k++ )); do
+                sum=$(( sum + _a[i * cols_a + k] * _b[k * cols_b + j] ))
+            done
+            _out+=("$sum")
+        done
+    done
+}
+
+# Multiply two matrices with floating point precision
+# Usage: math::matrix::mulf scale "RxC" "RxC" a b
+# Returns: flat space-separated element list
+# Warning: cols_a must equal rows_b
+math::matrix::mulf() {
+    local scale=$1 rows_a cols_a rows_b cols_b
+    _math::matrix::dim "$2" rows_a cols_a
+    _math::matrix::dim "$3" rows_b cols_b
+    if (( cols_a != rows_b )); then
+        echo "Error: math::matrix::mulf: incompatible dimensions $2 * $3" >&2
+        return 1
+    fi
+    local size_a=$(( rows_a * cols_a )) size_b=$(( rows_b * cols_b ))
+    local -a _a _b
+    _math::matrix::unpack2 _a _b "$size_a" "$size_b" "${@:4}"
+    local -a _result=()
+    local i j k sum
+    for (( i = 0; i < rows_a; i++ )); do
+        for (( j = 0; j < cols_b; j++ )); do
+            sum="0"
+            for (( k = 0; k < cols_a; k++ )); do
+                sum=$(math::bc "$sum + ${_a[i * cols_a + k]} * ${_b[k * cols_b + j]}" "$scale")
+            done
+            _result+=("$sum")
+        done
+    done
+    echo "${_result[@]}"
+}
+
+# Multiply two matrices with floating point precision, writing into output array
+# Usage: math::matrix::mulf::fast result scale "RxC" "RxC" a b
+# Warning: cols_a must equal rows_b
+math::matrix::mulf::fast() {
+    local -n _out="$1"; shift
+    local scale=$1 rows_a cols_a rows_b cols_b
+    _math::matrix::dim "$2" rows_a cols_a
+    _math::matrix::dim "$3" rows_b cols_b
+    if (( cols_a != rows_b )); then
+        echo "Error: math::matrix::mulf::fast: incompatible dimensions $2 * $3" >&2
+        return 1
+    fi
+    local size_a=$(( rows_a * cols_a )) size_b=$(( rows_b * cols_b ))
+    local -a _a _b
+    _math::matrix::unpack2 _a _b "$size_a" "$size_b" "${@:4}"
+    _out=()
+    local i j k sum
+    for (( i = 0; i < rows_a; i++ )); do
+        for (( j = 0; j < cols_b; j++ )); do
+            sum="0"
+            for (( k = 0; k < cols_a; k++ )); do
+                sum=$(math::bc "$sum + ${_a[i * cols_a + k]} * ${_b[k * cols_b + j]}" "$scale")
+            done
+            _out+=("$sum")
+        done
+    done
+}
+
+# ==============================================================================
+# math::matrix::transpose
+# ==============================================================================
+
+# Transpose a matrix — rows become columns
+# Usage: math::matrix::transpose "RxC" a
+# Returns: flat space-separated element list
+math::matrix::transpose() {
+    local rows cols
+    _math::matrix::dim "$1" rows cols
+    local size=$(( rows * cols ))
+    local -a _a
+    _math::matrix::unpack _a "$size" "${@:2}"
+    local -a _result=()
+    local i j
+    for (( j = 0; j < cols; j++ )); do
+        for (( i = 0; i < rows; i++ )); do
+            _result+=("${_a[i * cols + j]}")
+        done
+    done
+    echo "${_result[@]}"
+}
+
+# Transpose a matrix, writing into output array
+# Usage: math::matrix::transpose::fast result "RxC" a
+math::matrix::transpose::fast() {
+    local -n _out="$1"; shift
+    local rows cols
+    _math::matrix::dim "$1" rows cols
+    local size=$(( rows * cols ))
+    local -a _a
+    _math::matrix::unpack _a "$size" "${@:2}"
+    _out=()
+    local i j
+    for (( j = 0; j < cols; j++ )); do
+        for (( i = 0; i < rows; i++ )); do
+            _out+=("${_a[i * cols + j]}")
+        done
+    done
+}
+
+# ==============================================================================
+# math::matrix::identity
+# ==============================================================================
+
+# Generate an identity matrix of given size
+# Usage: math::matrix::identity "NxN"
+# Returns: flat space-separated element list
+# Note: only square matrices have an identity — NxN only
+math::matrix::identity() {
+    local rows cols
+    _math::matrix::dim "$1" rows cols
+    local -a _result=()
+    local i j
+    for (( i = 0; i < rows; i++ )); do
+        for (( j = 0; j < cols; j++ )); do
+            (( i == j )) && _result+=(1) || _result+=(0)
+        done
+    done
+    echo "${_result[@]}"
+}
+
+# Generate an identity matrix, writing into output array
+# Usage: math::matrix::identity::fast result "NxN"
+math::matrix::identity::fast() {
+    local -n _out="$1"; shift
+    local rows cols
+    _math::matrix::dim "$1" rows cols
+    _out=()
+    local i j
+    for (( i = 0; i < rows; i++ )); do
+        for (( j = 0; j < cols; j++ )); do
+            (( i == j )) && _out+=(1) || _out+=(0)
+        done
+    done
+}
+
+# ==============================================================================
+# math::matrix::eq
+# ==============================================================================
+
+# Check if two matrices are equal element-wise
+# Usage: math::matrix::eq "RxC" a b
+# Returns: 0 if equal, 1 otherwise
+math::matrix::eq() {
+    local rows cols
+    _math::matrix::dim "$1" rows cols
+    local size=$(( rows * cols ))
+    local -a _a _b
+    _math::matrix::unpack2 _a _b "$size" "$size" "${@:2}"
+    local i
+    for (( i = 0; i < size; i++ )); do
+        [[ "${_a[i]}" != "${_b[i]}" ]] && return 1
+    done
+    return 0
+}
+
+# ==============================================================================
 # FLOATING POINT (requires bc)
 # ==============================================================================
 
