@@ -209,6 +209,349 @@ math::product() {
 }
 
 # ==============================================================================
+# math::vec2 / math::vec3 — Vector operations
+# Vectors are passed and returned as comma-separated strings: "x,y" or "x,y,z"
+# Integer variants take components directly
+# Float variants (f suffix) take scale as first argument
+#
+# Example:
+#   a="1,2,3"
+#   b="4,5,6"
+#   math::vec3::dot "$a" "$b"                          # → 32
+#   math::vec3::add "$a" "$b"                          # → 5,7,9
+#   math::vec3::dot "$(math::vec3::add "$a" "$b")" "$b" # composable
+#
+#   # Destructure result
+#   IFS=, read -r x y z <<< "$(math::vec3::add "$a" "$b")"
+#
+#   # Take just one component
+#   IFS=, read -r x _ _ <<< "$(math::vec3::add "$a" "$b")"
+# ==============================================================================
+
+# Internal: split a comma-separated vec2 into positional vars
+# Usage: _math::vec2::split "x,y" → sets _v_x1 _v_y1
+_math::vec2::unpack2() {
+    local -n _x="$1" _y="$2"
+    IFS=, read -r _x _y <<< "$3"
+}
+
+# Internal: split two comma-separated vec2s into positional vars
+_math::vec2::unpack4() {
+    local -n _x1="$1" _y1="$2" _x2="$3" _y2="$4"
+    IFS=, read -r _x1 _y1 <<< "$5"
+    IFS=, read -r _x2 _y2 <<< "$6"
+}
+
+# Internal: split a comma-separated vec3 into positional vars
+_math::vec3::unpack3() {
+    local -n _x="$1" _y="$2" _z="$3"
+    IFS=, read -r _x _y _z <<< "$4"
+}
+
+# Internal: split two comma-separated vec3s into positional vars
+_math::vec3::unpack6() {
+    local -n _x1="$1" _y1="$2" _z1="$3" _x2="$4" _y2="$5" _z2="$6"
+    IFS=, read -r _x1 _y1 _z1 <<< "$7"
+    IFS=, read -r _x2 _y2 _z2 <<< "$8"
+}
+
+# ==============================================================================
+# math::vec2
+# ==============================================================================
+
+# Add two vec2 vectors
+# Usage: math::vec2::add "x1,y1" "x2,y2"
+# Returns: "x,y"
+math::vec2::add() {
+    local x1 y1 x2 y2
+    _math::vec2::unpack4 x1 y1 x2 y2 "$1" "$2"
+    echo "$(( x1 + x2 )),$(( y1 + y2 ))"
+}
+
+# Add two vec2 vectors with floating point precision
+# Usage: math::vec2::addf scale "x1,y1" "x2,y2"
+# Returns: "x,y"
+math::vec2::addf() {
+    local scale=$1 x1 y1 x2 y2
+    _math::vec2::unpack4 x1 y1 x2 y2 "$2" "$3"
+    echo "$(math::bc "$x1 + $x2" "$scale"),$(math::bc "$y1 + $y2" "$scale")"
+}
+
+# Subtract vec2 b from vec2 a
+# Usage: math::vec2::sub "x1,y1" "x2,y2"
+# Returns: "x,y"
+math::vec2::sub() {
+    local x1 y1 x2 y2
+    _math::vec2::unpack4 x1 y1 x2 y2 "$1" "$2"
+    echo "$(( x1 - x2 )),$(( y1 - y2 ))"
+}
+
+# Subtract vec2 b from vec2 a with floating point precision
+# Usage: math::vec2::subf scale "x1,y1" "x2,y2"
+# Returns: "x,y"
+math::vec2::subf() {
+    local scale=$1 x1 y1 x2 y2
+    _math::vec2::unpack4 x1 y1 x2 y2 "$2" "$3"
+    echo "$(math::bc "$x1 - $x2" "$scale"),$(math::bc "$y1 - $y2" "$scale")"
+}
+
+# Scale a vec2 by a scalar
+# Usage: math::vec2::scale "x,y" scalar
+# Returns: "x,y"
+math::vec2::scale() {
+    local x y
+    _math::vec2::unpack2 x y "$1"
+    echo "$(( x * $2 )),$(( y * $2 ))"
+}
+
+# Scale a vec2 by a scalar with floating point precision
+# Usage: math::vec2::scalef scale "x,y" scalar
+# Returns: "x,y"
+math::vec2::scalef() {
+    local scale=$1 x y
+    _math::vec2::unpack2 x y "$2"
+    echo "$(math::bc "$x * $3" "$scale"),$(math::bc "$y * $3" "$scale")"
+}
+
+# Dot product of two vec2 vectors
+# Usage: math::vec2::dot "x1,y1" "x2,y2"
+# Returns: scalar integer
+math::vec2::dot() {
+    local x1 y1 x2 y2
+    _math::vec2::unpack4 x1 y1 x2 y2 "$1" "$2"
+    echo "$(( x1 * x2 + y1 * y2 ))"
+}
+
+# Dot product of two vec2 vectors with floating point precision
+# Usage: math::vec2::dotf scale "x1,y1" "x2,y2"
+# Returns: scalar float
+math::vec2::dotf() {
+    local scale=$1 x1 y1 x2 y2
+    _math::vec2::unpack4 x1 y1 x2 y2 "$2" "$3"
+    math::bc "$x1 * $x2 + $y1 * $y2" "$scale"
+}
+
+# Magnitude (length) of a vec2 — requires bc
+# Usage: math::vec2::magnitude "x,y"
+# Returns: scalar float
+math::vec2::magnitude() {
+    local x y
+    _math::vec2::unpack2 x y "$1"
+    math::bc "sqrt($x * $x + $y * $y)"
+}
+
+# Magnitude with explicit scale
+# Usage: math::vec2::magnitudef scale "x,y"
+# Returns: scalar float
+math::vec2::magnitudef() {
+    local scale=$1 x y
+    _math::vec2::unpack2 x y "$2"
+    math::bc "sqrt($x * $x + $y * $y)" "$scale"
+}
+
+# Normalise a vec2 to unit length — requires bc
+# Usage: math::vec2::normalise "x,y"
+# Returns: "x,y"
+math::vec2::normalise() {
+    local x y mag
+    _math::vec2::unpack2 x y "$1"
+    mag=$(math::bc "sqrt($x * $x + $y * $y)")
+    echo "$(math::bc "$x / $mag"),$(math::bc "$y / $mag")"
+}
+
+# Normalise a vec2 with explicit scale
+# Usage: math::vec2::normalisef scale "x,y"
+# Returns: "x,y"
+math::vec2::normalisef() {
+    local scale=$1 x y mag
+    _math::vec2::unpack2 x y "$2"
+    mag=$(math::bc "sqrt($x * $x + $y * $y)" "$scale")
+    echo "$(math::bc "$x / $mag" "$scale"),$(math::bc "$y / $mag" "$scale")"
+}
+
+# Distance between two vec2 points — requires bc
+# Usage: math::vec2::distance "x1,y1" "x2,y2"
+# Returns: scalar float
+math::vec2::distance() {
+    local x1 y1 x2 y2
+    _math::vec2::unpack4 x1 y1 x2 y2 "$1" "$2"
+    math::bc "sqrt(($x1-$x2)*($x1-$x2) + ($y1-$y2)*($y1-$y2))"
+}
+
+# Distance between two vec2 points with explicit scale
+# Usage: math::vec2::distancef scale "x1,y1" "x2,y2"
+# Returns: scalar float
+math::vec2::distancef() {
+    local scale=$1 x1 y1 x2 y2
+    _math::vec2::unpack4 x1 y1 x2 y2 "$2" "$3"
+    math::bc "sqrt(($x1-$x2)*($x1-$x2) + ($y1-$y2)*($y1-$y2))" "$scale"
+}
+
+# Check if two vec2 vectors are equal
+# Usage: math::vec2::eq "x1,y1" "x2,y2"
+# Returns: 0 if equal, 1 otherwise
+math::vec2::eq() {
+    [[ "$1" == "$2" ]]
+}
+
+# ==============================================================================
+# math::vec3
+# ==============================================================================
+
+# Add two vec3 vectors
+# Usage: math::vec3::add "x1,y1,z1" "x2,y2,z2"
+# Returns: "x,y,z"
+math::vec3::add() {
+    local x1 y1 z1 x2 y2 z2
+    _math::vec3::unpack6 x1 y1 z1 x2 y2 z2 "$1" "$2"
+    echo "$(( x1 + x2 )),$(( y1 + y2 )),$(( z1 + z2 ))"
+}
+
+# Add two vec3 vectors with floating point precision
+# Usage: math::vec3::addf scale "x1,y1,z1" "x2,y2,z2"
+# Returns: "x,y,z"
+math::vec3::addf() {
+    local scale=$1 x1 y1 z1 x2 y2 z2
+    _math::vec3::unpack6 x1 y1 z1 x2 y2 z2 "$2" "$3"
+    echo "$(math::bc "$x1 + $x2" "$scale"),$(math::bc "$y1 + $y2" "$scale"),$(math::bc "$z1 + $z2" "$scale")"
+}
+
+# Subtract vec3 b from vec3 a
+# Usage: math::vec3::sub "x1,y1,z1" "x2,y2,z2"
+# Returns: "x,y,z"
+math::vec3::sub() {
+    local x1 y1 z1 x2 y2 z2
+    _math::vec3::unpack6 x1 y1 z1 x2 y2 z2 "$1" "$2"
+    echo "$(( x1 - x2 )),$(( y1 - y2 )),$(( z1 - z2 ))"
+}
+
+# Subtract vec3 b from vec3 a with floating point precision
+# Usage: math::vec3::subf scale "x1,y1,z1" "x2,y2,z2"
+# Returns: "x,y,z"
+math::vec3::subf() {
+    local scale=$1 x1 y1 z1 x2 y2 z2
+    _math::vec3::unpack6 x1 y1 z1 x2 y2 z2 "$2" "$3"
+    echo "$(math::bc "$x1 - $x2" "$scale"),$(math::bc "$y1 - $y2" "$scale"),$(math::bc "$z1 - $z2" "$scale")"
+}
+
+# Scale a vec3 by a scalar
+# Usage: math::vec3::scale "x,y,z" scalar
+# Returns: "x,y,z"
+math::vec3::scale() {
+    local x y z
+    _math::vec3::unpack3 x y z "$1"
+    echo "$(( x * $2 )),$(( y * $2 )),$(( z * $2 ))"
+}
+
+# Scale a vec3 by a scalar with floating point precision
+# Usage: math::vec3::scalef scale "x,y,z" scalar
+# Returns: "x,y,z"
+math::vec3::scalef() {
+    local scale=$1 x y z
+    _math::vec3::unpack3 x y z "$2"
+    echo "$(math::bc "$x * $3" "$scale"),$(math::bc "$y * $3" "$scale"),$(math::bc "$z * $3" "$scale")"
+}
+
+# Dot product of two vec3 vectors
+# Usage: math::vec3::dot "x1,y1,z1" "x2,y2,z2"
+# Returns: scalar integer
+math::vec3::dot() {
+    local x1 y1 z1 x2 y2 z2
+    _math::vec3::unpack6 x1 y1 z1 x2 y2 z2 "$1" "$2"
+    echo "$(( x1 * x2 + y1 * y2 + z1 * z2 ))"
+}
+
+# Dot product of two vec3 vectors with floating point precision
+# Usage: math::vec3::dotf scale "x1,y1,z1" "x2,y2,z2"
+# Returns: scalar float
+math::vec3::dotf() {
+    local scale=$1 x1 y1 z1 x2 y2 z2
+    _math::vec3::unpack6 x1 y1 z1 x2 y2 z2 "$2" "$3"
+    math::bc "$x1 * $x2 + $y1 * $y2 + $z1 * $z2" "$scale"
+}
+
+# Cross product of two vec3 vectors
+# Usage: math::vec3::cross "x1,y1,z1" "x2,y2,z2"
+# Returns: "x,y,z"
+math::vec3::cross() {
+    local x1 y1 z1 x2 y2 z2
+    _math::vec3::unpack6 x1 y1 z1 x2 y2 z2 "$1" "$2"
+    echo "$(( y1*z2 - z1*y2 )),$(( z1*x2 - x1*z2 )),$(( x1*y2 - y1*x2 ))"
+}
+
+# Cross product of two vec3 vectors with floating point precision
+# Usage: math::vec3::crossf scale "x1,y1,z1" "x2,y2,z2"
+# Returns: "x,y,z"
+math::vec3::crossf() {
+    local scale=$1 x1 y1 z1 x2 y2 z2
+    _math::vec3::unpack6 x1 y1 z1 x2 y2 z2 "$2" "$3"
+    echo "$(math::bc "$y1*$z2 - $z1*$y2" "$scale"),$(math::bc "$z1*$x2 - $x1*$z2" "$scale"),$(math::bc "$x1*$y2 - $y1*$x2" "$scale")"
+}
+
+# Magnitude (length) of a vec3 — requires bc
+# Usage: math::vec3::magnitude "x,y,z"
+# Returns: scalar float
+math::vec3::magnitude() {
+    local x y z
+    _math::vec3::unpack3 x y z "$1"
+    math::bc "sqrt($x*$x + $y*$y + $z*$z)"
+}
+
+# Magnitude with explicit scale
+# Usage: math::vec3::magnitudef scale "x,y,z"
+# Returns: scalar float
+math::vec3::magnitudef() {
+    local scale=$1 x y z
+    _math::vec3::unpack3 x y z "$2"
+    math::bc "sqrt($x*$x + $y*$y + $z*$z)" "$scale"
+}
+
+# Normalise a vec3 to unit length — requires bc
+# Usage: math::vec3::normalise "x,y,z"
+# Returns: "x,y,z"
+math::vec3::normalise() {
+    local x y z mag
+    _math::vec3::unpack3 x y z "$1"
+    mag=$(math::bc "sqrt($x*$x + $y*$y + $z*$z)")
+    echo "$(math::bc "$x / $mag"),$(math::bc "$y / $mag"),$(math::bc "$z / $mag")"
+}
+
+# Normalise a vec3 with explicit scale
+# Usage: math::vec3::normalisef scale "x,y,z"
+# Returns: "x,y,z"
+math::vec3::normalisef() {
+    local scale=$1 x y z mag
+    _math::vec3::unpack3 x y z "$2"
+    mag=$(math::bc "sqrt($x*$x + $y*$y + $z*$z)" "$scale")
+    echo "$(math::bc "$x / $mag" "$scale"),$(math::bc "$y / $mag" "$scale"),$(math::bc "$z / $mag" "$scale")"
+}
+
+# Distance between two vec3 points — requires bc
+# Usage: math::vec3::distance "x1,y1,z1" "x2,y2,z2"
+# Returns: scalar float
+math::vec3::distance() {
+    local x1 y1 z1 x2 y2 z2
+    _math::vec3::unpack6 x1 y1 z1 x2 y2 z2 "$1" "$2"
+    math::bc "sqrt(($x1-$x2)*($x1-$x2) + ($y1-$y2)*($y1-$y2) + ($z1-$z2)*($z1-$z2))"
+}
+
+# Distance between two vec3 points with explicit scale
+# Usage: math::vec3::distancef scale "x1,y1,z1" "x2,y2,z2"
+# Returns: scalar float
+math::vec3::distancef() {
+    local scale=$1 x1 y1 z1 x2 y2 z2
+    _math::vec3::unpack6 x1 y1 z1 x2 y2 z2 "$2" "$3"
+    math::bc "sqrt(($x1-$x2)*($x1-$x2) + ($y1-$y2)*($y1-$y2) + ($z1-$z2)*($z1-$z2))" "$scale"
+}
+
+# Check if two vec3 vectors are equal
+# Usage: math::vec3::eq "x1,y1,z1" "x2,y2,z2"
+# Returns: 0 if equal, 1 otherwise
+math::vec3::eq() {
+    [[ "$1" == "$2" ]]
+}
+
+# ==============================================================================
 # FLOATING POINT (requires bc)
 # ==============================================================================
 
