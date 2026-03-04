@@ -86,7 +86,6 @@ math::clampf() {
     printf "%.${scale}f\n" "$result"
 }
 
-
 # Integer division (truncated toward zero)
 # Usage: math::div dividend divisor
 math::div() {
@@ -267,6 +266,56 @@ math::exp() {
 # Usage: math::powf base exponent
 math::powf() {
     math::bc "e($2 * l($1))"
+}
+
+math::softmax() {
+    local -a arr
+    local temperature=$1 scale=$2
+    shift 2
+    arr=("$@")
+
+    if ! math::has_bc; then
+        echo "Error: math::softmax requires bc for floating point operation."
+        return 1
+    fi
+
+    if [[ $(math::bc "$temperature < 0") -eq 1 ]]; then
+        echo "Error: math::softmax: Temperature cannot be lower than 0." >&2
+        return 1
+    fi
+
+    ## T=0 is treated as T=1 (neutral temperature, no sharpening or flattening)
+    ## Values between 0 and 1 are valid and will sharpen the distribution
+
+    if [[ ${#arr[@]} -lt 2 ]]; then
+        echo "Error: math::softmax requires more than 1 value" >&2
+        return 1
+    fi
+
+    local -a exp_arr
+    local exp_x
+
+    for x in "${arr[@]}"; do
+        exp_x=$(math::bc "if ($temperature > 0) { e($x / $temperature) } else { e($x) }" $scale)
+        exp_arr+=("$exp_x")
+    done
+
+    # To maintain reliability and accuracy of normalisation,
+    # normaliser_sum will not have scale applied
+    local normaliser_sum=0
+    for x in "${exp_arr[@]}"; do
+        normaliser_sum=$(math::bc "$normaliser_sum + $x")
+    done
+
+    local -a softarr
+    local softx
+
+    for x in "${exp_arr[@]}"; do
+        softx=$(math::bc "$x / $normaliser_sum" $scale)
+        softarr+=("$softx")
+    done
+
+    echo "${softarr[@]}"
 }
 
 # ==============================================================================
