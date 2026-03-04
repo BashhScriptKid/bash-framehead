@@ -40,7 +40,7 @@ math::bc() {
         echo "math::bc: requires bc (GNU coreutils)" >&2
         return 1
     fi
-    echo "scale=${scale}; ${expr}" | bc -l
+    echo "scale=${scale}; ${expr}" | bc -l | sed 's/^\./0./; s/^-\./-0./'
 }
 
 
