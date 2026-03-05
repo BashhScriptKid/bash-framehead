@@ -74,7 +74,7 @@ source "$(dirname "$0")/compiled.sh"
 | [`timedate`](./wiki/timedate.md) | 74 | Dates, times, durations, timezones, calendars, stopwatch |
 | [`terminal`](./wiki/terminal.md) | 74 | Cursor, screen, shopt, colour detection, input |
 | [`colour`](./wiki/colour.md) | 65 | 4-bit, 8-bit, 24-bit colour, ANSI escapes, strip, wrap |
-| [`math`](./wiki/math.md) | 53 | Integer and float arithmetic, trig, stats, unit conversion |
+| [`math`](./wiki/math.md) | 107 | Integer, float, vec2/3 and matrix operations, trig, stats, unit conversion |
 | [`process`](./wiki/process.md) | 51 | Query, signal, lock, retry, timeout, jobs, services |
 | [`runtime`](./wiki/runtime.md) | 50 | OS/arch detection, shell flags, environment introspection |
 | [`array`](./wiki/array.md) | 42 | Slice, sort, filter, set ops, zip, chunk, rotate |
@@ -181,6 +181,13 @@ yourmodule::shout() {
 }
 ```
 
+> [!IMPORTANT]
+> Modules submitted upstream must not depend on other modules except `runtime.sh`
+> to avoid horizontal dependencies. If you need logic from another module, either
+> copy it inline (for trivial usage) or extract it as a private helper under the
+> `_module::function` naming convention.
+>
+> Personal forks and local builds are free to ignore this.
 ---
 
 ### Why is the said 'single-file framework' file not included in the repository tree?
