@@ -5,6 +5,24 @@
 # Pure bash integer arithmetic where possible.
 # Floating point operations require bc — math::bc() checks availability.
 # Scale (decimal places) defaults to 10 unless overridden via MATH_SCALE.
+#
+# ------------------------------------------------------------------------------
+# NAMING CONVENTION — f suffix and ::singleton
+# ------------------------------------------------------------------------------
+# `f` suffix (e.g. clampf, addf):
+#   Marks a float variant where the base function is integer-primary.
+#   Absence of `f` on a float-native function (sqrt, lerp, sigmoid) signals
+#   that the function is already float-only — no int version exists or makes sense.
+#   If a function's domain is obviously integer (mod, gcd, factorial), no `f`
+#   counterpart is added — the name already implies integer intent.
+#   If a function's domain is ambiguous (clamp, abs, min, max), an `f` counterpart
+#   exists (even as a redirect) so that absence of `f` elsewhere is unambiguous.
+#
+# `::singleton` suffix (e.g. math::sigmoid::singleton):
+#   Marks a single-value escape hatch for functions that are array-primary by design.
+#   Absence of ::singleton means the function naturally accepts scalar args.
+#   Presence signals: "the array form is the intended call path; use this sparingly."
+# ------------------------------------------------------------------------------
 
 MATH_SCALE="${MATH_SCALE:-10}"
 
@@ -50,30 +68,61 @@ math::bc() {
 
 
 # ==============================================================================
+# FLOAT DETECTION HELPER
+# Internal helper — not exported as part of the public math API
+# ==============================================================================
+
+_math::is_float() {
+    [[ "$1" =~ ^-?[0-9]+(\.[0-9]+)?([Ee][+-]?[0-9]+)?$ ]] && [[ "$1" == *"."* || "$1" == *[Ee]* ]]
+}
+
+# ==============================================================================
 # BASIC INTEGER ARITHMETIC
 # Pure bash — no bc needed
 # ==============================================================================
 
-# Absolute value
+# Absolute value (integer)
 # Usage: math::abs n
 math::abs() {
+    _math::is_float "$1" && { echo "math::abs: float input — use math::absf" >&2; return 1; }
     echo $(( $1 < 0 ? -$1 : $1 ))
 }
 
-# Minimum of two values
+# Absolute value (float) — Usage: math::absf n [scale]
+math::absf() {
+    local scale="${2:-$MATH_SCALE}"
+    math::bc "if ($1 < 0) { -($1) } else { $1 }" "$scale"
+}
+
+# Minimum of two values (integer)
 math::min() {
+    _math::is_float "$1" || _math::is_float "$2" && { echo "math::min: float input — use math::minf" >&2; return 1; }
     echo $(( $1 < $2 ? $1 : $2 ))
 }
 
-# Maximum of two values
+# Minimum of two values (float) — Usage: math::minf a b [scale]
+math::minf() {
+    local scale="${3:-$MATH_SCALE}"
+    math::bc "if ($1 < $2) { $1 } else { $2 }" "$scale"
+}
+
+# Maximum of two values (integer)
 math::max() {
+    _math::is_float "$1" || _math::is_float "$2" && { echo "math::max: float input — use math::maxf" >&2; return 1; }
     echo $(( $1 > $2 ? $1 : $2 ))
+}
+
+# Maximum of two values (float) — Usage: math::maxf a b [scale]
+math::maxf() {
+    local scale="${3:-$MATH_SCALE}"
+    math::bc "if ($1 > $2) { $1 } else { $2 }" "$scale"
 }
 
 # Clamp n between min and max inclusive
 # Usage: math::clamp n min max
 math::clamp() {
     local n="$1" lo="$2" hi="$3"
+    _math::is_float "$n" || _math::is_float "$lo" || _math::is_float "$hi" && { echo "math::clamp: float input — use math::clampf" >&2; return 1; }
     echo $(( n < lo ? lo : (n > hi ? hi : n) ))
 }
 
@@ -89,11 +138,13 @@ math::clampf() {
 # Integer division (truncated toward zero)
 # Usage: math::div dividend divisor
 math::div() {
+    _math::is_float "$1" || _math::is_float "$2" && { echo "math::div: float input — use math::bc for float division" >&2; return 1; }
     echo $(( $1 / $2 ))
 }
 
 # Modulo
 math::mod() {
+    _math::is_float "$1" || _math::is_float "$2" && { echo "math::mod: float input — use math::bc for float modulo" >&2; return 1; }
     echo $(( $1 % $2 ))
 }
 
@@ -101,6 +152,7 @@ math::mod() {
 # Usage: math::pow base exponent
 math::pow() {
     local base="$1" exp="$2" result=1
+    _math::is_float "$base" || _math::is_float "$exp" && { echo "math::pow: float input — use math::powf" >&2; return 1; }
     while (( exp > 0 )); do
         (( exp % 2 == 1 )) && result=$(( result * base ))
         base=$(( base * base ))
@@ -112,6 +164,7 @@ math::pow() {
 # Greatest common divisor (Euclidean algorithm)
 # Usage: math::gcd a b
 math::gcd() {
+    _math::is_float "$1" || _math::is_float "$2" && { echo "math::gcd: float input — gcd is integer-only" >&2; return 1; }
     local a=$(( $1 < 0 ? -$1 : $1 ))
     local b=$(( $2 < 0 ? -$2 : $2 ))
     while (( b != 0 )); do
@@ -126,6 +179,7 @@ math::gcd() {
 # Usage: math::lcm a b
 math::lcm() {
     local a="$1" b="$2"
+    _math::is_float "$a" || _math::is_float "$b" && { echo "math::lcm: float input — lcm is integer-only" >&2; return 1; }
     local gcd
     gcd=$(math::gcd "$a" "$b")
     echo $(( (a / gcd) * b ))
@@ -133,17 +187,20 @@ math::lcm() {
 
 # Check if integer is even
 math::is_even() {
+    _math::is_float "$1" && { echo "math::is_even: float input — is_even is integer-only" >&2; return 1; }
     (( $1 % 2 == 0 ))
 }
 
 # Check if integer is odd
 math::is_odd() {
+    _math::is_float "$1" && { echo "math::is_odd: float input — is_odd is integer-only" >&2; return 1; }
     (( $1 % 2 != 0 ))
 }
 
 # Check if integer is prime
 math::is_prime() {
     local n="$1"
+    _math::is_float "$n" && { echo "math::is_prime: float input — is_prime is integer-only" >&2; return 1; }
     (( n < 2 )) && return 1
     (( n == 2 )) && return 0
     (( n % 2 == 0 )) && return 1
@@ -159,6 +216,7 @@ math::is_prime() {
 # Usage: math::factorial n
 math::factorial() {
     local n="$1" result=1
+    _math::is_float "$n" && { echo "math::factorial: float input — factorial is integer-only" >&2; return 1; }
     (( n < 0 )) && { echo "math::factorial: negative input" >&2; return 1; }
     local i
     for (( i=2; i<=n; i++ )); do result=$(( result * i )); done
@@ -169,6 +227,7 @@ math::factorial() {
 # Usage: math::fibonacci n
 math::fibonacci() {
     local n="$1" a=0 b=1 i
+    _math::is_float "$n" && { echo "math::fibonacci: float input — fibonacci is integer-only" >&2; return 1; }
     (( n == 0 )) && echo 0 && return
     for (( i=1; i<n; i++ )); do
         local t=$(( a + b ))
@@ -182,6 +241,7 @@ math::fibonacci() {
 # Usage: math::isqrt n
 math::int_sqrt() {
     local n="$1" x
+    _math::is_float "$n" && { echo "math::int_sqrt: float input — use math::sqrt" >&2; return 1; }
     (( n < 0 )) && { echo "math::isqrt: negative input" >&2; return 1; }
     (( n == 0 )) && echo 0 && return
     x=$(( n / 2 + 1 ))
@@ -197,14 +257,38 @@ math::int_sqrt() {
 # Usage: math::sum n1 n2 n3 ...
 math::sum() {
     local total=0
-    for n in "$@"; do (( total += n )); done
+    for n in "$@"; do
+        _math::is_float "$n" && { echo "math::sum: float input — use math::sumf" >&2; return 1; }
+        (( total += n ))
+    done
+    echo "$total"
+}
+
+# Sum of a sequence of floats
+# Usage: math::sumf scale n1 n2 n3 ...
+math::sumf() {
+    local scale=$1; shift
+    local total="0"
+    for n in "$@"; do total=$(math::bc "$total + $n" "$scale"); done
     echo "$total"
 }
 
 # Product of a sequence of integers
 math::product() {
     local result=1
-    for n in "$@"; do (( result *= n )); done
+    for n in "$@"; do
+        _math::is_float "$n" && { echo "math::product: float input — use math::productf" >&2; return 1; }
+        (( result *= n ))
+    done
+    echo "$result"
+}
+
+# Product of a sequence of floats
+# Usage: math::productf scale n1 n2 n3 ...
+math::productf() {
+    local scale=$1; shift
+    local result="1"
+    for n in "$@"; do result=$(math::bc "$result * $n" "$scale"); done
     echo "$result"
 }
 
@@ -1634,11 +1718,34 @@ math::powf() {
     math::bc "e($2 * l($1))"
 }
 
+# Sigmoid — array-primary, operates in one awk pass
+# Usage: math::sigmoid arr_name [scale]
+# arr_name is a nameref to an indexed array; result echoed as space-separated floats
+math::sigmoid() {
+    local -n _sig_in="$1"
+    local scale="${2:-$MATH_SCALE}"
+    local -a _result=()
+    for x in "${_sig_in[@]}"; do
+        _result+=("$(math::bc "1 / (1 + e(-($x)))" "$scale")")
+    done
+    echo "${_result[@]}"
+}
+
+# Sigmoid — single value escape hatch
+# Use math::sigmoid for batch processing; this forks bc once per call
+# Usage: math::sigmoid::singleton value [scale]
+math::sigmoid::singleton() {
+    local scale="${2:-$MATH_SCALE}"
+    math::bc "1 / (1 + e(-($1)))" "$scale"
+}
+
+# Softmax — array-primary (singleton is degenerate: softmax of one value is always 1.0)
+# Usage: math::softmax arr_name [temperature [scale]]
+# arr_name is a nameref to an indexed array; result echoed as space-separated floats
 math::softmax() {
-    local -a arr
-    local temperature=$1 scale=$2
-    shift 2
-    arr=("$@")
+    local -n _softmax_in="$1"
+    local temperature="${2:-1}" scale="${3:-$MATH_SCALE}"
+    local -a arr=("${_softmax_in[@]}")
 
     if ! math::has_bc; then
         echo "Error: math::softmax requires bc for floating point operation."
@@ -1790,6 +1897,7 @@ math::normalize() {
 # Usage: math::choose n k
 math::choose() {
     local n="$1" k="$2"
+    _math::is_float "$n" || _math::is_float "$k" && { echo "math::choose: float input — choose is integer-only" >&2; return 1; }
     (( k > n )) && echo 0 && return
     (( k == 0 || k == n )) && echo 1 && return
     # Use the smaller of k and n-k for efficiency
@@ -1805,6 +1913,7 @@ math::choose() {
 # Usage: math::permute n k
 math::permute() {
     local n="$1" k="$2" result=1 i
+    _math::is_float "$n" || _math::is_float "$k" && { echo "math::permute: float input — permute is integer-only" >&2; return 1; }
     for (( i=0; i<k; i++ )); do
         result=$(( result * (n - i) ))
     done
