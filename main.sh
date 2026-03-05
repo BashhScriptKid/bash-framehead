@@ -1,5 +1,31 @@
 #!/usr/bin/env bash
 
+LICENSE="
+##==============================================================================
+## bash::framehead — a runtime stdlib for Bash
+## A comprehensive (and frankly ridiculous) set of helpers for when you're
+## committed to doing it in Bash anyway
+##==============================================================================
+## Version:
+## Author: BashhScriptKid <contact@bashh.slmail.me>
+## Copyright (C) 2025 BashhScriptKid
+## SPDX-License-Identifier: AGPL-3.0-or-later
+##
+##   This program is free software: you can redistribute it and/or modify
+##   it under the terms of the GNU Affero General Public License as published
+##   by the Free Software Foundation, either version 3 of the License, or
+##   (at your option) any later version.
+##
+##   This program is distributed in the hope that it will be useful,
+##   but WITHOUT ANY WARRANTY; without even the implied warranty of
+##   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+##   GNU Affero General Public License for more details.
+##
+##   You should have received a copy of the GNU Affero General Public License
+##   along with this program.  If not, see <https://www.gnu.org/licenses/>.
+##
+##==============================================================================
+"
 compile_files() {
     local output_file="${1:-compiled.sh}"
     local src_dir
@@ -69,6 +95,8 @@ compile_files() {
             if (( i > 0 && i_line == 0 )); then
                 (( i_line++ ))
                 [[ "$line" =~ ^#! ]] && continue
+            elif (( i == 0 && i_line == 2 )); then # license printing
+                printf "%s\n" "$LICENSE" >> "$output_file"
             fi
             printf '%s\n' "$line" >> "$output_file"
             (( i_line++ ))
@@ -85,6 +113,12 @@ compile_files() {
         return 1
     fi
 
+    local VERSION
+    read -r -t 0.1 -n 10000 _drain 2>/dev/null || true
+    read -r -p "Input a version for this file: " VERSION
+    VERSION=${VERSION:-"$(git describe --tags --abbrev=0 2>/dev/null || echo "0.0.0")-dev+$(date +%d%m%y).$(date +%S)"}
+    sed -i "s/## Version:/## Version: ${VERSION}/" "$output_file"
+
     chmod +x "$output_file" 2>/dev/null
 
     local total_issues=$(( total_err + total_warn + total_info ))
@@ -99,28 +133,27 @@ compile_files() {
 statistics() {
     local file=$1
     echo "=== bash::framehead.sh Diagnostics ==="
-    echo "File size: $(wc -l < $file) lines // $(numfmt --to=iec-i --suffix=B $(stat -c '%s' "$1" 2>/dev/null || wc -c < "$1" 2>/dev/null))"
-    echo "First 5 lines:"
-    head -5 $file
-    echo "..."
-    echo "Last 5 lines:"
-    tail -5 $file
+    echo "Version: $(grep '^## Version:' "$file" | head -1 | sed 's/## Version: *//')"
+    echo "File size: $(wc -l < "$file") lines // $(numfmt --to=iec --suffix=B $(stat -c '%s' "$file" 2>/dev/null || wc -c < "$file" 2>/dev/null))"
     echo ""
     echo "=== Testing load time in fresh shell ==="
-    command time -f "Real: %e s, User: %U s, Sys: %S s" \
-      bash -c "source $file"
+    duration=$(bash -c 'start=$(date +%s%3N); source '"$file"'; echo $(( $(date +%s%3N) - start ))' 2>/dev/null)
+    echo "Load time: ${duration} ms"
     echo ""
     echo "=== Function count by module ==="
     (
-      source $file
-      declare -F | awk -F'::' '{print $1}' | sort | uniq -c | sort -rn
-      echo "$(declare -F | wc -l) total functions loaded"
+      source "$file"
+      declare -F | awk '$3 ~ /::/ && $3 !~ /^_/ {print $3}' | awk -F'::' '{print $1}' | sort | uniq -c | sort -rn
+      echo ""
+      echo "-- private helpers --"
+      declare -F | awk '$3 ~ /^_/ && $3 ~ /::/' | awk '{print $3}' | awk -F'::' '{print $1}' | sort | uniq -c | sort -rn
+      echo ""
+      echo "$(declare -F | awk '$3 ~ /::/' | wc -l) total functions loaded"
     )
-
 }
 
 
-## These are covered by LLMs
+## These are covered by LLMs, mostly reviewed by humans
 ## You may not want to update this manually
 ## Unless you want to painstakingly go back and forth the files and recompile to fix test coverages.
 ##
@@ -139,10 +172,13 @@ statistics() {
 ##  If the file is too large, upload individual module files one at a time and specify which module to cover first.
 ##  You may add "May you suggest a module you want to cover first?" as guidance
 ##
-##  REMEMBER: YOU are still responsible. DO NOT leave LLMs fully agentic.
+## REMEMBER: YOU are still responsible. DO NOT leave LLMs fully agentic.
 #
-# Also you still want to do debugging, LLMs are only 'vibed' to maximise test coverage
-
+# Also you still want to do debugging, LLMs are only 'vibed' to maximise test coverage,
+# Check how they put expected and actual output in the test,
+# as they may have invalid intuition (or some tool being oddly unreliable), leading to test fails.
+#
+# Do NOT trust their test cases fully. Review their test framework's arguments.
 tester() {
     local file=$1
     local passed=0 failed=0 skipped=0
@@ -1398,6 +1434,16 @@ tester() {
     echo "=== Success rate: ${success_rate}% ($passed/$total_tested) ==="
 
     (( failed == 0 ))
+}
+
+tester_new() {
+    local file=$1
+
+    _test() {
+        eval ./tester.sh $1
+    }
+
+    source "$file"
 }
 
 if [[ ${1,,} == "compile" ]]; then
