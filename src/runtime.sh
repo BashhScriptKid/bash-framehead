@@ -114,6 +114,85 @@ runtime::is_desktop() {
   [ -n "$DISPLAY" ] || [ -n "$WAYLAND_DISPLAY" ]
 }
 
+runtime::de() {
+    if [[ -z "${DISPLAY:-}" && -z "${WAYLAND_DISPLAY:-}" ]]; then
+        echo "none"; return
+    fi
+
+    local _s="${XDG_CURRENT_DESKTOP:-${DESKTOP_SESSION:-${GDMSESSION:-}}}"
+    case "${_s,,}" in
+        *gnome*)    echo "gnome";    return ;;
+        *kde*)      echo "kde";      return ;;
+        *xfce*)     echo "xfce";     return ;;
+        *lxqt*)     echo "lxqt";     return ;;
+        *lxde*)     echo "lxde";     return ;;
+        *mate*)     echo "mate";     return ;;
+        *cinnamon*) echo "cinnamon"; return ;;
+        *budgie*)   echo "budgie";   return ;;
+        *deepin*)   echo "deepin";   return ;;
+        *pantheon*) echo "pantheon"; return ;;
+        *unity*)    echo "unity";    return ;;
+        *cosmic*)   echo "cosmic";   return ;;
+    esac
+
+    local -A _procs=(
+        [gnome-shell]=gnome   [plasmashell]=kde      [xfce4-session]=xfce
+        [lxqt-session]=lxqt   [lxsession]=lxde       [mate-session]=mate
+        [cinnamon]=cinnamon   [budgie-daemon]=budgie  [deepin-session]=deepin
+        [pantheon]=pantheon   [unity]=unity           [cosmic-session]=cosmic
+    )
+    local _p
+    for _p in "${!_procs[@]}"; do
+        pgrep -x "$_p" >/dev/null 2>&1 && echo "${_procs[$_p]}" && return
+    done
+
+    # Display present but only a bare WM — let caller query runtime::wm
+    local _wm; _wm=$(runtime::wm)
+    [[ "$_wm" != "unknown" ]] && echo "wm-only" && return
+
+    echo "unknown"
+}
+
+runtime::wm() {
+    if [[ -z "${DISPLAY:-}" && -z "${WAYLAND_DISPLAY:-}" ]]; then
+        echo "none"; return
+    fi
+
+    local _s="${XDG_SESSION_DESKTOP:-}"
+    case "${_s,,}" in
+        *hyprland*) echo "hyprland"; return ;;
+        *sway*)     echo "sway";     return ;;
+        *wayfire*)  echo "wayfire";  return ;;
+        *river*)    echo "river";    return ;;
+    esac
+
+    if runtime::has_command xprop && [[ -n "${DISPLAY:-}" ]]; then
+        local _n
+        _n=$(xprop -root -notype _NET_WM_NAME 2>/dev/null | sed 's/.*= *"//;s/".*//')
+        [[ -n "$_n" ]] && echo "${_n,,}" && return
+    fi
+
+    local -A _procs=(
+        [hyprland]=hyprland      [sway]=sway          [wayfire]=wayfire
+        [river]=river            [mutter]=mutter       [kwin_wayland]=kwin
+        [kwin_x11]=kwin          [xfwm4]=xfwm4        [openbox]=openbox
+        [i3]=i3                  [bspwm]=bspwm         [awesome]=awesome
+        [herbstluftwm]=herbstluftwm                   [fluxbox]=fluxbox
+        [icewm]=icewm            [jwm]=jwm             [qtile]=qtile
+        [xmonad]=xmonad          [marco]=marco         [metacity]=metacity
+        [compiz]=compiz          [enlightenment]=enlightenment
+    )
+    local _p
+    for _p in "${!_procs[@]}"; do
+        pgrep -x "$_p" >/dev/null 2>&1 && echo "${_procs[$_p]}" && return
+    done
+
+    echo "unknown"
+}
+
+runtime::is_wayland() { [[ -n "${WAYLAND_DISPLAY:-}" ]]; }
+runtime::is_x11()     { [[ -n "${DISPLAY:-}" && -z "${WAYLAND_DISPLAY:-}" ]]; }
+
 runtime::sysinit() {
   ps -p 1 -o comm=
 }
