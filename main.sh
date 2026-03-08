@@ -131,18 +131,28 @@ compile_files() {
 }
 
 statistics() {
-    local file=$1
+    local file=$1 presourced=0
     echo "=== bash::framehead.sh Diagnostics ==="
     echo "Version: $(grep '^## Version:' "$file" | head -1 | sed 's/## Version: *//')"
     echo "File size: $(wc -l < "$file") lines // $(numfmt --to=iec --suffix=B $(stat -c '%s' "$file" 2>/dev/null || wc -c < "$file" 2>/dev/null))"
     echo ""
     echo "=== Testing load time in fresh shell ==="
-    duration=$(bash -c 'start=$(date +%s%3N); source '"$file"'; echo $(( $(date +%s%3N) - start ))' 2>/dev/null)
-    echo "Load time: ${duration} ms"
+    # Use time builtin and extract real time
+    if [[ "${BASH_VERSINFO[0]}" -ge 5 ]]; then
+        start=$EPOCHREALTIME
+        source "$file" >/dev/null 2>&1 && presourced=1
+        end=$EPOCHREALTIME
+        duration_ms=$(bc <<< "($end - $start) * 1000" 2>/dev/null)
+        echo "Load time: ${duration_ms%.*} ms"
+        loadtime_func_ms=$(bc <<< " scale=4; $duration_ms / $(declare -F | awk '$3 ~ /::/' | wc -l)")
+        funcload_per_ms=$(bc <<< "scale=4; 1/$loadtime_func_ms")
+        echo "Avg per function: 0$loadtime_func_ms ms / $funcload_per_ms function per ms"
+    fi
+
     echo ""
     echo "=== Function count by module ==="
     (
-      source "$file"
+        ((!presourced)) && source "$file"
       declare -F | awk '$3 ~ /::/ && $3 !~ /^_/ {print $3}' | awk -F'::' '{print $1}' | sort | uniq -c | sort -rn
       echo ""
       echo "-- private helpers --"
@@ -151,6 +161,7 @@ statistics() {
       echo "$(declare -F | awk '$3 ~ /::/' | wc -l) total functions loaded"
     )
 }
+
 
 
 ## These are covered by LLMs, mostly reviewed by humans
