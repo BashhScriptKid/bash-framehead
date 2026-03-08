@@ -28,8 +28,7 @@ LICENSE="
 "
 compile_files() {
     local output_file="${1:-compiled.sh}"
-    local src_dir
-    src_dir="$(dirname "${BASH_SOURCE[0]}")/src"
+    local src_dir="$(dirname "${BASH_SOURCE[0]}")/src"
 
     # Validate src directory exists
     if [[ ! -d "$src_dir" ]]; then
@@ -57,8 +56,7 @@ compile_files() {
     command -v shellcheck >/dev/null 2>&1 && has_shellcheck=true
 
     for func_file in "${files[@]}"; do
-        local fname
-        fname="$(basename "$func_file")"
+        local fname="$(basename "$func_file")"
 
         if [[ ! -s "$func_file" ]]; then
             echo "Warning: Skipping empty file: $fname" >&2
@@ -162,7 +160,100 @@ statistics() {
     )
 }
 
+# Profile individual function load times
+# Usage: profiler [file]
+# Measures load time per function by sourcing each in isolation
+profiler() {
+    local file="${1:-bash-framehead.sh}"
+    local tmpdir
+    tmpdir=$(mktemp -d)
+    trap 'rm -rf "$tmpdir"' EXIT
 
+    # Source the framework to get function definitions
+    source "$file" >/dev/null 2>&1 || {
+        echo "Error: Failed to source $file" >&2
+        return 1
+    }
+
+    # Collect all public functions (those with :: that don't start with _)
+    local -a functions
+    mapfile -t functions < <(
+        declare -F | awk '$3 ~ /::/ && $3 !~ /^_/ {print $3}' | sort -u
+    )
+
+    echo "=== Profiling ${#functions[@]} functions ==="
+    echo ""
+
+    # Associative array to store timings
+    declare -A timings
+
+    # Extract each function's source and write to temp file
+    for fn in "${functions[@]}"; do
+        local func_file="$tmpdir/${fn//::/_}.sh"
+
+        # Get the function definition using declare -f
+        local func_def
+        func_def=$(declare -f "$fn" 2>/dev/null)
+
+        if [[ -n "$func_def" ]]; then
+            # Write function to isolated file
+            cat > "$func_file" <<EOF
+#!/usr/bin/env bash
+$func_def
+EOF
+        fi
+    done
+
+    # Now measure each function's load time in isolation
+    local count=0
+    for fn in "${functions[@]}"; do
+        local func_file="$tmpdir/${fn//::/_}.sh"
+
+        if [[ -f "$func_file" ]]; then
+            # Create a fresh bash instance, source the function, measure time
+            local duration_sec
+            duration_sec=$(bash -c '
+                if [[ "${BASH_VERSINFO[0]}" -ge 5 ]]; then
+                    start=$EPOCHREALTIME
+                    source "'"$func_file"'" >/dev/null 2>&1
+                    end=$EPOCHREALTIME
+                    awk "BEGIN {printf \"%.6f\", $end - $start}"
+                else
+                    echo "0"
+                fi
+            ' 2>/dev/null)
+
+            # Store timing in seconds
+            if [[ -n "$duration_sec" && "$duration_sec" != "0" ]]; then
+                timings["$fn"]="$duration_sec"
+            else
+                timings["$fn"]="0"
+            fi
+            ((count++))
+        fi
+    done
+
+    # Sort by timing (descending) and display
+    echo "=== Function Load Times (slowest first) ==="
+    echo ""
+
+    # Create sortable output: timing function_name
+    local -a sorted
+    for fn in "${!timings[@]}"; do
+        sorted+=("${timings[$fn]} $fn")
+    done
+
+    # Sort numerically descending and print
+    printf '%s\n' "${sorted[@]}" | sort -rn | while read -r time fname; do
+        # Convert seconds to milliseconds for display
+        local ms
+        ms=$(awk "BEGIN {printf \"%.3f\", $time * 1000}")
+        printf "%10s ms  %s\n" "$ms" "$fname"
+    done
+
+    echo ""
+    echo "Profiled $count functions in $tmpdir"
+}
 
 ## These are covered by LLMs, mostly reviewed by humans
 ## You may not want to update this manually
@@ -289,6 +380,11 @@ fi
 
 if [[ ${1,,} == "stat" ]]; then
     statistics "$2"
+    exit 0
+fi
+
+if [[ ${1,,} == "profile" ]]; then
+    profiler "$2"
     exit 0
 fi
 
