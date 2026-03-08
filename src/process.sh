@@ -214,6 +214,8 @@ process::kill::graceful() {
     local pid="$1" timeout="${2:-5}"
     process::is_running "$pid" || return 0
 
+    # SIGCONT first — a stopped process ignores SIGTERM
+    kill -CONT "$pid" 2>/dev/null
     kill -TERM "$pid" 2>/dev/null
 
     local elapsed=0
@@ -225,8 +227,12 @@ process::kill::graceful() {
 
     # Still running after timeout — force kill
     kill -KILL "$pid" 2>/dev/null
-    sleep 1
-    process::is_running "$pid" && return 1 || return 0
+    local i
+    for (( i = 0; i < 5; i++ )); do
+        process::is_running "$pid" || return 0
+        sleep 0.2
+    done
+    return 1
 }
 
 # Suspend a process (SIGSTOP)
