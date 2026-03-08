@@ -1448,13 +1448,86 @@ tester() {
 }
 
 tester_new() {
-    local file=$1
-
-    _test() {
-        eval ./tester.sh $1
-    }
+    local file="$1"
+    local passed=0 failed=0 skipped=0 untested=0
+    local -a untested_fn
 
     source "$file"
+    source "$(dirname "${BASH_SOURCE[0]}")/tester.sh"
+
+    local -a TESTER_FUNCTIONS
+    mapfile -t TESTER_FUNCTIONS < <(
+        declare -F | awk '$3 ~ /::/ && $3 !~ /^_/ {print $3}'
+    )
+
+    # Result label column width — wide enough for 'UNTESTED' (8) + 4 spaces gap
+    local -r _COL=12
+    local fn raw_label display_label
+    for fn in "${TESTER_FUNCTIONS[@]}"; do
+        [[ $fn =~ ^test:: ]] && continue
+        _tester_reset
+        printf "%${_COL}s%s" "" "$fn"
+
+        # Redirect stdin from /dev/null to prevent hangs on read commands when piped
+        "test::${fn}" </dev/null 2>/dev/null
+
+        if   (( _T_IS_SUB  )); then  raw_label="SUB"
+        elif (( _T_FAIL > 0 )); then raw_label="FAIL"
+        elif (( _T_SKIP > 0 )); then raw_label="SKIP"
+        elif (( _T_PASS > 0 )); then raw_label="PASS"
+        else                         raw_label="UNTESTED"
+        fi
+
+        if [[ -t 1 ]]; then
+            case $raw_label in
+                SUB)      display_label=$'\033[94mSUB\033[0m'      ;;
+                FAIL)     display_label=$'\033[31mFAIL\033[0m'     ;;
+                SKIP)     display_label=$'\033[33mSKIP\033[0m'     ;;
+                PASS)     display_label=$'\033[32mPASS\033[0m'     ;;
+                UNTESTED) display_label=$'\033[43mUNTESTED\033[0m' ;;
+            esac
+        else
+            display_label="$raw_label"
+        fi
+
+        # Pad using raw_label length, print display_label + padding manually
+        local pad=$(( _COL - ${#raw_label} ))
+        if (( _T_IS_SUB )); then
+            # subtests already printed, just print result after them
+            printf "%s%$(( _COL - ${#raw_label} ))s%s\n" "$display_label" "" "$fn"
+        else
+            # single test — rewrite the line cleanly
+            local pad=$(( _COL - ${#raw_label} ))
+            printf "\r%s%${pad}s%s\n" "$display_label" "" "$fn"
+        fi
+
+        case "$raw_label" in
+            PASS)     (( passed++   )) ;;
+            FAIL)     (( failed++   )) ;;
+            SKIP)     (( skipped++  )) ;;
+            UNTESTED) (( untested++ )); untested_fn+=("$fn") ;;
+            SUB)
+                (( passed  += _T_PASS ))
+                (( failed  += _T_FAIL ))
+                (( skipped += _T_SKIP ))
+                ;;
+        esac
+    done
+
+    echo ""
+
+    if (( untested > 0 )); then
+        echo "=== UNTESTED FUNCTIONS ==="
+        for fn in "${untested_fn[@]}"; do
+            printf "  %s\n" "$fn"
+        done
+        echo ""
+    fi
+
+    local total=$(( passed + failed + skipped + untested ))
+    echo "=== Results: ${passed} passed, ${failed} failed, ${skipped} skipped, ${untested} untested / ${total} total ==="
+
+    (( failed == 0 ))
 }
 
 if [[ ${1,,} == "compile" ]]; then
@@ -1466,6 +1539,12 @@ if [[ ${1,,} == "test" ]]; then
     tester "$2"
     exit 0
 fi
+
+if [[ ${1,,} == "test2" ]]; then
+    tester_new "$2"
+    exit 0
+fi
+
 
 if [[ ${1,,} == "stat" ]]; then
     statistics "$2"
