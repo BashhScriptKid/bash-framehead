@@ -1976,124 +1976,193 @@ math::unitconvert() {
     }
 
     # Normalise verbose/alternative names to canonical short keys
-    local -A _n=(
-        # Temperature
-        [celsius]="celsius"   [centigrade]="celsius"
-        [fahrenheit]="fahrenheit"
-        [kelvin]="kelvin"
+    # from and to is duplicated for optimisation
+    case "$from" in
+        celsius|centigrade)                          from="celsius" ;;
+        fahrenheit)                                  from="fahrenheit" ;;
+        kelvin)                                      from="kelvin" ;;
+        femtometre|femtometer|femtometres|femtometers) from="fm" ;;
+        picometre|picometer|picometres|picometers)   from="pm" ;;
+        nanometre_si|nanometer_si)                   from="nm_si" ;;
+        micrometre|micrometer|micrometres|micrometers|um) from="um" ;;
+        millimetre|millimeter|millimetres|millimeters|mm) from="mm" ;;
+        centimetre|centimeter|centimetres|centimeters|cm) from="cm" ;;
+        metre|meter|metres|meters)                   from="m" ;;
+        kilometre|kilometer|kilometres|kilometers|km) from="km" ;;
+        inch|inches)                                 from="in" ;;
+        foot|feet)                                   from="ft" ;;
+        yard|yards)                                  from="yd" ;;
+        mile|miles)                                  from="mi" ;;
+        nautical_mile|nautical_miles)                from="nm" ;;
+        astronomical_unit|astronomical_units)        from="au" ;;
+        light_year|lightyear|light_years|lightyears) from="ly" ;;
+        light_hour|lighthour|light_hours|lighthours) from="lh" ;;
+        light_day|lightday|light_days|lightdays)     from="ld" ;;
+        parsec|parsecs)                              from="pc" ;;
+        microgram|micrograms)                        from="ug" ;;
+        milligram|milligrams|mg)                     from="mg" ;;
+        gram|grams)                                  from="g" ;;
+        kilogram|kilograms|kg)                       from="kg" ;;
+        tonne|metric_ton|metric_tons)                from="t" ;;
+        ounce|ounces)                                from="oz" ;;
+        pound|pounds|lbs)                            from="lb" ;;
+        stone|stones)                                from="st" ;;
+        millilitre|milliliter|millilitres|milliliters|ml) from="ml" ;;
+        litre|liter|litres|liters)                   from="l" ;;
+        cubic_metre|cubic_meter)                     from="m3" ;;
+        teaspoon|teaspoons)                          from="tsp" ;;
+        tablespoon|tablespoons)                      from="tbsp" ;;
+        fluid_ounce|fluid_ounces)                    from="floz" ;;
+        pint|pints)                                  from="pt" ;;
+        quart|quarts)                                from="qt" ;;
+        gallon|gallons)                              from="gal" ;;
+        kph|km_h|kilometres_per_hour|kilometers_per_hour) from="kmh" ;;
+        mph|miles_per_hour)                          from="mph" ;;
+        m_s|metres_per_second|meters_per_second)     from="ms" ;;
+        knot|knots)                                  from="knot" ;;
+        mach)                                        from="mach" ;;
+        speed_of_light)                              from="c" ;;
+        pascal|pascals)                              from="pa" ;;
+        kilopascal|kilopascals)                      from="kpa" ;;
+        bar|bars)                                    from="bar" ;;
+        atmosphere|atmospheres)                      from="atm" ;;
+        pounds_per_square_inch)                      from="psi" ;;
+        millimetre_of_mercury|millimeter_of_mercury|torr) from="mmhg" ;;
+        joule|joules)                                from="j" ;;
+        kilojoule|kilojoules)                        from="kj" ;;
+        calorie|calories)                            from="cal" ;;
+        kilocalorie|kilocalories)                    from="kcal" ;;
+        kilowatt_hour|kilowatt_hours)                from="kwh" ;;
+        electronvolt|electronvolts)                  from="ev" ;;
+        british_thermal_unit|british_thermal_units)  from="btu" ;;
+        watt|watts)                                  from="w" ;;
+        kilowatt|kilowatts)                          from="kw" ;;
+        horsepower)                                  from="hp" ;;
+        bit|bits)                                    from="b" ;;
+        kilobit|kilobits)                            from="kb" ;;
+        megabit|megabits)                            from="mb" ;;
+        gigabit|gigabits)                            from="gb" ;;
+        terabit|terabits)                            from="tb" ;;
+        petabit|petabits)                            from="pb" ;;
+        kibibit|kibibits)                            from="kib" ;;
+        mebibit|mebibits)                            from="mib" ;;
+        gibibit|gibibits)                            from="gib" ;;
+        tebibit|tebibits)                            from="tib" ;;
+        pebibit|pebibits)                            from="pib" ;;
+        sector|sectors|512b)                         from="sector" ;;
+        sector4k|4k_sector|advanced_format)          from="sector4k" ;;
+        femtosecond|femtoseconds)                    from="fs" ;;
+        picosecond|picoseconds)                      from="ps" ;;
+        nanosecond|nanoseconds|ns)                   from="ns" ;;
+        microsecond|microseconds|us)                 from="us" ;;
+        millisecond|milliseconds|ms)                 from="ms" ;;
+        second|seconds|sec)                          from="s" ;;
+        minute|minutes)                              from="min" ;;
+        hour|hours|hr)                               from="h" ;;
+        day|days)                                    from="d" ;;
+        week|weeks)                                  from="week" ;;
+        year|years|yr)                               from="year" ;;
+        degree|degrees)                              from="deg" ;;
+        radian|radians)                              from="rad" ;;
+        gradian|gradians|gon)                        from="grad" ;;
+        arcminute|arcminutes)                        from="arcmin" ;;
+        arcsecond|arcseconds)                        from="arcsec" ;;
+    esac
 
-        # Length
-        [femtometre]="fm"     [femtometer]="fm"   [femtometres]="fm"  [femtometers]="fm"
-        [picometre]="pm"      [picometer]="pm"    [picometres]="pm"   [picometers]="pm"
-        [nanometre_si]="nm_si" [nanometer_si]="nm_si"
-        [micrometre]="um"     [micrometer]="um"   [micrometres]="um"  [micrometers]="um"   [um]="um"
-        [millimetre]="mm"     [millimeter]="mm"   [millimetres]="mm"  [millimeters]="mm"   [mm]="mm"
-        [centimetre]="cm"     [centimeter]="cm"   [centimetres]="cm"  [centimeters]="cm"   [cm]="cm"
-        [metre]="m"           [meter]="m"         [metres]="m"        [meters]="m"
-        [kilometre]="km"      [kilometer]="km"    [kilometres]="km"   [kilometers]="km"    [km]="km"
-        [inch]="in"           [inches]="in"
-        [foot]="ft"           [feet]="ft"
-        [yard]="yd"           [yards]="yd"
-        [mile]="mi"           [miles]="mi"
-        [nautical_mile]="nm"  [nautical_miles]="nm"
-        [astronomical_unit]="au" [astronomical_units]="au"
-        [light_year]="ly"     [lightyear]="ly"    [light_years]="ly"  [lightyears]="ly"
-        [light_hour]="lh"     [lighthour]="lh"    [light_hours]="lh"  [lighthours]="lh"
-        [light_day]="ld"      [lightday]="ld"     [light_days]="ld"   [lightdays]="ld"
-        [parsec]="pc"         [parsecs]="pc"
-
-        # Mass
-        [microgram]="ug"      [micrograms]="ug"
-        [milligram]="mg"      [milligrams]="mg"   [mg]="mg"
-        [gram]="g"            [grams]="g"
-        [kilogram]="kg"       [kilograms]="kg"    [kg]="kg"
-        [tonne]="t"           [metric_ton]="t"    [metric_tons]="t"
-        [ounce]="oz"          [ounces]="oz"
-        [pound]="lb"          [pounds]="lb"       [lbs]="lb"
-        [stone]="st"          [stones]="st"
-
-        # Volume
-        [millilitre]="ml"     [milliliter]="ml"   [millilitres]="ml"  [milliliters]="ml"   [ml]="ml"
-        [litre]="l"           [liter]="l"         [litres]="l"        [liters]="l"
-        [cubic_metre]="m3"    [cubic_meter]="m3"
-        [teaspoon]="tsp"      [teaspoons]="tsp"
-        [tablespoon]="tbsp"   [tablespoons]="tbsp"
-        [fluid_ounce]="floz"  [fluid_ounces]="floz"
-        [pint]="pt"           [pints]="pt"
-        [quart]="qt"          [quarts]="qt"
-        [gallon]="gal"        [gallons]="gal"
-
-        # Speed
-        [kph]="kmh"           [km_h]="kmh"        [kilometres_per_hour]="kmh" [kilometers_per_hour]="kmh"
-        [mph]="mph"           [miles_per_hour]="mph"
-        [m_s]="ms"            [metres_per_second]="ms" [meters_per_second]="ms"
-        [knot]="knot"         [knots]="knot"
-        [mach]="mach"
-        [speed_of_light]="c"
-
-        # Pressure
-        [pascal]="pa"         [pascals]="pa"
-        [kilopascal]="kpa"    [kilopascals]="kpa"
-        [bar]="bar"           [bars]="bar"
-        [atmosphere]="atm"    [atmospheres]="atm"
-        [pounds_per_square_inch]="psi"
-        [millimetre_of_mercury]="mmhg" [millimeter_of_mercury]="mmhg" [torr]="mmhg"
-
-        # Energy
-        [joule]="j"           [joules]="j"
-        [kilojoule]="kj"      [kilojoules]="kj"
-        [calorie]="cal"       [calories]="cal"
-        [kilocalorie]="kcal"  [kilocalories]="kcal"
-        [kilowatt_hour]="kwh" [kilowatt_hours]="kwh"
-        [electronvolt]="ev"   [electronvolts]="ev"
-        [british_thermal_unit]="btu" [british_thermal_units]="btu"
-
-        # Power
-        [watt]="w"            [watts]="w"
-        [kilowatt]="kw"       [kilowatts]="kw"
-        [horsepower]="hp"
-
-        # Digital storage
-        [bit]="b"             [bits]="b"
-        [kilobit]="kb"        [kilobits]="kb"
-        [megabit]="mb"        [megabits]="mb"
-        [gigabit]="gb"        [gigabits]="gb"
-        [terabit]="tb"        [terabits]="tb"
-        [petabit]="pb"        [petabits]="pb"
-        [kibibit]="kib"       [kibibits]="kib"
-        [mebibit]="mib"       [mebibits]="mib"
-        [gibibit]="gib"       [gibibits]="gib"
-        [tebibit]="tib"       [tebibits]="tib"
-        [pebibit]="pib"       [pebibits]="pib"
-        [sector]="sector"     [sectors]="sector"  [512b]="sector"
-        [sector4k]="sector4k" [4k_sector]="sector4k" [advanced_format]="sector4k"
-
-        # Time
-        [femtosecond]="fs"    [femtoseconds]="fs"
-        [picosecond]="ps"     [picoseconds]="ps"
-        [nanosecond]="ns"     [nanoseconds]="ns"  [ns]="ns"
-        [microsecond]="us"    [microseconds]="us" [us]="us"
-        [millisecond]="ms"    [milliseconds]="ms" [ms]="ms"
-        [second]="s"          [seconds]="s"       [sec]="s"
-        [minute]="min"        [minutes]="min"
-        [hour]="h"            [hours]="h"         [hr]="h"
-        [day]="d"             [days]="d"
-        [week]="week"         [weeks]="week"
-        [year]="year"         [years]="year"      [yr]="year"
-
-        # Angle
-        [degree]="deg"        [degrees]="deg"
-        [radian]="rad"        [radians]="rad"
-        [gradian]="grad"      [gradians]="grad"   [gon]="grad"
-        [arcminute]="arcmin"  [arcminutes]="arcmin"
-        [arcsecond]="arcsec"  [arcseconds]="arcsec"
-    )
-
-    # Apply normalisation — fall back to original if not in table
-    [[ -n "${_n[$from]+x}" ]] && from="${_n[$from]}"
-    [[ -n "${_n[$to]+x}"   ]] && to="${_n[$to]}"
+    case "$to" in
+        celsius|centigrade)                          to="celsius" ;;
+        fahrenheit)                                  to="fahrenheit" ;;
+        kelvin)                                      to="kelvin" ;;
+        femtometre|femtometer|femtometres|femtometers) to="fm" ;;
+        picometre|picometer|picometres|picometers)   to="pm" ;;
+        nanometre_si|nanometer_si)                   to="nm_si" ;;
+        micrometre|micrometer|micrometres|micrometers|um) to="um" ;;
+        millimetre|millimeter|millimetres|millimeters|mm) to="mm" ;;
+        centimetre|centimeter|centimetres|centimeters|cm) to="cm" ;;
+        metre|meter|metres|meters)                   to="m" ;;
+        kilometre|kilometer|kilometres|kilometers|km) to="km" ;;
+        inch|inches)                                 to="in" ;;
+        foot|feet)                                   to="ft" ;;
+        yard|yards)                                  to="yd" ;;
+        mile|miles)                                  to="mi" ;;
+        nautical_mile|nautical_miles)                to="nm" ;;
+        astronomical_unit|astronomical_units)        to="au" ;;
+        light_year|lightyear|light_years|lightyears) to="ly" ;;
+        light_hour|lighthour|light_hours|lighthours) to="lh" ;;
+        light_day|lightday|light_days|lightdays)     to="ld" ;;
+        parsec|parsecs)                              to="pc" ;;
+        microgram|micrograms)                        to="ug" ;;
+        milligram|milligrams|mg)                     to="mg" ;;
+        gram|grams)                                  to="g" ;;
+        kilogram|kilograms|kg)                       to="kg" ;;
+        tonne|metric_ton|metric_tons)                to="t" ;;
+        ounce|ounces)                                to="oz" ;;
+        pound|pounds|lbs)                            to="lb" ;;
+        stone|stones)                                to="st" ;;
+        millilitre|milliliter|millilitres|milliliters|ml) to="ml" ;;
+        litre|liter|litres|liters)                   to="l" ;;
+        cubic_metre|cubic_meter)                     to="m3" ;;
+        teaspoon|teaspoons)                          to="tsp" ;;
+        tablespoon|tablespoons)                      to="tbsp" ;;
+        fluid_ounce|fluid_ounces)                    to="floz" ;;
+        pint|pints)                                  to="pt" ;;
+        quart|quarts)                                to="qt" ;;
+        gallon|gallons)                              to="gal" ;;
+        kph|km_h|kilometres_per_hour|kilometers_per_hour) to="kmh" ;;
+        mph|miles_per_hour)                          to="mph" ;;
+        m_s|metres_per_second|meters_per_second)     to="ms" ;;
+        knot|knots)                                  to="knot" ;;
+        mach)                                        to="mach" ;;
+        speed_of_light)                              to="c" ;;
+        pascal|pascals)                              to="pa" ;;
+        kilopascal|kilopascals)                      to="kpa" ;;
+        bar|bars)                                    to="bar" ;;
+        atmosphere|atmospheres)                      to="atm" ;;
+        pounds_per_square_inch)                      to="psi" ;;
+        millimetre_of_mercury|millimeter_of_mercury|torr) to="mmhg" ;;
+        joule|joules)                                to="j" ;;
+        kilojoule|kilojoules)                        to="kj" ;;
+        calorie|calories)                            to="cal" ;;
+        kilocalorie|kilocalories)                    to="kcal" ;;
+        kilowatt_hour|kilowatt_hours)                to="kwh" ;;
+        electronvolt|electronvolts)                  to="ev" ;;
+        british_thermal_unit|british_thermal_units)  to="btu" ;;
+        watt|watts)                                  to="w" ;;
+        kilowatt|kilowatts)                          to="kw" ;;
+        horsepower)                                  to="hp" ;;
+        bit|bits)                                    to="b" ;;
+        kilobit|kilobits)                            to="kb" ;;
+        megabit|megabits)                            to="mb" ;;
+        gigabit|gigabits)                            to="gb" ;;
+        terabit|terabits)                            to="tb" ;;
+        petabit|petabits)                            to="pb" ;;
+        kibibit|kibibits)                            to="kib" ;;
+        mebibit|mebibits)                            to="mib" ;;
+        gibibit|gibibits)                            to="gib" ;;
+        tebibit|tebibits)                            to="tib" ;;
+        pebibit|pebibits)                            to="pib" ;;
+        sector|sectors|512b)                         to="sector" ;;
+        sector4k|4k_sector|advanced_format)          to="sector4k" ;;
+        femtosecond|femtoseconds)                    to="fs" ;;
+        picosecond|picoseconds)                      to="ps" ;;
+        nanosecond|nanoseconds|ns)                   to="ns" ;;
+        microsecond|microseconds|us)                 to="us" ;;
+        millisecond|milliseconds|ms)                 to="ms" ;;
+        second|seconds|sec)                          to="s" ;;
+        minute|minutes)                              to="min" ;;
+        hour|hours|hr)                               to="h" ;;
+        day|days)                                    to="d" ;;
+        week|weeks)                                  to="week" ;;
+        year|years|yr)                               to="year" ;;
+        degree|degrees)                              to="deg" ;;
+        radian|radians)                              to="rad" ;;
+        gradian|gradians|gon)                        to="grad" ;;
+        arcminute|arcminutes)                        to="arcmin" ;;
+        arcsecond|arcseconds)                        to="arcsec" ;;
+    esac
 
     [[ "$from" == "$to" ]] && echo "$value" && return 0
+
 
     local key="${from}:${to}"
     local expr
