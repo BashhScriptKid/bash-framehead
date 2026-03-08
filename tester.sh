@@ -289,6 +289,125 @@ test::string::path_to_constant() { if [[ "$(string::path_to_constant hello/world
 test::string::path_to_dot()      { if [[ "$(string::path_to_dot      hello/world)" == "hello.world"  ]]; then _pass; else _fail; fi; }
 
 # ==============================================================================
+# Tests — string ::fast variants
+# ==============================================================================
+
+# CASE ::fast
+test::string::upper::fast()       { local r; string::upper::fast r hello;       if [[ "$r" == "HELLO"        ]]; then _pass; else _fail; fi; }
+test::string::lower::fast()       { local r; string::lower::fast r HELLO;       if [[ "$r" == "hello"        ]]; then _pass; else _fail; fi; }
+test::string::capitalise::fast()  { local r; string::capitalise::fast r hello;  if [[ "$r" == "Hello"        ]]; then _pass; else _fail; fi; }
+test::string::title::fast()       { local r; string::title::fast r "hello world"; if [[ "$r" == "Hello World" ]]; then _pass; else _fail; fi; }
+
+# TRIMMING ::fast
+test::string::trim::fast()        { local r; string::trim::fast r "  hello  ";  if [[ "$r" == "hello"        ]]; then _pass; else _fail; fi; }
+test::string::trim_left::fast()   { local r; string::trim_left::fast r "  hello  "; if [[ "$r" == "hello  "  ]]; then _pass; else _fail; fi; }
+test::string::trim_right::fast()  { local r; string::trim_right::fast r "  hello  "; if [[ "$r" == "  hello" ]]; then _pass; else _fail; fi; }
+test::string::collapse_spaces::fast() { local r; string::collapse_spaces::fast r "a  b   c"; if [[ "$r" == "a b c" ]]; then _pass; else _fail; fi; }
+test::string::strip_spaces::fast()    { local r; string::strip_spaces::fast r "a b c"; if [[ "$r" == "abc"    ]]; then _pass; else _fail; fi; }
+
+# SUBSTRINGS ::fast
+test::string::substr::fast()      { local r; string::substr::fast r hello 1 3;  if [[ "$r" == "ell"          ]]; then _pass; else _fail; fi; }
+test::string::before::fast()      { local r; string::before::fast r hello lo;   if [[ "$r" == "hel"          ]]; then _pass; else _fail; fi; }
+test::string::after::fast()       { local r; string::after::fast r hello hel;   if [[ "$r" == "lo"           ]]; then _pass; else _fail; fi; }
+test::string::before_last::fast() { local r; string::before_last::fast r hello lo; if [[ "$r" == "hel"       ]]; then _pass; else _fail; fi; }
+test::string::after_last::fast()  { local r; string::after_last::fast r hello l; if [[ "$r" == "o"           ]]; then _pass; else _fail; fi; }
+
+# MANIPULATION ::fast
+test::string::replace::fast()     { local r; string::replace::fast r hello e X;     if [[ "$r" == "hXllo"    ]]; then _pass; else _fail; fi; }
+test::string::replace_all::fast() { local r; string::replace_all::fast r hXllo o X; if [[ "$r" == "hXllX"    ]]; then _pass; else _fail; fi; }
+test::string::remove::fast()      { local r; string::remove::fast r hello e;        if [[ "$r" == "hllo"     ]]; then _pass; else _fail; fi; }
+test::string::remove_first::fast(){ local r; string::remove_first::fast r hello e;  if [[ "$r" == "hllo"     ]]; then _pass; else _fail; fi; }
+test::string::reverse::fast()     { local r; string::reverse::fast r hello;         if [[ "$r" == "olleh"    ]]; then _pass; else _fail; fi; }
+test::string::repeat::fast()      { local r; string::repeat::fast r a 3;            if [[ "$r" == "aaa"      ]]; then _pass; else _fail; fi; }
+test::string::pad_left::fast()    { local r; string::pad_left::fast r hi 4;         if [[ "$r" == "  hi"     ]]; then _pass; else _fail; fi; }
+test::string::pad_right::fast()   { local r; string::pad_right::fast r hi 4;        if [[ "$r" == "hi  "     ]]; then _pass; else _fail; fi; }
+test::string::pad_center::fast()  { local r; string::pad_center::fast r hi 4;       if [[ "$r" == " hi "     ]]; then _pass; else _fail; fi; }
+test::string::truncate::fast()    { local r; string::truncate::fast r hello 4;      if [[ "$r" == "hel…"     ]]; then _pass; else _fail; fi; }
+
+# SPLITTING/JOINING ::fast
+test::string::join::fast()        { local r; string::join::fast r , a b c;          if [[ "$r" == "a,b,c"    ]]; then _pass; else _fail; fi; }
+
+# ENCODING ::fast
+test::string::url_encode::fast()  { local r; string::url_encode::fast r "hello world"; if [[ "$r" == "hello%20world" ]]; then _pass; else _fail; fi; }
+test::string::url_decode::fast()  { local r; string::url_decode::fast r "hello%20world"; if [[ "$r" == "hello world"  ]]; then _pass; else _fail; fi; }
+test::string::base64_encode::fast() { local r; string::base64_encode::fast r hello; local e="$r"; string::base64_decode::fast r "$e"; if [[ "$r" == "hello" ]]; then _pass; else _fail; fi; }
+test::string::base64_decode::fast() { local r; string::base64_encode::fast r hello; string::base64_decode::fast r "$r"; if [[ "$r" == "hello" ]]; then _pass; else _fail; fi; }
+test::string::base32_encode::fast() { local r; string::base32_encode::fast r hello; local e="$r"; string::base32_decode::fast r "$e"; if [[ "$r" == "hello" ]]; then _pass; else _fail; fi; }
+test::string::base32_decode::fast() { local r; string::base32_encode::fast r hello; string::base32_decode::fast r "$r"; if [[ "$r" == "hello" ]]; then _pass; else _fail; fi; }
+
+# NAMING CONVENTION ::fast - plain_to
+test::string::plain_to_snake::fast()    { local r; string::plain_to_snake::fast r "hello world";    if [[ "$r" == "hello_world"  ]]; then _pass; else _fail; fi; }
+test::string::plain_to_kebab::fast()    { local r; string::plain_to_kebab::fast r "hello world";    if [[ "$r" == "hello-world"  ]]; then _pass; else _fail; fi; }
+test::string::plain_to_camel::fast()    { local r; string::plain_to_camel::fast r "hello world";    if [[ "$r" == "helloWorld"   ]]; then _pass; else _fail; fi; }
+test::string::plain_to_pascal::fast()   { local r; string::plain_to_pascal::fast r "hello world";   if [[ "$r" == "HelloWorld"   ]]; then _pass; else _fail; fi; }
+test::string::plain_to_constant::fast() { local r; string::plain_to_constant::fast r "hello world"; if [[ "$r" == "HELLO_WORLD"  ]]; then _pass; else _fail; fi; }
+test::string::plain_to_dot::fast()      { local r; string::plain_to_dot::fast r "hello world";      if [[ "$r" == "hello.world"  ]]; then _pass; else _fail; fi; }
+test::string::plain_to_path::fast()     { local r; string::plain_to_path::fast r "hello world";     if [[ "$r" == "hello/world"  ]]; then _pass; else _fail; fi; }
+
+# NAMING CONVENTION ::fast - snake_to
+test::string::snake_to_plain::fast()    { local r; string::snake_to_plain::fast r hello_world;    if [[ "$r" == "hello world"  ]]; then _pass; else _fail; fi; }
+test::string::snake_to_kebab::fast()    { local r; string::snake_to_kebab::fast r hello_world;    if [[ "$r" == "hello-world"  ]]; then _pass; else _fail; fi; }
+test::string::snake_to_camel::fast()    { local r; string::snake_to_camel::fast r hello_world;    if [[ "$r" == "helloWorld"   ]]; then _pass; else _fail; fi; }
+test::string::snake_to_pascal::fast()   { local r; string::snake_to_pascal::fast r hello_world;   if [[ "$r" == "HelloWorld"   ]]; then _pass; else _fail; fi; }
+test::string::snake_to_constant::fast() { local r; string::snake_to_constant::fast r hello_world; if [[ "$r" == "HELLO_WORLD"  ]]; then _pass; else _fail; fi; }
+test::string::snake_to_dot::fast()      { local r; string::snake_to_dot::fast r hello_world;      if [[ "$r" == "hello.world"  ]]; then _pass; else _fail; fi; }
+test::string::snake_to_path::fast()     { local r; string::snake_to_path::fast r hello_world;     if [[ "$r" == "hello/world"  ]]; then _pass; else _fail; fi; }
+
+# NAMING CONVENTION ::fast - kebab_to
+test::string::kebab_to_plain::fast()    { local r; string::kebab_to_plain::fast r hello-world;    if [[ "$r" == "hello world"  ]]; then _pass; else _fail; fi; }
+test::string::kebab_to_snake::fast()    { local r; string::kebab_to_snake::fast r hello-world;    if [[ "$r" == "hello_world"  ]]; then _pass; else _fail; fi; }
+test::string::kebab_to_camel::fast()    { local r; string::kebab_to_camel::fast r hello-world;    if [[ "$r" == "helloWorld"   ]]; then _pass; else _fail; fi; }
+test::string::kebab_to_pascal::fast()   { local r; string::kebab_to_pascal::fast r hello-world;   if [[ "$r" == "HelloWorld"   ]]; then _pass; else _fail; fi; }
+test::string::kebab_to_constant::fast() { local r; string::kebab_to_constant::fast r hello-world; if [[ "$r" == "HELLO_WORLD"  ]]; then _pass; else _fail; fi; }
+test::string::kebab_to_dot::fast()      { local r; string::kebab_to_dot::fast r hello-world;      if [[ "$r" == "hello.world"  ]]; then _pass; else _fail; fi; }
+test::string::kebab_to_path::fast()     { local r; string::kebab_to_path::fast r hello-world;     if [[ "$r" == "hello/world"  ]]; then _pass; else _fail; fi; }
+
+# NAMING CONVENTION ::fast - camel_to
+test::string::camel_to_plain::fast()    { local r; string::camel_to_plain::fast r helloWorld;    if [[ "$r" == "hello world"  ]]; then _pass; else _fail; fi; }
+test::string::camel_to_snake::fast()    { local r; string::camel_to_snake::fast r helloWorld;    if [[ "$r" == "hello_world"  ]]; then _pass; else _fail; fi; }
+test::string::camel_to_kebab::fast()    { local r; string::camel_to_kebab::fast r helloWorld;    if [[ "$r" == "hello-world"  ]]; then _pass; else _fail; fi; }
+test::string::camel_to_pascal::fast()   { local r; string::camel_to_pascal::fast r helloWorld;   if [[ "$r" == "HelloWorld"   ]]; then _pass; else _fail; fi; }
+test::string::camel_to_constant::fast() { local r; string::camel_to_constant::fast r helloWorld; if [[ "$r" == "HELLO_WORLD"  ]]; then _pass; else _fail; fi; }
+test::string::camel_to_dot::fast()      { local r; string::camel_to_dot::fast r helloWorld;      if [[ "$r" == "hello.world"  ]]; then _pass; else _fail; fi; }
+test::string::camel_to_path::fast()     { local r; string::camel_to_path::fast r helloWorld;     if [[ "$r" == "hello/world"  ]]; then _pass; else _fail; fi; }
+
+# NAMING CONVENTION ::fast - pascal_to
+test::string::pascal_to_plain::fast()    { local r; string::pascal_to_plain::fast r HelloWorld;    if [[ "$r" == "hello world"  ]]; then _pass; else _fail; fi; }
+test::string::pascal_to_snake::fast()    { local r; string::pascal_to_snake::fast r HelloWorld;    if [[ "$r" == "hello_world"  ]]; then _pass; else _fail; fi; }
+test::string::pascal_to_kebab::fast()    { local r; string::pascal_to_kebab::fast r HelloWorld;    if [[ "$r" == "hello-world"  ]]; then _pass; else _fail; fi; }
+test::string::pascal_to_camel::fast()    { local r; string::pascal_to_camel::fast r HelloWorld;    if [[ "$r" == "helloWorld"   ]]; then _pass; else _fail; fi; }
+test::string::pascal_to_constant::fast() { local r; string::pascal_to_constant::fast r HelloWorld; if [[ "$r" == "HELLO_WORLD"  ]]; then _pass; else _fail; fi; }
+test::string::pascal_to_dot::fast()      { local r; string::pascal_to_dot::fast r HelloWorld;      if [[ "$r" == "hello.world"  ]]; then _pass; else _fail; fi; }
+test::string::pascal_to_path::fast()     { local r; string::pascal_to_path::fast r HelloWorld;     if [[ "$r" == "hello/world"  ]]; then _pass; else _fail; fi; }
+
+# NAMING CONVENTION ::fast - constant_to
+test::string::constant_to_plain::fast()  { local r; string::constant_to_plain::fast r HELLO_WORLD; if [[ "$r" == "hello world"  ]]; then _pass; else _fail; fi; }
+test::string::constant_to_snake::fast()  { local r; string::constant_to_snake::fast r HELLO_WORLD; if [[ "$r" == "hello_world"  ]]; then _pass; else _fail; fi; }
+test::string::constant_to_kebab::fast()  { local r; string::constant_to_kebab::fast r HELLO_WORLD; if [[ "$r" == "hello-world"  ]]; then _pass; else _fail; fi; }
+test::string::constant_to_camel::fast()  { local r; string::constant_to_camel::fast r HELLO_WORLD; if [[ "$r" == "helloWorld"   ]]; then _pass; else _fail; fi; }
+test::string::constant_to_pascal::fast() { local r; string::constant_to_pascal::fast r HELLO_WORLD; if [[ "$r" == "HelloWorld"   ]]; then _pass; else _fail; fi; }
+test::string::constant_to_dot::fast()    { local r; string::constant_to_dot::fast r HELLO_WORLD;   if [[ "$r" == "hello.world"  ]]; then _pass; else _fail; fi; }
+test::string::constant_to_path::fast()   { local r; string::constant_to_path::fast r HELLO_WORLD;  if [[ "$r" == "hello/world"  ]]; then _pass; else _fail; fi; }
+
+# NAMING CONVENTION ::fast - dot_to
+test::string::dot_to_plain::fast()    { local r; string::dot_to_plain::fast r hello.world;    if [[ "$r" == "hello world"  ]]; then _pass; else _fail; fi; }
+test::string::dot_to_snake::fast()    { local r; string::dot_to_snake::fast r hello.world;    if [[ "$r" == "hello_world"  ]]; then _pass; else _fail; fi; }
+test::string::dot_to_kebab::fast()    { local r; string::dot_to_kebab::fast r hello.world;    if [[ "$r" == "hello-world"  ]]; then _pass; else _fail; fi; }
+test::string::dot_to_camel::fast()    { local r; string::dot_to_camel::fast r hello.world;    if [[ "$r" == "helloWorld"   ]]; then _pass; else _fail; fi; }
+test::string::dot_to_pascal::fast()   { local r; string::dot_to_pascal::fast r hello.world;   if [[ "$r" == "HelloWorld"   ]]; then _pass; else _fail; fi; }
+test::string::dot_to_constant::fast() { local r; string::dot_to_constant::fast r hello.world; if [[ "$r" == "HELLO_WORLD"  ]]; then _pass; else _fail; fi; }
+test::string::dot_to_path::fast()     { local r; string::dot_to_path::fast r hello.world;     if [[ "$r" == "hello/world"  ]]; then _pass; else _fail; fi; }
+
+# NAMING CONVENTION ::fast - path_to
+test::string::path_to_plain::fast()    { local r; string::path_to_plain::fast r hello/world;    if [[ "$r" == "hello world"  ]]; then _pass; else _fail; fi; }
+test::string::path_to_snake::fast()    { local r; string::path_to_snake::fast r hello/world;    if [[ "$r" == "hello_world"  ]]; then _pass; else _fail; fi; }
+test::string::path_to_kebab::fast()    { local r; string::path_to_kebab::fast r hello/world;    if [[ "$r" == "hello-world"  ]]; then _pass; else _fail; fi; }
+test::string::path_to_camel::fast()    { local r; string::path_to_camel::fast r hello/world;    if [[ "$r" == "helloWorld"   ]]; then _pass; else _fail; fi; }
+test::string::path_to_pascal::fast()   { local r; string::path_to_pascal::fast r hello/world;   if [[ "$r" == "HelloWorld"   ]]; then _pass; else _fail; fi; }
+test::string::path_to_constant::fast() { local r; string::path_to_constant::fast r hello/world; if [[ "$r" == "HELLO_WORLD"  ]]; then _pass; else _fail; fi; }
+test::string::path_to_dot::fast()      { local r; string::path_to_dot::fast r hello/world;      if [[ "$r" == "hello.world"  ]]; then _pass; else _fail; fi; }
+
+# ==============================================================================
 # Tests — array
 # ==============================================================================
 

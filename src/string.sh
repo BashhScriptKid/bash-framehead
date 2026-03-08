@@ -90,8 +90,16 @@ string::is_alpha() {
 # ==============================================================================
 
 # Convert to uppercase
+# Usage: string::upper str
 string::upper() {
   echo "${1^^}"
+}
+
+# Fast variant using nameref
+# Usage: string::upper::fast result_var str
+string::upper::fast() {
+  local -n _string_upper_result="$1"
+  _string_upper_result="${2^^}"
 }
 
 # Convert to uppercase (Bash 3 compatible)
@@ -100,8 +108,16 @@ string::upper::legacy() {
 }
 
 # Convert to lowercase
+# Usage: string::lower str
 string::lower() {
   echo "${1,,}"
+}
+
+# Fast variant using nameref
+# Usage: string::lower::fast result_var str
+string::lower::fast() {
+  local -n _string_lower_result="$1"
+  _string_lower_result="${2,,}"
 }
 
 # Convert to lowercase (Bash 3 compatible)
@@ -110,8 +126,16 @@ string::lower::legacy() {
 }
 
 # Capitalise first character only
+# Usage: string::capitalise str
 string::capitalise() {
   echo "${1^}"
+}
+
+# Fast variant using nameref
+# Usage: string::capitalise::fast result_var str
+string::capitalise::fast() {
+  local -n _string_capitalise_result="$1"
+  _string_capitalise_result="${2^}"
 }
 
 # Capitalise first character (Bash 3 compatible)
@@ -122,8 +146,16 @@ string::capitalise::legacy() {
 
 # Convert to title case (capitalise first letter of each word)
 # Requires: awk
+# Usage: string::title str
 string::title() {
   echo "$1" | awk '{for(i=1;i<=NF;i++) $i=toupper(substr($i,1,1)) tolower(substr($i,2)); print}'
+}
+
+# Fast variant using nameref (requires awk)
+# Usage: string::title::fast result_var str
+string::title::fast() {
+  local -n _string_title_result="$1"
+  _string_title_result=$(echo "$2" | awk '{for(i=1;i<=NF;i++) $i=toupper(substr($i,1,1)) tolower(substr($i,2)); print}')
 }
 
 # ==============================================================================
@@ -165,10 +197,25 @@ string::plain_to_snake() {
   echo "${s,,}"
 }
 
+# Fast variant using nameref
+# Usage: string::plain_to_snake::fast result_var "hello world"
+string::plain_to_snake::fast() {
+  local -n _string_plain_to_snake_result="$1"
+  _string_plain_to_snake_result="${2// /_}"
+  _string_plain_to_snake_result="${_string_plain_to_snake_result,,}"
+}
+
 # plain → kebab-case
 string::plain_to_kebab() {
   local s="${1// /-}"
   echo "${s,,}"
+}
+
+# Fast variant using nameref
+string::plain_to_kebab::fast() {
+  local -n _string_plain_to_kebab_result="$1"
+  _string_plain_to_kebab_result="${2// /-}"
+  _string_plain_to_kebab_result="${_string_plain_to_kebab_result,,}"
 }
 
 # plain → camelCase
@@ -183,11 +230,32 @@ string::plain_to_camel() {
   echo "$result"
 }
 
+# Fast variant using nameref
+string::plain_to_camel::fast() {
+  local -n _string_plain_to_camel_result="$1"
+  local result="" first=true
+  for word in $2; do
+    if $first; then
+      result+="${word,,}"
+      first=false
+    else result+="${word^}"; fi
+  done
+  _string_plain_to_camel_result="$result"
+}
+
 # plain → PascalCase
 string::plain_to_pascal() {
   local result=""
   for word in $1; do result+="${word^}"; done
   echo "$result"
+}
+
+# Fast variant using nameref
+string::plain_to_pascal::fast() {
+  local -n _string_plain_to_pascal_result="$1"
+  local result=""
+  for word in $2; do result+="${word^}"; done
+  _string_plain_to_pascal_result="$result"
 }
 
 # plain → CONSTANT_CASE
@@ -196,10 +264,24 @@ string::plain_to_constant() {
   echo "${s^^}"
 }
 
+# Fast variant using nameref
+string::plain_to_constant::fast() {
+  local -n _string_plain_to_constant_result="$1"
+  _string_plain_to_constant_result="${2// /_}"
+  _string_plain_to_constant_result="${_string_plain_to_constant_result^^}"
+}
+
 # plain → dot.case
 string::plain_to_dot() {
   local s="${1// /.}"
   echo "${s,,}"
+}
+
+# Fast variant using nameref
+string::plain_to_dot::fast() {
+  local -n _string_plain_to_dot_result="$1"
+  _string_plain_to_dot_result="${2// /.}"
+  _string_plain_to_dot_result="${_string_plain_to_dot_result,,}"
 }
 
 # plain → path/case
@@ -208,9 +290,22 @@ string::plain_to_path() {
   echo "${s,,}"
 }
 
+# Fast variant using nameref
+string::plain_to_path::fast() {
+  local -n _string_plain_to_path_result="$1"
+  _string_plain_to_path_result="${2// //}"
+  _string_plain_to_path_result="${_string_plain_to_path_result,,}"
+}
+
 # snake_case → plain
 string::snake_to_plain() {
   echo "${1//_/ }"
+}
+
+# Fast variant using nameref
+string::snake_to_plain::fast() {
+  local -n _string_snake_to_plain_result="$1"
+  _string_snake_to_plain_result="${2//_/ }"
 }
 
 # snake_case → kebab-case
@@ -218,9 +313,29 @@ string::snake_to_kebab() {
   echo "${1//_/-}"
 }
 
+# Fast variant using nameref
+string::snake_to_kebab::fast() {
+  local -n _string_snake_to_kebab_result="$1"
+  _string_snake_to_kebab_result="${2//_/-}"
+}
+
 # snake_case → camelCase
 string::snake_to_camel() {
   string::plain_to_camel "${1//_/ }"
+}
+
+# Fast variant using nameref
+string::snake_to_camel::fast() {
+  local -n _string_snake_to_camel_result="$1"
+  local words="${2//_/ }"
+  local result="" first=true
+  for word in $words; do
+    if $first; then
+      result+="${word,,}"
+      first=false
+    else result+="${word^}"; fi
+  done
+  _string_snake_to_camel_result="$result"
 }
 
 # snake_case → PascalCase
@@ -228,9 +343,23 @@ string::snake_to_pascal() {
   string::plain_to_pascal "${1//_/ }"
 }
 
+# Fast variant using nameref
+string::snake_to_pascal::fast() {
+  local -n _string_snake_to_pascal_result="$1"
+  local result=""
+  for word in ${2//_/ }; do result+="${word^}"; done
+  _string_snake_to_pascal_result="$result"
+}
+
 # snake_case → CONSTANT_CASE
 string::snake_to_constant() {
   echo "${1^^}"
+}
+
+# Fast variant using nameref
+string::snake_to_constant::fast() {
+  local -n _string_snake_to_constant_result="$1"
+  _string_snake_to_constant_result="${2^^}"
 }
 
 # snake_case → dot.case
@@ -238,9 +367,21 @@ string::snake_to_dot() {
   echo "${1//_/.}"
 }
 
+# Fast variant using nameref
+string::snake_to_dot::fast() {
+  local -n _string_snake_to_dot_result="$1"
+  _string_snake_to_dot_result="${2//_/.}"
+}
+
 # snake_case → path/case
 string::snake_to_path() {
   echo "${1//_//}"
+}
+
+# Fast variant using nameref
+string::snake_to_path::fast() {
+  local -n _string_snake_to_path_result="$1"
+  _string_snake_to_path_result="${2//_//}"
 }
 
 # kebab-case → plain
@@ -248,9 +389,21 @@ string::kebab_to_plain() {
   echo "${1//-/ }"
 }
 
+# Fast variant using nameref
+string::kebab_to_plain::fast() {
+  local -n _string_kebab_to_plain_result="$1"
+  _string_kebab_to_plain_result="${2//-/ }"
+}
+
 # kebab-case → snake_case
 string::kebab_to_snake() {
   echo "${1//-/_}"
+}
+
+# Fast variant using nameref
+string::kebab_to_snake::fast() {
+  local -n _string_kebab_to_snake_result="$1"
+  _string_kebab_to_snake_result="${2//-/_}"
 }
 
 # kebab-case → camelCase
@@ -258,9 +411,31 @@ string::kebab_to_camel() {
   string::plain_to_camel "${1//-/ }"
 }
 
+# Fast variant using nameref
+string::kebab_to_camel::fast() {
+  local -n _string_kebab_to_camel_result="$1"
+  local words="${2//-/ }"
+  local result="" first=true
+  for word in $words; do
+    if $first; then
+      result+="${word,,}"
+      first=false
+    else result+="${word^}"; fi
+  done
+  _string_kebab_to_camel_result="$result"
+}
+
 # kebab-case → PascalCase
 string::kebab_to_pascal() {
   string::plain_to_pascal "${1//-/ }"
+}
+
+# Fast variant using nameref
+string::kebab_to_pascal::fast() {
+  local -n _string_kebab_to_pascal_result="$1"
+  local result=""
+  for word in ${2//-/ }; do result+="${word^}"; done
+  _string_kebab_to_pascal_result="$result"
 }
 
 # kebab-case → CONSTANT_CASE
@@ -269,9 +444,22 @@ string::kebab_to_constant() {
   echo "${s^^}"
 }
 
+# Fast variant using nameref
+string::kebab_to_constant::fast() {
+  local -n _string_kebab_to_constant_result="$1"
+  _string_kebab_to_constant_result="${2//-/_}"
+  _string_kebab_to_constant_result="${_string_kebab_to_constant_result^^}"
+}
+
 # kebab-case → dot.case
 string::kebab_to_dot() {
   echo "${1//-/.}"
+}
+
+# Fast variant using nameref
+string::kebab_to_dot::fast() {
+  local -n _string_kebab_to_dot_result="$1"
+  _string_kebab_to_dot_result="${2//-/.}"
 }
 
 # kebab-case → path/case
@@ -279,9 +467,27 @@ string::kebab_to_path() {
   echo "${1//-//}"
 }
 
+# Fast variant using nameref
+string::kebab_to_path::fast() {
+  local -n _string_kebab_to_path_result="$1"
+  _string_kebab_to_path_result="${2//-//}"
+}
+
 # camelCase → plain
 string::camel_to_plain() {
   _string::to_words "$1"
+}
+
+# Fast variant using nameref
+string::camel_to_plain::fast() {
+  local -n _string_camel_to_plain_result="$1"
+  local s="$2"
+  s="$(echo "$s" | sed 's/\([a-z]\)\([A-Z]\)/\1 \2/g')"
+  s="${s//_/ }"
+  s="${s//-/ }"
+  s="${s//./ }"
+  s="${s//\// }"
+  _string_camel_to_plain_result="${s,,}"
 }
 
 # camelCase → snake_case
@@ -291,6 +497,19 @@ string::camel_to_snake() {
   echo "${words// /_}"
 }
 
+# Fast variant using nameref
+string::camel_to_snake::fast() {
+  local -n _string_camel_to_snake_result="$1"
+  local s="$2"
+  s="$(echo "$s" | sed 's/\([a-z]\)\([A-Z]\)/\1 \2/g')"
+  s="${s//_/ }"
+  s="${s//-/ }"
+  s="${s//./ }"
+  s="${s//\// }"
+  s="${s,,}"
+  _string_camel_to_snake_result="${s// /_}"
+}
+
 # camelCase → kebab-case
 string::camel_to_kebab() {
   local words
@@ -298,9 +517,37 @@ string::camel_to_kebab() {
   echo "${words// /-}"
 }
 
+# Fast variant using nameref
+string::camel_to_kebab::fast() {
+  local -n _string_camel_to_kebab_result="$1"
+  local s="$2"
+  s="$(echo "$s" | sed 's/\([a-z]\)\([A-Z]\)/\1 \2/g')"
+  s="${s//_/ }"
+  s="${s//-/ }"
+  s="${s//./ }"
+  s="${s//\// }"
+  s="${s,,}"
+  _string_camel_to_kebab_result="${s// /-}"
+}
+
 # camelCase → PascalCase
 string::camel_to_pascal() {
   string::plain_to_pascal "$(_string::to_words "$1")"
+}
+
+# Fast variant using nameref
+string::camel_to_pascal::fast() {
+  local -n _string_camel_to_pascal_result="$1"
+  local s="$2"
+  s="$(echo "$s" | sed 's/\([a-z]\)\([A-Z]\)/\1 \2/g')"
+  s="${s//_/ }"
+  s="${s//-/ }"
+  s="${s//./ }"
+  s="${s//\// }"
+  s="${s,,}"
+  local result=""
+  for word in $s; do result+="${word^}"; done
+  _string_camel_to_pascal_result="$result"
 }
 
 # camelCase → CONSTANT_CASE
@@ -311,11 +558,38 @@ string::camel_to_constant() {
   echo "${s^^}"
 }
 
+# Fast variant using nameref
+string::camel_to_constant::fast() {
+  local -n _string_camel_to_constant_result="$1"
+  local s="$2"
+  s="$(echo "$s" | sed 's/\([a-z]\)\([A-Z]\)/\1 \2/g')"
+  s="${s//_/ }"
+  s="${s//-/ }"
+  s="${s//./ }"
+  s="${s//\// }"
+  s="${s,,}"
+  _string_camel_to_constant_result="${s// /_}"
+  _string_camel_to_constant_result="${_string_camel_to_constant_result^^}"
+}
+
 # camelCase → dot.case
 string::camel_to_dot() {
   local words
   words=$(_string::to_words "$1")
   echo "${words// /.}"
+}
+
+# Fast variant using nameref
+string::camel_to_dot::fast() {
+  local -n _string_camel_to_dot_result="$1"
+  local s="$2"
+  s="$(echo "$s" | sed 's/\([a-z]\)\([A-Z]\)/\1 \2/g')"
+  s="${s//_/ }"
+  s="${s//-/ }"
+  s="${s//./ }"
+  s="${s//\// }"
+  s="${s,,}"
+  _string_camel_to_dot_result="${s// /.}"
 }
 
 # camelCase → path/case
@@ -325,9 +599,34 @@ string::camel_to_path() {
   echo "${words// //}"
 }
 
+# Fast variant using nameref
+string::camel_to_path::fast() {
+  local -n _string_camel_to_path_result="$1"
+  local s="$2"
+  s="$(echo "$s" | sed 's/\([a-z]\)\([A-Z]\)/\1 \2/g')"
+  s="${s//_/ }"
+  s="${s//-/ }"
+  s="${s//./ }"
+  s="${s//\// }"
+  s="${s,,}"
+  _string_camel_to_path_result="${s// //}"
+}
+
 # PascalCase → plain
 string::pascal_to_plain() {
   _string::to_words "$1"
+}
+
+# Fast variant using nameref
+string::pascal_to_plain::fast() {
+  local -n _string_pascal_to_plain_result="$1"
+  local s="$2"
+  s="$(echo "$s" | sed 's/\([a-z]\)\([A-Z]\)/\1 \2/g')"
+  s="${s//_/ }"
+  s="${s//-/ }"
+  s="${s//./ }"
+  s="${s//\// }"
+  _string_pascal_to_plain_result="${s,,}"
 }
 
 # PascalCase → snake_case
@@ -335,9 +634,35 @@ string::pascal_to_snake() {
   string::camel_to_snake "$1"
 }
 
+# Fast variant using nameref
+string::pascal_to_snake::fast() {
+  local -n _string_pascal_to_snake_result="$1"
+  local s="$2"
+  s="$(echo "$s" | sed 's/\([a-z]\)\([A-Z]\)/\1 \2/g')"
+  s="${s//_/ }"
+  s="${s//-/ }"
+  s="${s//./ }"
+  s="${s//\// }"
+  s="${s,,}"
+  _string_pascal_to_snake_result="${s// /_}"
+}
+
 # PascalCase → kebab-case
 string::pascal_to_kebab() {
   string::camel_to_kebab "$1"
+}
+
+# Fast variant using nameref
+string::pascal_to_kebab::fast() {
+  local -n _string_pascal_to_kebab_result="$1"
+  local s="$2"
+  s="$(echo "$s" | sed 's/\([a-z]\)\([A-Z]\)/\1 \2/g')"
+  s="${s//_/ }"
+  s="${s//-/ }"
+  s="${s//./ }"
+  s="${s//\// }"
+  s="${s,,}"
+  _string_pascal_to_kebab_result="${s// /-}"
 }
 
 # PascalCase → camelCase
@@ -347,9 +672,43 @@ string::pascal_to_camel() {
   string::plain_to_camel "$words"
 }
 
+# Fast variant using nameref
+string::pascal_to_camel::fast() {
+  local -n _string_pascal_to_camel_result="$1"
+  local s="$2"
+  s="$(echo "$s" | sed 's/\([a-z]\)\([A-Z]\)/\1 \2/g')"
+  s="${s//_/ }"
+  s="${s//-/ }"
+  s="${s//./ }"
+  s="${s//\// }"
+  s="${s,,}"
+  local result="" first=true
+  for word in $s; do
+    if $first; then
+      result+="${word,,}"
+      first=false
+    else result+="${word^}"; fi
+  done
+  _string_pascal_to_camel_result="$result"
+}
+
 # PascalCase → CONSTANT_CASE
 string::pascal_to_constant() {
   string::camel_to_constant "$1"
+}
+
+# Fast variant using nameref
+string::pascal_to_constant::fast() {
+  local -n _string_pascal_to_constant_result="$1"
+  local s="$2"
+  s="$(echo "$s" | sed 's/\([a-z]\)\([A-Z]\)/\1 \2/g')"
+  s="${s//_/ }"
+  s="${s//-/ }"
+  s="${s//./ }"
+  s="${s//\// }"
+  s="${s,,}"
+  _string_pascal_to_constant_result="${s// /_}"
+  _string_pascal_to_constant_result="${_string_pascal_to_constant_result^^}"
 }
 
 # PascalCase → dot.case
@@ -357,9 +716,35 @@ string::pascal_to_dot() {
   string::camel_to_dot "$1"
 }
 
+# Fast variant using nameref
+string::pascal_to_dot::fast() {
+  local -n _string_pascal_to_dot_result="$1"
+  local s="$2"
+  s="$(echo "$s" | sed 's/\([a-z]\)\([A-Z]\)/\1 \2/g')"
+  s="${s//_/ }"
+  s="${s//-/ }"
+  s="${s//./ }"
+  s="${s//\// }"
+  s="${s,,}"
+  _string_pascal_to_dot_result="${s// /.}"
+}
+
 # PascalCase → path/case
 string::pascal_to_path() {
   string::camel_to_path "$1"
+}
+
+# Fast variant using nameref
+string::pascal_to_path::fast() {
+  local -n _string_pascal_to_path_result="$1"
+  local s="$2"
+  s="$(echo "$s" | sed 's/\([a-z]\)\([A-Z]\)/\1 \2/g')"
+  s="${s//_/ }"
+  s="${s//-/ }"
+  s="${s//./ }"
+  s="${s//\// }"
+  s="${s,,}"
+  _string_pascal_to_path_result="${s// //}"
 }
 
 # CONSTANT_CASE → plain
@@ -368,9 +753,22 @@ string::constant_to_plain() {
   echo "${s,,}"
 }
 
+# Fast variant using nameref
+string::constant_to_plain::fast() {
+  local -n _string_constant_to_plain_result="$1"
+  _string_constant_to_plain_result="${2//_/ }"
+  _string_constant_to_plain_result="${_string_constant_to_plain_result,,}"
+}
+
 # CONSTANT_CASE → snake_case
 string::constant_to_snake() {
   echo "${1,,}"
+}
+
+# Fast variant using nameref
+string::constant_to_snake::fast() {
+  local -n _string_constant_to_snake_result="$1"
+  _string_constant_to_snake_result="${2,,}"
 }
 
 # CONSTANT_CASE → kebab-case
@@ -379,14 +777,45 @@ string::constant_to_kebab() {
   echo "${s,,}"
 }
 
+# Fast variant using nameref
+string::constant_to_kebab::fast() {
+  local -n _string_constant_to_kebab_result="$1"
+  _string_constant_to_kebab_result="${2//_/-}"
+  _string_constant_to_kebab_result="${_string_constant_to_kebab_result,,}"
+}
+
 # CONSTANT_CASE → camelCase
 string::constant_to_camel() {
   string::snake_to_camel "${1,,}"
 }
 
+# Fast variant using nameref
+string::constant_to_camel::fast() {
+  local -n _string_constant_to_camel_result="$1"
+  local words="${2,,}"
+  words="${words//_/ }"
+  local result="" first=true
+  for word in $words; do
+    if $first; then
+      result+="${word,,}"
+      first=false
+    else result+="${word^}"; fi
+  done
+  _string_constant_to_camel_result="$result"
+}
+
 # CONSTANT_CASE → PascalCase
 string::constant_to_pascal() {
   string::snake_to_pascal "${1,,}"
+}
+
+# Fast variant using nameref
+string::constant_to_pascal::fast() {
+  local -n _string_constant_to_pascal_result="$1"
+  local result="" words="${2,,}"
+  words="${words//_/ }"
+  for word in $words; do result+="${word^}"; done
+  _string_constant_to_pascal_result="$result"
 }
 
 # CONSTANT_CASE → dot.case
@@ -395,10 +824,24 @@ string::constant_to_dot() {
   echo "${s,,}"
 }
 
+# Fast variant using nameref
+string::constant_to_dot::fast() {
+  local -n _string_constant_to_dot_result="$1"
+  _string_constant_to_dot_result="${2//_/.}"
+  _string_constant_to_dot_result="${_string_constant_to_dot_result,,}"
+}
+
 # CONSTANT_CASE → path/case
 string::constant_to_path() {
   local s="${1//_//}"
   echo "${s,,}"
+}
+
+# Fast variant using nameref
+string::constant_to_path::fast() {
+  local -n _string_constant_to_path_result="$1"
+  _string_constant_to_path_result="${2//_//}"
+  _string_constant_to_path_result="${_string_constant_to_path_result,,}"
 }
 
 # dot.case → plain
@@ -406,9 +849,21 @@ string::dot_to_plain() {
   echo "${1//./ }"
 }
 
+# Fast variant using nameref
+string::dot_to_plain::fast() {
+  local -n _string_dot_to_plain_result="$1"
+  _string_dot_to_plain_result="${2//./ }"
+}
+
 # dot.case → snake_case
 string::dot_to_snake() {
   echo "${1//./_}"
+}
+
+# Fast variant using nameref
+string::dot_to_snake::fast() {
+  local -n _string_dot_to_snake_result="$1"
+  _string_dot_to_snake_result="${2//./_}"
 }
 
 # dot.case → kebab-case
@@ -416,14 +871,42 @@ string::dot_to_kebab() {
   echo "${1//./-}"
 }
 
+# Fast variant using nameref
+string::dot_to_kebab::fast() {
+  local -n _string_dot_to_kebab_result="$1"
+  _string_dot_to_kebab_result="${2//./-}"
+}
+
 # dot.case → camelCase
 string::dot_to_camel() {
   string::plain_to_camel "${1//./ }"
 }
 
+# Fast variant using nameref
+string::dot_to_camel::fast() {
+  local -n _string_dot_to_camel_result="$1"
+  local words="${2//./ }"
+  local result="" first=true
+  for word in $words; do
+    if $first; then
+      result+="${word,,}"
+      first=false
+    else result+="${word^}"; fi
+  done
+  _string_dot_to_camel_result="$result"
+}
+
 # dot.case → PascalCase
 string::dot_to_pascal() {
   string::plain_to_pascal "${1//./ }"
+}
+
+# Fast variant using nameref
+string::dot_to_pascal::fast() {
+  local -n _string_dot_to_pascal_result="$1"
+  local result=""
+  for word in ${2//./ }; do result+="${word^}"; done
+  _string_dot_to_pascal_result="$result"
 }
 
 # dot.case → CONSTANT_CASE
@@ -432,9 +915,22 @@ string::dot_to_constant() {
   echo "${s^^}"
 }
 
+# Fast variant using nameref
+string::dot_to_constant::fast() {
+  local -n _string_dot_to_constant_result="$1"
+  _string_dot_to_constant_result="${2//./_}"
+  _string_dot_to_constant_result="${_string_dot_to_constant_result^^}"
+}
+
 # dot.case → path/case
 string::dot_to_path() {
   echo "${1//.//}"
+}
+
+# Fast variant using nameref
+string::dot_to_path::fast() {
+  local -n _string_dot_to_path_result="$1"
+  _string_dot_to_path_result="${2//.//}"
 }
 
 # path/case → plain
@@ -442,9 +938,21 @@ string::path_to_plain() {
   echo "${1//\// }"
 }
 
+# Fast variant using nameref
+string::path_to_plain::fast() {
+  local -n _string_path_to_plain_result="$1"
+  _string_path_to_plain_result="${2//\// }"
+}
+
 # path/case → snake_case
 string::path_to_snake() {
   echo "${1//\//_}"
+}
+
+# Fast variant using nameref
+string::path_to_snake::fast() {
+  local -n _string_path_to_snake_result="$1"
+  _string_path_to_snake_result="${2//\//_}"
 }
 
 # path/case → kebab-case
@@ -455,14 +963,43 @@ string::path_to_kebab() {
   echo "$path"
 }
 
+# Fast variant using nameref
+string::path_to_kebab::fast() {
+  local -n _string_path_to_kebab_result="$1"
+  _string_path_to_kebab_result="${2//\\/-}"
+  _string_path_to_kebab_result="${_string_path_to_kebab_result//\//-}"
+}
+
 # path/case → camelCase
 string::path_to_camel() {
   string::plain_to_camel "${1//\// }"
 }
 
+# Fast variant using nameref
+string::path_to_camel::fast() {
+  local -n _string_path_to_camel_result="$1"
+  local words="${2//\// }"
+  local result="" first=true
+  for word in $words; do
+    if $first; then
+      result+="${word,,}"
+      first=false
+    else result+="${word^}"; fi
+  done
+  _string_path_to_camel_result="$result"
+}
+
 # path/case → PascalCase
 string::path_to_pascal() {
   string::plain_to_pascal "${1//\// }"
+}
+
+# Fast variant using nameref
+string::path_to_pascal::fast() {
+  local -n _string_path_to_pascal_result="$1"
+  local result=""
+  for word in ${2//\// }; do result+="${word^}"; done
+  _string_path_to_pascal_result="$result"
 }
 
 # path/case → CONSTANT_CASE
@@ -471,9 +1008,22 @@ string::path_to_constant() {
   echo "${s^^}"
 }
 
+# Fast variant using nameref
+string::path_to_constant::fast() {
+  local -n _string_path_to_constant_result="$1"
+  _string_path_to_constant_result="${2//\//_}"
+  _string_path_to_constant_result="${_string_path_to_constant_result^^}"
+}
+
 # path/case → dot.case
 string::path_to_dot() {
   echo "${1//\//.}"
+}
+
+# Fast variant using nameref
+string::path_to_dot::fast() {
+  local -n _string_path_to_dot_result="$1"
+  _string_path_to_dot_result="${2//\//.}"
 }
 
 # ==============================================================================
@@ -481,20 +1031,37 @@ string::path_to_dot() {
 # ==============================================================================
 
 # Trim leading whitespace
+# Usage: string::trim_left str
 string::trim_left() {
   local s="$1"
   s="${s#"${s%%[![:space:]]*}"}"
   echo "$s"
 }
 
+# Fast variant using nameref
+# Usage: string::trim_left::fast result_var str
+string::trim_left::fast() {
+  local -n _string_trim_left_result="$1"
+  _string_trim_left_result="${2#"${2%%[![:space:]]*}"}"
+}
+
 # Trim trailing whitespace
+# Usage: string::trim_right str
 string::trim_right() {
   local s="$1"
   s="${s%"${s##*[![:space:]]}"}"
   echo "$s"
 }
 
+# Fast variant using nameref
+# Usage: string::trim_right::fast result_var str
+string::trim_right::fast() {
+  local -n _string_trim_right_result="$1"
+  _string_trim_right_result="${2%"${2##*[![:space:]]}"}"
+}
+
 # Trim both leading and trailing whitespace
+# Usage: string::trim str
 string::trim() {
   local s="$1"
   s="${s#"${s%%[![:space:]]*}"}"
@@ -502,14 +1069,38 @@ string::trim() {
   echo "$s"
 }
 
+# Fast variant using nameref
+# Usage: string::trim::fast result_var str
+string::trim::fast() {
+  local -n _string_trim_result="$1"
+  _string_trim_result="${2#"${2%%[![:space:]]*}"}"
+  _string_trim_result="${_string_trim_result%"${_string_trim_result##*[![:space:]]}"}"
+}
+
 # Collapse multiple consecutive spaces into one
+# Usage: string::collapse_spaces str
 string::collapse_spaces() {
   echo "$1" | tr -s ' '
 }
 
+# Fast variant using nameref (requires tr)
+# Usage: string::collapse_spaces::fast result_var str
+string::collapse_spaces::fast() {
+  local -n _string_collapse_spaces_result="$1"
+  _string_collapse_spaces_result=$(echo "$2" | tr -s ' ')
+}
+
 # Remove all whitespace
+# Usage: string::strip_spaces str
 string::strip_spaces() {
   echo "${1//[[:space:]]/}"
+}
+
+# Fast variant using nameref
+# Usage: string::strip_spaces::fast result_var str
+string::strip_spaces::fast() {
+  local -n _string_strip_spaces_result="$1"
+  _string_strip_spaces_result="${2//[[:space:]]/}"
 }
 
 # ==============================================================================
@@ -524,6 +1115,18 @@ string::substr() {
     echo "${s:$start:$len}"
   else
     echo "${s:$start}"
+  fi
+}
+
+# Fast variant using nameref
+# Usage: string::substr::fast result_var str start [length]
+string::substr::fast() {
+  local -n _string_substr_result="$1"
+  local s="$2" start="$3" len="${4:-}"
+  if [[ -n "$len" ]]; then
+    _string_substr_result="${s:$start:$len}"
+  else
+    _string_substr_result="${s:$start}"
   fi
 }
 
@@ -545,20 +1148,50 @@ string::before() {
   echo "${1%%"$2"*}"
 }
 
+# Fast variant using nameref
+# Usage: string::before::fast result_var str delimiter
+string::before::fast() {
+  local -n _string_before_result="$1"
+  _string_before_result="${2%%"$3"*}"
+}
+
 # Return everything after the first occurrence of delimiter
 # Usage: string::after str delimiter
 string::after() {
   echo "${1#*"$2"}"
 }
 
+# Fast variant using nameref
+# Usage: string::after::fast result_var str delimiter
+string::after::fast() {
+  local -n _string_after_result="$1"
+  _string_after_result="${2#*"$3"}"
+}
+
 # Return everything before the last occurrence of delimiter
+# Usage: string::before_last str delimiter
 string::before_last() {
   echo "${1%"$2"*}"
 }
 
+# Fast variant using nameref
+# Usage: string::before_last::fast result_var str delimiter
+string::before_last::fast() {
+  local -n _string_before_last_result="$1"
+  _string_before_last_result="${2%"$3"*}"
+}
+
 # Return everything after the last occurrence of delimiter
+# Usage: string::after_last str delimiter
 string::after_last() {
   echo "${1##*"$2"}"
+}
+
+# Fast variant using nameref
+# Usage: string::after_last::fast result_var str delimiter
+string::after_last::fast() {
+  local -n _string_after_last_result="$1"
+  _string_after_last_result="${2##*"$3"}"
 }
 
 # ==============================================================================
@@ -571,28 +1204,71 @@ string::replace() {
   echo "${1/"$2"/"$3"}"
 }
 
+# Fast variant using nameref
+# Usage: string::replace::fast result_var str search replace
+string::replace::fast() {
+  local -n _string_replace_result="$1"
+  _string_replace_result="${2/"$3"/"$4"}"
+}
+
 # Replace all occurrences of search with replace
+# Usage: string::replace_all str search replace
 string::replace_all() {
   echo "${1//"$2"/"$3"}"
 }
 
+# Fast variant using nameref
+# Usage: string::replace_all::fast result_var str search replace
+string::replace_all::fast() {
+  local -n _string_replace_all_result="$1"
+  _string_replace_all_result="${2//"$3"/"$4"}"
+}
+
 # Remove all occurrences of a substring
+# Usage: string::remove str substring
 string::remove() {
   echo "${1//"$2"/}"
 }
 
+# Fast variant using nameref
+# Usage: string::remove::fast result_var str substring
+string::remove::fast() {
+  local -n _string_remove_result="$1"
+  _string_remove_result="${2//"$3"/}"
+}
+
 # Remove first occurrence of a substring
+# Usage: string::remove_first str substring
 string::remove_first() {
   echo "${1/"$2"/}"
 }
 
+# Fast variant using nameref
+# Usage: string::remove_first::fast result_var str substring
+string::remove_first::fast() {
+  local -n _string_remove_first_result="$1"
+  _string_remove_first_result="${2/"$3"/}"
+}
+
 # Reverse a string
 # Requires: rev (coreutils) — falls back to awk
+# Usage: string::reverse str
 string::reverse() {
   if runtime::has_command rev; then
     echo "$1" | rev
   else
     echo "$1" | awk '{for(i=length;i>0;i--) printf substr($0,i,1); print ""}'
+  fi
+}
+
+# Fast variant using nameref (requires rev or awk)
+# Usage: string::reverse::fast result_var str
+string::reverse::fast() {
+  local -n _string_reverse_result="$1"
+  if runtime::has_command rev; then
+    _string_reverse_result=$(echo "$2" | rev)
+  else
+    _string_reverse_result=$(echo "$2" | awk '{for(i=length;i>0;i--) printf substr($0,i,1); print ""}')
   fi
 }
 
@@ -602,6 +1278,15 @@ string::repeat() {
   local str="$1" n="$2" result=""
   for ((i = 0; i < n; i++)); do result+="$str"; done
   echo "$result"
+}
+
+# Fast variant using nameref
+# Usage: string::repeat::fast result_var str n
+string::repeat::fast() {
+  local -n _string_repeat_result="$1"
+  local str="$2" n="$3" result=""
+  for ((i = 0; i < n; i++)); do result+="$str"; done
+  _string_repeat_result="$result"
 }
 
 # Pad string on the left to a given width
@@ -618,6 +1303,21 @@ string::pad_left() {
   echo "${pad}${s}"
 }
 
+# Fast variant using nameref
+# Usage: string::pad_left::fast result_var str width [char]
+string::pad_left::fast() {
+  local -n _string_pad_left_result="$1"
+  local s="$2" width="$3" char="${4:- }"
+  local len="${#s}"
+  if ((len >= width)); then
+    _string_pad_left_result="$s"
+    return
+  fi
+  local pad result=""
+  for ((i = 0; i < width - len; i++)); do result+="$char"; done
+  _string_pad_left_result="${result}${s}"
+}
+
 # Pad string on the right to a given width
 # Usage: string::pad_right str width [char]
 string::pad_right() {
@@ -630,6 +1330,21 @@ string::pad_right() {
   local pad
   pad=$(string::repeat "$char" $((width - len)))
   echo "${s}${pad}"
+}
+
+# Fast variant using nameref
+# Usage: string::pad_right::fast result_var str width [char]
+string::pad_right::fast() {
+  local -n _string_pad_right_result="$1"
+  local s="$2" width="$3" char="${4:- }"
+  local len="${#s}"
+  if ((len >= width)); then
+    _string_pad_right_result="$s"
+    return
+  fi
+  local result=""
+  for ((i = 0; i < width - len; i++)); do result+="$char"; done
+  _string_pad_right_result="${s}${result}"
 }
 
 # Centre a string within a given width
@@ -648,6 +1363,25 @@ string::pad_center() {
   lpad=$(string::repeat "$char" $left)
   rpad=$(string::repeat "$char" $right)
   echo "${lpad}${s}${rpad}"
+}
+
+# Fast variant using nameref
+# Usage: string::pad_center::fast result_var str width [char]
+string::pad_center::fast() {
+  local -n _string_pad_center_result="$1"
+  local s="$2" width="$3" char="${4:- }"
+  local len="${#s}"
+  if ((len >= width)); then
+    _string_pad_center_result="$s"
+    return
+  fi
+  local total=$((width - len))
+  local left=$((total / 2))
+  local right=$((total - left))
+  local lpad="" rpad=""
+  for ((i = 0; i < left; i++)); do lpad+="$char"; done
+  for ((i = 0; i < right; i++)); do rpad+="$char"; done
+  _string_pad_center_result="${lpad}${s}${rpad}"
 }
 
 # Truncate a string to max length, appending suffix if truncated
@@ -687,6 +1421,40 @@ string::truncate() {
   echo "${s:0:$available_chars}${suffix}"
 }
 
+# Fast variant using nameref
+# Usage: string::truncate::fast result_var str max [suffix]
+string::truncate::fast() {
+  local -n _string_truncate_result="$1"
+  local s="$2" max="$3"
+  local suffix
+
+  if ((${#s} <= max)); then
+    _string_truncate_result="$s"
+    return 0
+  fi
+
+  # Handle very small max values
+  if ((max <= 1)); then
+    _string_truncate_result="…"
+    return 0
+  elif ((max == 2)); then
+    _string_truncate_result="${s:0:1}…"
+    return 0
+  fi
+
+  # Determine which suffix to use based on available space
+  local available_chars=$((max - 3))
+
+  if ((available_chars < 3)); then
+    suffix="…"
+    available_chars=$((max - 1))
+  else
+    suffix="..."
+  fi
+
+  _string_truncate_result="${s:0:$available_chars}${suffix}"
+}
+
 # ==============================================================================
 # SPLITTING / JOINING
 # ==============================================================================
@@ -720,11 +1488,31 @@ string::join() {
   echo "$result"
 }
 
+# Fast variant using nameref
+# Usage: string::join::fast result_var delimiter arg1 arg2 ...
+string::join::fast() {
+  local -n _string_join_result="$1"
+  local delim="$2"
+  shift 2
+  local result=""
+  local first=true
+  for part in "$@"; do
+    if $first; then
+      result="$part"
+      first=false
+    else
+      result+="${delim}${part}"
+    fi
+  done
+  _string_join_result="$result"
+}
+
 # ==============================================================================
 # ENCODING / HASHING
 # ==============================================================================
 
 # URL-encode a string
+# Usage: string::url_encode str
 string::url_encode() {
     local s="$1" encoded="" i char hex
     for (( i=0; i<${#s}; i++ )); do
@@ -738,12 +1526,37 @@ string::url_encode() {
     echo "$encoded"
 }
 
+# Fast variant using nameref
+# Usage: string::url_encode::fast result_var str
+string::url_encode::fast() {
+    local -n _string_url_encode_result="$1"
+    local s="$2" encoded="" i char hex
+    for (( i=0; i<${#s}; i++ )); do
+        char="${s:$i:1}"
+        case "$char" in
+            [a-zA-Z0-9.~_-]) encoded+="$char" ;;
+            *) printf -v hex '%02X' "'$char"
+               encoded+="%$hex" ;;
+        esac
+    done
+    _string_url_encode_result="$encoded"
+}
+
 string::url_decode() {
     local s="${1//+/ }"  # replace + with space first
     printf '%b\n' "${s//%/\\x}"
 }
 
+# Fast variant using nameref
+# Usage: string::url_decode::fast result_var str
+string::url_decode::fast() {
+    local -n _string_url_decode_result="$1"
+    local s="${2//+/ }"
+    _string_url_decode_result=$(printf '%b\n' "${s//%/\\x}")
+}
+
 # Base64 encode
+# Usage: string::base64_encode str
 string::base64_encode() {
     case "$(runtime::os)" in
     darwin) echo -n "$1" | base64 ;;
@@ -751,11 +1564,32 @@ string::base64_encode() {
     esac
 }
 
+# Fast variant using nameref
+# Usage: string::base64_encode::fast result_var str
+string::base64_encode::fast() {
+    local -n _string_base64_encode_result="$1"
+    case "$(runtime::os)" in
+    darwin) _string_base64_encode_result=$(echo -n "$2" | base64) ;;
+    *)      _string_base64_encode_result=$(echo -n "$2" | base64 -w 0) ;;
+    esac
+}
+
 # Base64 decode
+# Usage: string::base64_decode str
 string::base64_decode() {
     case "$(runtime::os)" in
     darwin) echo -n "$1" | base64 -D ;;
     *)      echo -n "$1" | base64 --decode ;;
+    esac
+}
+
+# Fast variant using nameref
+# Usage: string::base64_decode::fast result_var str
+string::base64_decode::fast() {
+    local -n _string_base64_decode_result="$1"
+    case "$(runtime::os)" in
+    darwin) _string_base64_decode_result=$(echo -n "$2" | base64 -D) ;;
+    *)      _string_base64_decode_result=$(echo -n "$2" | base64 --decode) ;;
     esac
 }
 
@@ -815,6 +1649,20 @@ string::base32_encode() {
     fi
 }
 
+# Fast variant using nameref
+# Usage: string::base32_encode::fast result_var str
+string::base32_encode::fast() {
+    local -n _string_base32_encode_result="$1"
+    if runtime::has_command base32; then
+        _string_base32_encode_result=$(echo -n "$2" | base32)
+    elif runtime::has_command gbase32; then
+        _string_base32_encode_result=$(echo -n "$2" | gbase32)
+    else
+        echo "string::base32_encode::fast: requires base32 (GNU coreutils)" >&2
+        return 1
+    fi
+}
+
 string::base32_decode() {
     if runtime::has_command base32; then
         echo -n "$1" | base32 --decode
@@ -822,6 +1670,20 @@ string::base32_decode() {
         echo -n "$1" | gbase32 --decode
     else
         echo "string::base32_decode: requires base32 (GNU coreutils)" >&2
+        return 1
+    fi
+}
+
+# Fast variant using nameref
+# Usage: string::base32_decode::fast result_var str
+string::base32_decode::fast() {
+    local -n _string_base32_decode_result="$1"
+    if runtime::has_command base32; then
+        _string_base32_decode_result=$(echo -n "$2" | base32 --decode)
+    elif runtime::has_command gbase32; then
+        _string_base32_decode_result=$(echo -n "$2" | gbase32 --decode)
+    else
+        echo "string::base32_decode::fast: requires base32 (GNU coreutils)" >&2
         return 1
     fi
 }
