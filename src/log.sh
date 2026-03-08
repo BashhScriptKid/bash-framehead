@@ -85,18 +85,17 @@ _log::strip_colour() {
 # Format a log line using LOG_FMT token substitution
 # Usage: _log::format severity message caller_line caller_func
 _log::format() {
-    local severity="$1" msg="$2" caller_line="$3" caller_func="$4"
     local fmt="${LOG_FMT}"
 
     fmt="${fmt//%timestamp%/$(date +%s)}"
     fmt="${fmt//%datetime%/$(date '+%Y-%m-%d %H:%M:%S')}"
-    fmt="${fmt//%severity%/$severity}"
-    fmt="${fmt//%severity_lower%/${severity,,}}"
-    fmt="${fmt//%message%/$msg}"
+    fmt="${fmt//%severity%/$1}"
+    fmt="${fmt//%severity_lower%/${1,,}}"
+    fmt="${fmt//%message%/$2}"
     fmt="${fmt//%script%/$0}"
     fmt="${fmt//%pid%/$$}"
-    fmt="${fmt//%line%/$caller_line}"
-    fmt="${fmt//%func%/$caller_func}"
+    fmt="${fmt//%line%/$3}"
+    fmt="${fmt//%func%/$4}"
 
     echo "$fmt"
 }
@@ -104,36 +103,33 @@ _log::format() {
 # Apply ANSI colour to a line based on severity
 # Usage: _log::colourise severity line
 _log::colourise() {
-    local severity="$1" line="$2"
-    (( LOG_COLOUR )) || { echo "$line"; return; }
+    (( LOG_COLOUR )) || { echo "$2"; return; }
     local colour
-    case "$severity" in
+    case "$1" in
         DEBUG) colour="$_LOG_COLOUR_CYAN"   ;;
         INFO)  colour="$_LOG_COLOUR_GREEN"  ;;
         WARN)  colour="$_LOG_COLOUR_YELLOW" ;;
         ERROR) colour="$_LOG_COLOUR_RED"    ;;
-        *)     echo "$line"; return         ;;
+        *)     echo "$2"; return         ;;
     esac
-    printf '%b%s%b\n' "$colour" "$line" "$_LOG_COLOUR_RESET"
+    printf '%b%s%b\n' "$colour" "$2" "$_LOG_COLOUR_RESET"
 }
 
 # Core emit function — format, route, and output a log line
 # Usage: _log::emit severity level_bit message caller_line caller_func
 _log::emit() {
-    local severity="$1" bit="$2" msg="$3" caller_line="$4" caller_func="$5"
-
     # Ensure defaults are set
     [[ -z "${LOG_FMT+x}" ]] && log::init
 
     local line
-    line=$(_log::format "$severity" "$msg" "$caller_line" "$caller_func")
+    line=$(_log::format "$1" "$3" "$4" "$5")
 
-    local should_stdout=$(( (LOG_TO_STDOUT >> bit) & 1 ))
+    local should_stdout=$(( (LOG_TO_STDOUT >> $2) & 1 ))
 
     if (( should_stdout )); then
-        _log::colourise "$severity" "$line" >&1
+        _log::colourise "$1" "$line" >&1
     else
-        _log::colourise "$severity" "$line" >&2
+        _log::colourise "$1" "$line" >&2
     fi
 
     if [[ -n "$LOG_FILE" ]]; then
@@ -178,9 +174,8 @@ log::warn() {
 #   log::error "failed to connect to database"
 #   log::error "permission denied" 126
 log::error() {
-    local msg="$1"
     local exit_code="${2:-}"
-    _log::emit "ERROR" $LOG_ERROR "$msg" "${BASH_LINENO[0]}" "${FUNCNAME[1]}"
+    _log::emit "ERROR" $LOG_ERROR "$1" "${BASH_LINENO[0]}" "${FUNCNAME[1]}"
     if [[ -n "$exit_code" && "$exit_code" =~ ^-?[0-9]+$ ]]; then
         exit "$exit_code"
     fi

@@ -41,8 +41,7 @@ runtime::is_interactive() {
 }
 
 runtime::has_flag() {
-    local flag="$1"
-    [[ "$-" == *"$flag"* ]]
+    [[ "$-" == *"$1"* ]]
 }
 
 runtime::is_login() {

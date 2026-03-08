@@ -107,10 +107,9 @@ hash::blake2b() {
 # HMAC-SHA256
 # Usage: hash::hmac::sha256 key message
 hash::hmac::sha256() {
-    local key="$1" msg="$2"
     if runtime::has_command openssl; then
-        printf '%s' "$msg" | \
-            openssl dgst -sha256 -hmac "$key" 2>/dev/null | awk '{print $NF}'
+        printf '%s' "$2" | \
+            openssl dgst -sha256 -hmac "$1" 2>/dev/null | awk '{print $NF}'
     else
         echo "hash::hmac::sha256: requires openssl" >&2
         return 1
@@ -120,10 +119,9 @@ hash::hmac::sha256() {
 # HMAC-SHA512
 # Usage: hash::hmac::sha512 key message
 hash::hmac::sha512() {
-    local key="$1" msg="$2"
     if runtime::has_command openssl; then
-        printf '%s' "$msg" | \
-            openssl dgst -sha512 -hmac "$key" 2>/dev/null | awk '{print $NF}'
+        printf '%s' "$2" | \
+            openssl dgst -sha512 -hmac "$1" 2>/dev/null | awk '{print $NF}'
     else
         echo "hash::hmac::sha512: requires openssl" >&2
         return 1
@@ -133,10 +131,9 @@ hash::hmac::sha512() {
 # HMAC-MD5
 # Usage: hash::hmac::md5 key message
 hash::hmac::md5() {
-    local key="$1" msg="$2"
     if runtime::has_command openssl; then
-        printf '%s' "$msg" | \
-            openssl dgst -md5 -hmac "$key" 2>/dev/null | awk '{print $NF}'
+        printf '%s' "$2" | \
+            openssl dgst -md5 -hmac "$1" 2>/dev/null | awk '{print $NF}'
     else
         echo "hash::hmac::md5: requires openssl" >&2
         return 1
@@ -232,14 +229,13 @@ hash::adler32() {
 # CRC32 — delegates to system tools, pure bash fallback is too slow for real use
 # Usage: hash::crc32 string
 hash::crc32() {
-    local s="$1"
     if runtime::has_command crc32; then
-        printf '%s' "$s" | crc32 /dev/stdin 2>/dev/null
+        printf '%s' "$1" | crc32 /dev/stdin 2>/dev/null
     elif runtime::has_command python3; then
-        python3 -c "import binascii,sys; print('%08x' % (binascii.crc32(sys.argv[1].encode()) & 0xffffffff))" "$s"
+        python3 -c "import binascii,sys; print('%08x' % (binascii.crc32(sys.argv[1].encode()) & 0xffffffff))" "$1"
     elif runtime::has_command cksum; then
         # cksum uses CRC but with a different algorithm — close but not standard CRC32
-        printf '%s' "$s" | cksum | awk '{print $1}'
+        printf '%s' "$1" | cksum | awk '{print $1}'
     else
         echo "hash::crc32: requires crc32, python3, or cksum" >&2
         return 1
@@ -294,29 +290,26 @@ hash::murmur2() {
 # Usage: hash::verify string expected_hash algorithm
 # Example: hash::verify "hello" "2cf24dba..." sha256
 hash::verify() {
-    local s="$1" expected="$2" algo="${3:-sha256}"
     local actual
-    actual=$(hash::"$algo" "$s" 2>/dev/null) || return 1
-    [[ "$actual" == "$expected" ]]
+    actual=$(hash::"${3:-sha256}" "$1" 2>/dev/null) || return 1
+    [[ "$actual" == "$2" ]]
 }
 
 # Consistent hashing — map a value to a bucket (0 to n-1)
 # Useful for load balancing, sharding, cache partitioning
 # Usage: hash::slot n_buckets value
 hash::slot() {
-    local n="$1" value="$2"
     local h
-    h=$(hash::fnv1a32 "$value")
-    echo $(( h % n ))
+    h=$(hash::fnv1a32 "$2")
+    echo $(( h % $1 ))
 }
 
 # Generate a short hash — first n chars of sha256
 # Usage: hash::short string [length]
 hash::short() {
-    local s="$1" len="${2:-8}"
     local full
-    full=$(hash::sha256 "$s") || return 1
-    echo "${full:0:$len}"
+    full=$(hash::sha256 "$1") || return 1
+    echo "${full:0:${2:-8}}"
 }
 
 # Hash multiple values into one — useful for cache keys from multiple inputs
@@ -331,9 +324,9 @@ hash::combine() {
 # Check if two strings have the same hash (constant-time safe via hash comparison)
 # Usage: hash::equal string1 string2 [algorithm]
 hash::equal() {
-    local h1 h2 algo="${3:-sha256}"
-    h1=$(hash::"$algo" "$1" 2>/dev/null) || return 1
-    h2=$(hash::"$algo" "$2" 2>/dev/null) || return 1
+    local h1 h2
+    h1=$(hash::"${3:-sha256}" "$1" 2>/dev/null) || return 1
+    h2=$(hash::"${3:-sha256}" "$2" 2>/dev/null) || return 1
     [[ "$h1" == "$h2" ]]
 }
 

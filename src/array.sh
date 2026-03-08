@@ -67,8 +67,7 @@ array::from_lines() {
 # Usage: array::range start end [step]
 # Example: array::range 1 5 → 1 2 3 4 5
 array::range() {
-    local start="$1" end="$2" step="${3:-1}"
-    local i
+    local start="$1" end="$2" step="${3:-1}" i
     for (( i=start; i<=end; i+=step )); do
         echo "$i"
     done
@@ -113,7 +112,7 @@ array::contains() {
 # Usage: array::index_of needle el1 el2 ...
 array::index_of() {
     local needle="$1"; shift
-    local i=0
+    local i=0 el
     for el in "$@"; do
         [[ "$el" == "$needle" ]] && echo "$i" && return 0
         (( i++ ))
@@ -127,7 +126,7 @@ array::index_of() {
 array::index_of::fast() {
     local -n _array_index_of_result="$1"
     local needle="$2"; shift 2
-    local i=0
+    local i=0 el
     for el in "$@"; do
         [[ "$el" == "$needle" ]] && { _array_index_of_result=$i; return 0; }
         (( i++ ))
@@ -514,7 +513,7 @@ array::join::fast() {
 # Sum all numeric elements
 # Usage: array::sum el1 el2 ...
 array::sum() {
-    local total=0
+    local total=0 el
     for el in "$@"; do
         total=$(( total + el ))
     done
@@ -536,7 +535,7 @@ array::sum::fast() {
 # Minimum value (numeric)
 # Usage: array::min el1 el2 ...
 array::min() {
-    local min="$1"; shift
+    local min="$1" el; shift
     for el in "$@"; do
         (( el < min )) && min="$el"
     done
@@ -558,7 +557,7 @@ array::min::fast() {
 # Maximum value (numeric)
 # Usage: array::max el1 el2 ...
 array::max() {
-    local max="$1"; shift
+    local max="$1" el; shift
     for el in "$@"; do
         (( el > max )) && max="$el"
     done
@@ -586,6 +585,7 @@ array::max::fast() {
 # Pass each array as a single space-separated string
 array::intersect() {
     local -a a=($1) b=($2)
+    local el other
     for el in "${a[@]}"; do
         for other in "${b[@]}"; do
             [[ "$el" == "$other" ]] && echo "$el" && break
@@ -610,8 +610,9 @@ array::intersect::fast() {
 # Usage: array::diff "el1 el2 el3" "el2 el3 el4"
 array::diff() {
     local -a a=($1) b=($2)
+    local el other found
     for el in "${a[@]}"; do
-        local found=false
+        found=false
         for other in "${b[@]}"; do
             [[ "$el" == "$other" ]] && found=true && break
         done
@@ -690,8 +691,8 @@ array::sort::numeric_reverse() {
 # Usage: array::equals "el1 el2" "el1 el2"
 array::equals() {
     local -a a=($1) b=($2)
-    [[ "${#a[@]}" -ne "${#b[@]}" ]] && return 1
     local i
+    [[ "${#a[@]}" -ne "${#b[@]}" ]] && return 1
     for (( i=0; i<${#a[@]}; i++ )); do
         [[ "${a[$i]}" != "${b[$i]}" ]] && return 1
     done
@@ -703,8 +704,8 @@ array::equals() {
 array::equals::fast() {
     local -n _array_equals_result="$1"
     local -a a=($2) b=($3)
-    [[ "${#a[@]}" -ne "${#b[@]}" ]] && { _array_equals_result=false; return 1; }
     local i
+    [[ "${#a[@]}" -ne "${#b[@]}" ]] && { _array_equals_result=false; return 1; }
     for (( i=0; i<${#a[@]}; i++ )); do
         [[ "${a[$i]}" != "${b[$i]}" ]] && { _array_equals_result=false; return 1; }
     done
@@ -762,8 +763,7 @@ array::rotate::fast() {
 # Usage: array::chunk size el1 el2 ...
 # Output: each chunk on one line, space-separated
 array::chunk() {
-    local size="$1" i=0; shift
-    local chunk=""
+    local size="$1" i=0 chunk=""; shift
     for el in "$@"; do
         if [[ -n "$chunk" ]]; then chunk+=" $el"
         else chunk="$el"; fi
@@ -780,8 +780,7 @@ array::chunk() {
 # Usage: array::chunk::fast result_arr size el1 el2 ...
 array::chunk::fast() {
     local -n _array_chunk_result="$1"
-    local size="$2"; shift 2
-    local i=0 chunk=""
+    local size="$2" i=0 chunk=""; shift 2
     _array_chunk_result=()
     for el in "$@"; do
         if [[ -n "$chunk" ]]; then chunk+=" $el"

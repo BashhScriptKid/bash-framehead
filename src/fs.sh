@@ -451,17 +451,16 @@ fs::dir::is_empty() {
 # Usage: fs::watch path callback [interval_seconds]
 # Callback receives the path as $1
 fs::watch() {
-    local path="$1" callback="$2" interval="${3:-1}"
     local last_modified
-    last_modified=$(fs::modified "$path")
+    last_modified=$(fs::modified "$1")
 
     while true; do
-        sleep "$interval"
+        sleep "${3:-1}"
         local current
-        current=$(fs::modified "$path")
+        current=$(fs::modified "$1")
         if [[ "$current" != "$last_modified" ]]; then
             last_modified="$current"
-            "$callback" "$path"
+            "$2" "$1"
         fi
     done
 }
@@ -469,19 +468,18 @@ fs::watch() {
 # Watch with a timeout (seconds)
 # Usage: fs::watch::timeout path callback timeout [interval]
 fs::watch::timeout() {
-    local path="$1" callback="$2" timeout="$3" interval="${4:-1}"
     local elapsed=0
     local last_modified
-    last_modified=$(fs::modified "$path")
+    last_modified=$(fs::modified "$1")
 
-    while (( elapsed < timeout )); do
-        sleep "$interval"
-        (( elapsed += interval ))
+    while (( elapsed < ${3:-} )); do
+        sleep "${4:-1}"
+        (( elapsed += ${4:-1} ))
         local current
-        current=$(fs::modified "$path")
+        current=$(fs::modified "$1")
         if [[ "$current" != "$last_modified" ]]; then
             last_modified="$current"
-            "$callback" "$path"
+            "$2" "$1"
         fi
     done
 }

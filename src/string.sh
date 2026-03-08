@@ -178,9 +178,9 @@ string::title::fast() {
 
 # Internal: split any common convention into space-separated words (lowercase)
 _string::to_words() {
-  local s="$1"
   # Insert space before uppercase runs (camel/pascal → words)
-  s="$(echo "$s" | sed 's/\([a-z]\)\([A-Z]\)/\1 \2/g')"
+  local s
+  s="$(echo "$1" | sed 's/\([a-z]\)\([A-Z]\)/\1 \2/g')"
   # Replace common separators with spaces
   s="${s//_/ }"
   s="${s//-/ }"
@@ -957,8 +957,7 @@ string::path_to_snake::fast() {
 
 # path/case → kebab-case
 string::path_to_kebab() {
-  local path="$1"
-  path="${path//\\/-}"  # Replace backslashes
+  local path="${1//\\/-}"  # Replace backslashes
   path="${path//\//-}"  # Replace forward slashes
   echo "$path"
 }
@@ -1033,8 +1032,7 @@ string::path_to_dot::fast() {
 # Trim leading whitespace
 # Usage: string::trim_left str
 string::trim_left() {
-  local s="$1"
-  s="${s#"${s%%[![:space:]]*}"}"
+  local s="${1#"${1%%[![:space:]]*}"}"
   echo "$s"
 }
 
@@ -1048,8 +1046,7 @@ string::trim_left::fast() {
 # Trim trailing whitespace
 # Usage: string::trim_right str
 string::trim_right() {
-  local s="$1"
-  s="${s%"${s##*[![:space:]]}"}"
+  local s="${1%"${1##*[![:space:]]}"}"
   echo "$s"
 }
 
@@ -1063,8 +1060,7 @@ string::trim_right::fast() {
 # Trim both leading and trailing whitespace
 # Usage: string::trim str
 string::trim() {
-  local s="$1"
-  s="${s#"${s%%[![:space:]]*}"}"
+  local s="${1#"${1%%[![:space:]]*}"}"
   s="${s%"${s##*[![:space:]]}"}"
   echo "$s"
 }
@@ -1110,11 +1106,10 @@ string::strip_spaces::fast() {
 # Extract substring
 # Usage: string::substr str start [length]
 string::substr() {
-  local s="$1" start="$2" len="${3:-}"
-  if [[ -n "$len" ]]; then
-    echo "${s:$start:$len}"
+  if [[ -n "${3:-}" ]]; then
+    echo "${1:$2:$3}"
   else
-    echo "${s:$start}"
+    echo "${1:$2}"
   fi
 }
 
@@ -1122,20 +1117,18 @@ string::substr() {
 # Usage: string::substr::fast result_var str start [length]
 string::substr::fast() {
   local -n _string_substr_result="$1"
-  local s="$2" start="$3" len="${4:-}"
-  if [[ -n "$len" ]]; then
-    _string_substr_result="${s:$start:$len}"
+  if [[ -n "${4:-}" ]]; then
+    _string_substr_result="${2:$3:$4}"
   else
-    _string_substr_result="${s:$start}"
+    _string_substr_result="${2:$3}"
   fi
 }
 
 # Index of first occurrence of substring (-1 if not found)
 # Usage: string::index_of haystack needle
 string::index_of() {
-  local haystack="$1" needle="$2"
-  local before="${haystack%%"$needle"*}"
-  if [[ "$before" == "$haystack" ]]; then
+  local before="${1%%"$2"*}"
+  if [[ "$before" == "$1" ]]; then
     echo -1
   else
     echo "${#before}"
@@ -1275,8 +1268,8 @@ string::reverse::fast() {
 # Repeat a string n times
 # Usage: string::repeat str n
 string::repeat() {
-  local str="$1" n="$2" result=""
-  for ((i = 0; i < n; i++)); do result+="$str"; done
+  local result=""
+  for ((i = 0; i < $2; i++)); do result+="$1"; done
   echo "$result"
 }
 
@@ -1284,85 +1277,80 @@ string::repeat() {
 # Usage: string::repeat::fast result_var str n
 string::repeat::fast() {
   local -n _string_repeat_result="$1"
-  local str="$2" n="$3" result=""
-  for ((i = 0; i < n; i++)); do result+="$str"; done
+  local result=""
+  for ((i = 0; i < $3; i++)); do result+="$2"; done
   _string_repeat_result="$result"
 }
 
 # Pad string on the left to a given width
 # Usage: string::pad_left str width [char]
 string::pad_left() {
-  local s="$1" width="$2" char="${3:- }"
-  local len="${#s}"
-  if ((len >= width)); then
-    echo "$s"
+  local len="${#1}"
+  if ((len >= $2)); then
+    echo "$1"
     return
   fi
   local pad
-  pad=$(string::repeat "$char" $((width - len)))
-  echo "${pad}${s}"
+  pad=$(string::repeat "${3:- }" $(( $2 - len )))
+  echo "${pad}${1}"
 }
 
 # Fast variant using nameref
 # Usage: string::pad_left::fast result_var str width [char]
 string::pad_left::fast() {
   local -n _string_pad_left_result="$1"
-  local s="$2" width="$3" char="${4:- }"
-  local len="${#s}"
-  if ((len >= width)); then
-    _string_pad_left_result="$s"
+  local len="${#2}"
+  if ((len >= $3)); then
+    _string_pad_left_result="$2"
     return
   fi
-  local pad result=""
-  for ((i = 0; i < width - len; i++)); do result+="$char"; done
-  _string_pad_left_result="${result}${s}"
+  local result=""
+  for ((i = 0; i < $3 - len; i++)); do result+="${4:- }"; done
+  _string_pad_left_result="${result}${2}"
 }
 
 # Pad string on the right to a given width
 # Usage: string::pad_right str width [char]
 string::pad_right() {
-  local s="$1" width="$2" char="${3:- }"
-  local len="${#s}"
-  if ((len >= width)); then
-    echo "$s"
+  local len="${#1}"
+  if ((len >= $2)); then
+    echo "$1"
     return
   fi
   local pad
-  pad=$(string::repeat "$char" $((width - len)))
-  echo "${s}${pad}"
+  pad=$(string::repeat "${3:- }" $(( $2 - len )))
+  echo "${1}${pad}"
 }
 
 # Fast variant using nameref
 # Usage: string::pad_right::fast result_var str width [char]
 string::pad_right::fast() {
   local -n _string_pad_right_result="$1"
-  local s="$2" width="$3" char="${4:- }"
-  local len="${#s}"
-  if ((len >= width)); then
-    _string_pad_right_result="$s"
+  local len="${#2}"
+  if ((len >= $3)); then
+    _string_pad_right_result="$2"
     return
   fi
   local result=""
-  for ((i = 0; i < width - len; i++)); do result+="$char"; done
-  _string_pad_right_result="${s}${result}"
+  for ((i = 0; i < $3 - len; i++)); do result+="${4:- }"; done
+  _string_pad_right_result="${2}${result}"
 }
 
 # Centre a string within a given width
 # Usage: string::pad_center str width [char]
 string::pad_center() {
-  local s="$1" width="$2" char="${3:- }"
-  local len="${#s}"
-  if ((len >= width)); then
-    echo "$s"
+  local len="${#1}"
+  if ((len >= $2)); then
+    echo "$1"
     return
   fi
-  local total=$((width - len))
+  local total=$(( $2 - len ))
   local left=$((total / 2))
   local right=$((total - left))
   local lpad rpad
-  lpad=$(string::repeat "$char" $left)
-  rpad=$(string::repeat "$char" $right)
-  echo "${lpad}${s}${rpad}"
+  lpad=$(string::repeat "${3:- }" $left)
+  rpad=$(string::repeat "${3:- }" $right)
+  echo "${lpad}${1}${rpad}"
 }
 
 # Fast variant using nameref
@@ -1387,72 +1375,57 @@ string::pad_center::fast() {
 # Truncate a string to max length, appending suffix if truncated
 # Usage: string::truncate str max [suffix]
 string::truncate() {
-  local s="$1" max="$2"
-  local suffix
-
-  if ((${#s} <= max)); then
-    echo "$s"
+  if ((${#1} <= $2)); then
+    echo "$1"
     return 0
   fi
 
   # Handle very small max values
-  if ((max <= 1)); then
-    # Can only show suffix
+  if (( $2 <= 1 )); then
     echo "…"
     return 0
-  elif ((max == 2)); then
-    # Can show 1 char + single ellipsis
-    echo "${s:0:1}…"
+  elif (( $2 == 2 )); then
+    echo "${1:0:1}…"
     return 0
   fi
 
   # Determine which suffix to use based on available space
-  local available_chars=$((max - 3))  # Try with 3-dot suffix first
+  local available_chars=$(( $2 - 3 ))
 
   if ((available_chars < 3)); then
-    # If we'd have less than 3 chars from original with 3-dot suffix,
-    # use single ellipsis instead
-    suffix="…"
-    available_chars=$((max - 1))
+    echo "${1:0:$(( $2 - 1 ))}…"
   else
-    suffix="..."
+    echo "${1:0:$available_chars}..."
   fi
-
-  echo "${s:0:$available_chars}${suffix}"
 }
 
 # Fast variant using nameref
 # Usage: string::truncate::fast result_var str max [suffix]
 string::truncate::fast() {
   local -n _string_truncate_result="$1"
-  local s="$2" max="$3"
-  local suffix
 
-  if ((${#s} <= max)); then
-    _string_truncate_result="$s"
+  if ((${#2} <= $3)); then
+    _string_truncate_result="$2"
     return 0
   fi
 
   # Handle very small max values
-  if ((max <= 1)); then
+  if (( $3 <= 1 )); then
     _string_truncate_result="…"
     return 0
-  elif ((max == 2)); then
-    _string_truncate_result="${s:0:1}…"
+  elif (( $3 == 2 )); then
+    _string_truncate_result="${2:0:1}…"
     return 0
   fi
 
   # Determine which suffix to use based on available space
-  local available_chars=$((max - 3))
+  local available_chars=$(( $3 - 3 ))
 
   if ((available_chars < 3)); then
-    suffix="…"
-    available_chars=$((max - 1))
+    _string_truncate_result="${2:$(( $3 - 1 ))}…"
   else
-    suffix="..."
+    _string_truncate_result="${2:0:$available_chars}..."
   fi
-
-  _string_truncate_result="${s:0:$available_chars}${suffix}"
 }
 
 # ==============================================================================
@@ -1462,10 +1435,8 @@ string::truncate::fast() {
 # Split a string by delimiter into lines (one element per line)
 # Usage: string::split str delimiter
 string::split() {
-  local s="$1" delim="$2"
-  local IFS="$delim"
-  # Remove IFS from positional parameters to enable word splitting
-  set -- $s
+  local IFS="$2"
+  set -- $1
   printf '%s\n' "$@"
 }
 
@@ -1475,8 +1446,7 @@ string::split() {
 string::join() {
   local delim="$1"
   shift
-  local result=""
-  local first=true
+  local result="" first=true
   for part in "$@"; do
     if $first; then
       result="$part"
@@ -1494,8 +1464,7 @@ string::join::fast() {
   local -n _string_join_result="$1"
   local delim="$2"
   shift 2
-  local result=""
-  local first=true
+  local result="" first=true
   for part in "$@"; do
     if $first; then
       result="$part"
@@ -1514,9 +1483,9 @@ string::join::fast() {
 # URL-encode a string
 # Usage: string::url_encode str
 string::url_encode() {
-    local s="$1" encoded="" i char hex
-    for (( i=0; i<${#s}; i++ )); do
-        char="${s:$i:1}"
+    local encoded="" i char hex
+    for (( i=0; i<${#1}; i++ )); do
+        char="${1:$i:1}"
         case "$char" in
             [a-zA-Z0-9.~_-]) encoded+="$char" ;;
             *) printf -v hex '%02X' "'$char"
@@ -1530,9 +1499,9 @@ string::url_encode() {
 # Usage: string::url_encode::fast result_var str
 string::url_encode::fast() {
     local -n _string_url_encode_result="$1"
-    local s="$2" encoded="" i char hex
-    for (( i=0; i<${#s}; i++ )); do
-        char="${s:$i:1}"
+    local encoded="" i char hex
+    for (( i=0; i<${#2}; i++ )); do
+        char="${2:$i:1}"
         case "$char" in
             [a-zA-Z0-9.~_-]) encoded+="$char" ;;
             *) printf -v hex '%02X' "'$char"
@@ -1594,18 +1563,18 @@ string::base64_decode::fast() {
 }
 
 string::base64_encode::pure() {
-    local s="$1" out="" i a b c
+    local out="" i a b c
     local _B64="ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/"
 
-    for (( i=0; i<${#s}; i+=3 )); do
-        a=$(printf '%d' "'${s:$i:1}")
-        b=$(( i+1 < ${#s} ? $(printf '%d' "'${s:$((i+1)):1}") : 0 ))
-        c=$(( i+2 < ${#s} ? $(printf '%d' "'${s:$((i+2)):1}") : 0 ))
+    for (( i=0; i<${#1}; i+=3 )); do
+        a=$(printf '%d' "'${1:$i:1}")
+        b=$(( i+1 < ${#1} ? $(printf '%d' "'${1:$((i+1)):1}") : 0 ))
+        c=$(( i+2 < ${#1} ? $(printf '%d' "'${1:$((i+2)):1}") : 0 ))
 
         out+="${_B64:$(( (a >> 2) & 63 )):1}"
         out+="${_B64:$(( ((a << 4) | (b >> 4)) & 63 )):1}"
-        out+="${_B64:$(( i+1 < ${#s} ? ((b << 2) | (c >> 6)) & 63 : 64 )):1}"
-        out+="${_B64:$(( i+2 < ${#s} ? c & 63 : 64 )):1}"
+        out+="${_B64:$(( i+1 < ${#1} ? ((b << 2) | (c >> 6)) & 63 : 64 )):1}"
+        out+="${_B64:$(( i+2 < ${#1} ? c & 63 : 64 )):1}"
     done
 
     echo "$out"

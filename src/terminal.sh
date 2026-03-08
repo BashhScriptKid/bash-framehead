@@ -238,19 +238,17 @@ terminal::bell() {
 # Read a single keypress without requiring Enter
 # Usage: terminal::read_key varname
 terminal::read_key() {
-    local _var="${1:-_TERMINAL_KEY}"
     local _key
     IFS= read -r -s -n1 _key
-    printf -v "$_var" '%s' "$_key"
+    printf -v "$1" '%s' "$_key"
 }
 
 # Read a single keypress with a timeout
 # Usage: terminal::read_key::timeout varname seconds
 terminal::read_key::timeout() {
-    local _var="${1:-_TERMINAL_KEY}" _timeout="${2:-5}"
     local _key
-    IFS= read -r -s -n1 -t "$_timeout" _key
-    printf -v "$_var" '%s' "$_key"
+    IFS= read -r -s -n1 -t "$2" _key
+    printf -v "$1" '%s' "$_key"
 }
 
 # Prompt user for y/n, returns 0 for yes, 1 for no
@@ -295,14 +293,13 @@ terminal::echo::on() {
 # Read a password (no echo)
 # Usage: terminal::read_password varname [prompt]
 terminal::read_password() {
-    local _var="$1" _prompt="${2:-Password: }"
     local _pass
-    printf '%s' "$_prompt"
+    printf '%s' "${2:-Password: }"
     terminal::echo::off
     IFS= read -r _pass
     terminal::echo::on
     printf '\n'
-    printf -v "$_var" '%s' "$_pass"
+    printf -v "$1" '%s' "$_pass"
 }
 
 # ==============================================================================

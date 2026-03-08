@@ -78,17 +78,16 @@ device::is_virtual() {
 # Possible returns: block, char, loop, ram, disk, partition, nvme,
 #                   virtual, tty, pty, usb, optical, unknown
 device::type() {
-    local dev="$1"
-    local base="${dev##*/}"
+    local base="${1##*/}"
 
     # Virtual/pseudo devices first
-    device::is_virtual "$dev" && echo "virtual"   && return
-    device::is_loop "$dev"    && echo "loop"      && return
-    device::is_ram "$dev"     && echo "ram"       && return
+    device::is_virtual "$1" && echo "virtual"   && return
+    device::is_loop "$1"    && echo "loop"      && return
+    device::is_ram "$1"     && echo "ram"       && return
 
     # TTY / PTY
-    [[ "$dev" == /dev/tty*  ]] && echo "tty" && return
-    [[ "$dev" == /dev/pts/* ]] && echo "pty" && return
+    [[ "$1" == /dev/tty*  ]] && echo "tty" && return
+    [[ "$1" == /dev/pts/* ]] && echo "pty" && return
 
     # NVMe
     [[ "$base" =~ ^nvme[0-9]+n[0-9]+p[0-9]+$ ]] && echo "partition" && return
@@ -122,15 +121,14 @@ device::type() {
 
 # Returns the major:minor device number
 device::number() {
-    local dev="$1"
     if runtime::has_command stat; then
         case "$(runtime::os)" in
         linux|wsl|cygwin|mingw)
-            stat -c '%t:%T' "$dev" 2>/dev/null | \
+            stat -c '%t:%T' "$1" 2>/dev/null | \
                 awk -F: '{ printf "%d:%d\n", strtonum("0x"$1), strtonum("0x"$2) }'
             ;;
         darwin)
-            stat -f '%Hr:%Lr' "$dev" 2>/dev/null
+            stat -f '%Hr:%Lr' "$1" 2>/dev/null
             ;;
         *)
             echo "unknown"
@@ -144,17 +142,16 @@ device::number() {
 # Returns the filesystem on a block device (if mounted or detectable)
 # Requires: blkid (Linux) or diskutil (macOS)
 device::filesystem() {
-    local dev="$1"
     case "$(runtime::os)" in
     linux|wsl)
         if runtime::has_command blkid; then
-            blkid -o value -s TYPE "$dev" 2>/dev/null || echo "unknown"
+            blkid -o value -s TYPE "$1" 2>/dev/null || echo "unknown"
         else
             echo "unknown"
         fi
         ;;
     darwin)
-        diskutil info "$dev" 2>/dev/null \
+        diskutil info "$1" 2>/dev/null \
             | awk -F': +' '/Type \(Bundle\)/ { print $2 }' || echo "unknown"
         ;;
     *)
@@ -165,20 +162,19 @@ device::filesystem() {
 
 # Returns the size of a block device in bytes
 device::size_bytes() {
-    local dev="$1"
     case "$(runtime::os)" in
     linux|wsl)
-        if [[ -r "/sys/block/${dev##*/}/size" ]]; then
+        if [[ -r "/sys/block/${1##*/}/size" ]]; then
             # /sys/block reports 512-byte sectors
-            echo $(( $(cat "/sys/block/${dev##*/}/size") * 512 ))
+            echo $(( $(cat "/sys/block/${1##*/}/size") * 512 ))
         elif runtime::has_command blockdev; then
-            blockdev --getsize64 "$dev" 2>/dev/null || echo "unknown"
+            blockdev --getsize64 "$1" 2>/dev/null || echo "unknown"
         else
             echo "unknown"
         fi
         ;;
     darwin)
-        diskutil info "$dev" 2>/dev/null \
+        diskutil info "$1" 2>/dev/null \
             | awk -F': +' '/Disk Size/ { match($2, /[0-9]+/, a); print a[0] }' \
             || echo "unknown"
         ;;
@@ -198,13 +194,12 @@ device::size_mb() {
 
 # Returns the mount point of a block device (empty if not mounted)
 device::mount_point() {
-    local dev="$1"
     case "$(runtime::os)" in
     linux|wsl)
-        grep "^$dev " /proc/mounts 2>/dev/null | awk '{print $2}' | head -1
+        grep "^$1 " /proc/mounts 2>/dev/null | awk '{print $2}' | head -1
         ;;
     darwin)
-        diskutil info "$dev" 2>/dev/null \
+        diskutil info "$1" 2>/dev/null \
             | awk -F': +' '/Mount Point/ { print $2 }'
         ;;
     *)
@@ -281,8 +276,7 @@ device::zero() {
 # Read n random bytes from /dev/urandom
 # Usage: device::random [bytes]
 device::random() {
-    local bytes="${1:-16}"
-    dd if=/dev/urandom bs=1 count="$bytes" 2>/dev/null | od -An -tx1 | tr -d ' \n'
+    dd if=/dev/urandom bs=1 count="${1:-16}" 2>/dev/null | od -An -tx1 | tr -d ' \n'
     echo
 }
 

@@ -77,15 +77,13 @@ git::branch::list::all() {
 }
 
 git::branch::exists() {
-    local branch="$1"
     git::is_repo || return 1
-    git show-ref --verify --quiet "refs/heads/${branch}" 2>/dev/null
+    git show-ref --verify --quiet "refs/heads/${1}" 2>/dev/null
 }
 
 git::branch::exists::remote() {
-    local branch="$1"
     git::is_repo || return 1
-    git show-ref --verify --quiet "refs/remotes/origin/${branch}" 2>/dev/null
+    git show-ref --verify --quiet "refs/remotes/origin/${1}" 2>/dev/null
 }
 
 # ==============================================================================
@@ -93,38 +91,31 @@ git::branch::exists::remote() {
 # ==============================================================================
 
 git::commit::hash() {
-    local ref="${1:-HEAD}"
-    git rev-parse "${ref}" 2>/dev/null || echo "unknown"
+    git rev-parse "${1:-HEAD}" 2>/dev/null || echo "unknown"
 }
 
 git::commit::short_hash() {
-    local ref="${1:-HEAD}"
-    git rev-parse --short "${ref}" 2>/dev/null || echo "unknown"
+    git rev-parse --short "${1:-HEAD}" 2>/dev/null || echo "unknown"
 }
 
 git::commit::message() {
-    local ref="${1:-HEAD}"
-    git log -1 --format="%s" "${ref}" 2>/dev/null || echo "unknown"
+    git log -1 --format="%s" "${1:-HEAD}" 2>/dev/null || echo "unknown"
 }
 
 git::commit::author() {
-    local ref="${1:-HEAD}"
-    git log -1 --format="%an" "${ref}" 2>/dev/null || echo "unknown"
+    git log -1 --format="%an" "${1:-HEAD}" 2>/dev/null || echo "unknown"
 }
 
 git::commit::author::email() {
-    local ref="${1:-HEAD}"
-    git log -1 --format="%ae" "${ref}" 2>/dev/null || echo "unknown"
+    git log -1 --format="%ae" "${1:-HEAD}" 2>/dev/null || echo "unknown"
 }
 
 git::commit::date() {
-    local ref="${1:-HEAD}"
-    git log -1 --format="%ci" "${ref}" 2>/dev/null || echo "unknown"
+    git log -1 --format="%ci" "${1:-HEAD}" 2>/dev/null || echo "unknown"
 }
 
 git::commit::date::relative() {
-    local ref="${1:-HEAD}"
-    git log -1 --format="%cr" "${ref}" 2>/dev/null || echo "unknown"
+    git log -1 --format="%cr" "${1:-HEAD}" 2>/dev/null || echo "unknown"
 }
 
 git::commit::count() {
@@ -133,9 +124,8 @@ git::commit::count() {
 }
 
 git::log() {
-    local count="${1:-10}"
     git::is_repo || return 1
-    git log --oneline -"${count}" 2>/dev/null
+    git log --oneline -"${1:-10}" 2>/dev/null
 }
 
 # ==============================================================================
@@ -153,8 +143,7 @@ git::remote::list() {
 }
 
 git::remote::url() {
-    local remote="${1:-origin}"
-    git remote get-url "${remote}" 2>/dev/null || echo "unknown"
+    git remote get-url "${1:-origin}" 2>/dev/null || echo "unknown"
 }
 
 git::is_ahead() {
@@ -196,9 +185,8 @@ git::tag::latest() {
 }
 
 git::tag::exists() {
-    local tag="$1"
     git::is_repo || return 1
-    git show-ref --verify --quiet "refs/tags/${tag}" 2>/dev/null
+    git show-ref --verify --quiet "refs/tags/${1}" 2>/dev/null
 }
 
 # ==============================================================================

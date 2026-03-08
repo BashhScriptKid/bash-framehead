@@ -40,33 +40,30 @@ process::self() {
 # Get process name from PID
 # Usage: process::name pid
 process::name() {
-    local pid="${1:-$$}"
-    if [[ -f "/proc/$pid/comm" ]]; then
-        cat "/proc/$pid/comm"
+    if [[ -f "/proc/${1}/comm" ]]; then
+        cat "/proc/${1}/comm"
     else
-        ps -o comm= -p "$pid" 2>/dev/null
+        ps -o comm= -p "$1" 2>/dev/null
     fi
 }
 
 # Get command line of a process
 # Usage: process::cmdline pid
 process::cmdline() {
-    local pid="${1:-$$}"
-    if [[ -f "/proc/$pid/cmdline" ]]; then
-        tr '\0' ' ' < "/proc/$pid/cmdline"
+    if [[ -f "/proc/${1}/cmdline" ]]; then
+        tr '\0' ' ' < "/proc/${1}/cmdline"
     else
-        ps -o args= -p "$pid" 2>/dev/null
+        ps -o args= -p "$1" 2>/dev/null
     fi
 }
 
 # Get process state (R=running, S=sleeping, Z=zombie, etc.)
 # Usage: process::state pid
 process::state() {
-    local pid="$1"
-    if [[ -f "/proc/$pid/status" ]]; then
-        awk '/^State:/{print $2}' "/proc/$pid/status"
+    if [[ -f "/proc/${1}/status" ]]; then
+        awk '/^State:/{print $2}' "/proc/${1}/status"
     else
-        ps -o state= -p "$pid" 2>/dev/null
+        ps -o state= -p "$1" 2>/dev/null
     fi
 }
 
@@ -78,17 +75,15 @@ process::is_zombie() {
 # Get process working directory
 # Usage: process::cwd pid
 process::cwd() {
-    local pid="${1:-$$}"
-    readlink "/proc/$pid/cwd" 2>/dev/null || \
-        lsof -p "$pid" 2>/dev/null | awk '$4=="cwd"{print $9}'
+    readlink "/proc/${1}/cwd" 2>/dev/null || \
+        lsof -p "$1" 2>/dev/null | awk '$4=="cwd"{print $9}'
 }
 
 # Get process environment variable
 # Usage: process::env pid varname
 process::env() {
-    local pid="$1" var="$2"
-    if [[ -f "/proc/$pid/environ" ]]; then
-        tr '\0' '\n' < "/proc/$pid/environ" | grep "^${var}=" | cut -d= -f2-
+    if [[ -f "/proc/${1}/environ" ]]; then
+        tr '\0' '\n' < "/proc/${1}/environ" | grep "^${2}=" | cut -d= -f2-
     fi
 }
 
@@ -137,8 +132,8 @@ process::cpu() {
 # Get memory usage in KB for a PID
 # Usage: process::memory pid
 process::memory() {
-    if [[ -f "/proc/$1/status" ]]; then
-        awk '/^VmRSS:/{print $2}' "/proc/$1/status"
+    if [[ -f "/proc/${1}/status" ]]; then
+        awk '/^VmRSS:/{print $2}' "/proc/${1}/status"
     else
         ps -o rss= -p "$1" 2>/dev/null | tr -d ' '
     fi
@@ -151,13 +146,13 @@ process::memory::percent() {
 
 # Get number of open file descriptors for a PID
 process::fd_count() {
-    ls "/proc/$1/fd" 2>/dev/null | wc -l
+    ls "/proc/${1}/fd" 2>/dev/null | wc -l
 }
 
 # Get number of threads for a PID
 process::thread_count() {
-    if [[ -f "/proc/$1/status" ]]; then
-        awk '/^Threads:/{print $2}' "/proc/$1/status"
+    if [[ -f "/proc/${1}/status" ]]; then
+        awk '/^Threads:/{print $2}' "/proc/${1}/status"
     else
         ps -o nlwp= -p "$1" 2>/dev/null | tr -d ' '
     fi
@@ -165,19 +160,15 @@ process::thread_count() {
 
 # Get process start time (unix timestamp)
 process::start_time() {
-    local pid="$1"
-    if runtime::has_command ps; then
-        ps -o lstart= -p "$pid" 2>/dev/null
-    fi
+    ps -o lstart= -p "$1" 2>/dev/null
 }
 
 # Get process uptime in seconds
 process::uptime() {
-    local pid="$1"
-    if [[ -f "/proc/$pid/stat" ]]; then
+    if [[ -f "/proc/${1}/stat" ]]; then
         local clk_tck start_ticks uptime_secs
         clk_tck=$(getconf CLK_TCK 2>/dev/null || echo 100)
-        start_ticks=$(awk '{print $22}' "/proc/$pid/stat")
+        start_ticks=$(awk '{print $22}' "/proc/${1}/stat")
         uptime_secs=$(awk '{print $1}' /proc/uptime)
         echo "$(( ${uptime_secs%.*} - start_ticks / clk_tck ))"
     fi
@@ -211,25 +202,24 @@ process::kill::name() {
 # Graceful kill — SIGTERM, wait, then SIGKILL if still running
 # Usage: process::kill::graceful pid [timeout_seconds]
 process::kill::graceful() {
-    local pid="$1" timeout="${2:-5}"
-    process::is_running "$pid" || return 0
+    process::is_running "$1" || return 0
 
     # SIGCONT first — a stopped process ignores SIGTERM
-    kill -CONT "$pid" 2>/dev/null
-    kill -TERM "$pid" 2>/dev/null
+    kill -CONT "$1" 2>/dev/null
+    kill -TERM "$1" 2>/dev/null
 
     local elapsed=0
-    while (( elapsed < timeout )); do
-        process::is_running "$pid" || return 0
+    while (( elapsed < ${2:-5} )); do
+        process::is_running "$1" || return 0
         sleep 1
         (( elapsed++ ))
     done
 
     # Still running after timeout — force kill
-    kill -KILL "$pid" 2>/dev/null
+    kill -KILL "$1" 2>/dev/null
     local i
     for (( i = 0; i < 5; i++ )); do
-        process::is_running "$pid" || return 0
+        process::is_running "$1" || return 0
         sleep 0.2
     done
     return 1
@@ -253,17 +243,16 @@ process::reload() {
 # Wait for a process to finish
 # Usage: process::wait pid [timeout_seconds]
 process::wait() {
-    local pid="$1" timeout="${2:-}"
-    if [[ -z "$timeout" ]]; then
-        wait "$pid" 2>/dev/null
+    if [[ -z "${2:-}" ]]; then
+        wait "$1" 2>/dev/null
         return $?
     fi
 
     local elapsed=0
-    while process::is_running "$pid"; do
+    while process::is_running "$1"; do
         sleep 1
         (( elapsed++ ))
-        (( elapsed >= timeout )) && return 1
+        (( elapsed >= ${2:-} )) && return 1
     done
     return 0
 }
@@ -288,19 +277,17 @@ process::run_bg() {
 # Run a command in the background, redirect output to a log file
 # Usage: process::run_bg::log logfile command [args...]
 process::run_bg::log() {
-    local logfile="$1"; shift
-    "$@" >> "$logfile" 2>&1 &
+    "$@" >> "$1" 2>&1 &
     echo $!
 }
 
 # Run a command in the background with a timeout
 # Usage: process::run_bg::timeout seconds command [args...]
 process::run_bg::timeout() {
-    local timeout="$1"; shift
     (
-        "$@" &
+        "$2" &
         local pid=$!
-        sleep "$timeout"
+        sleep "$1"
         process::kill::graceful "$pid"
     ) &
     echo $!
@@ -369,11 +356,11 @@ process::lock::is_locked() {
 # Wait for a lock to become available
 # Usage: process::lock::wait lockname [timeout]
 process::lock::wait() {
-    local name="$1" timeout="${2:-30}" elapsed=0
-    while ! process::lock::acquire "$name"; do
+    local elapsed=0
+    while ! process::lock::acquire "$1"; do
         sleep 1
         (( elapsed++ ))
-        (( elapsed >= timeout )) && return 1
+        (( elapsed >= ${2:-30} )) && return 1
     done
     return 0
 }
@@ -452,14 +439,13 @@ process::time() {
 # Run a command with a timeout, kill it if it exceeds
 # Usage: process::timeout seconds command [args...]
 process::timeout() {
-    local timeout="$1"; shift
     if runtime::has_command timeout; then
-        timeout "$timeout" "$@"
+        timeout "$1" "${@:2}"
     else
         # Pure bash fallback
-        "$@" &
+        "${@:2}" &
         local pid=$!
-        ( sleep "$timeout"; process::kill::graceful "$pid" ) &
+        ( sleep "$1"; process::kill::graceful "$pid" ) &
         local watcher=$!
         wait "$pid" 2>/dev/null
         local ret=$?
@@ -471,12 +457,11 @@ process::timeout() {
 # Retry a command n times with a delay between attempts
 # Usage: process::retry times delay command [args...]
 process::retry() {
-    local tries="$1" delay="$2"; shift 2
     local attempt=0
-    while (( attempt < tries )); do
-        "$@" && return 0
+    while (( attempt < $1 )); do
+        "${@:3}" && return 0
         (( attempt++ ))
-        (( attempt < tries )) && sleep "$delay"
+        (( attempt < $1 )) && sleep "$2"
     done
     return 1
 }
@@ -484,11 +469,10 @@ process::retry() {
 # Run command only if not already running (singleton)
 # Usage: process::singleton lockname command [args...]
 process::singleton() {
-    local name="$1"; shift
-    if process::lock::acquire "$name"; then
-        "$@"
+    if process::lock::acquire "$1"; then
+        "${@:2}"
     else
-        echo "process::singleton: '$name' is already running" >&2
+        echo "process::singleton: '$1' is already running" >&2
         return 1
     fi
 }

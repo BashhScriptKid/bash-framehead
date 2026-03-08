@@ -17,15 +17,14 @@ _timedate::has_gnu_date() {
 # Portable date formatting
 # Usage: _timedate::format format [timestamp]
 _timedate::format() {
-    local fmt="$1" ts="${2:-}"
-    if [[ -n "$ts" ]]; then
+    if [[ -n "${2:-}" ]]; then
         if _timedate::has_gnu_date; then
-            date -d "@$ts" +"$fmt" 2>/dev/null
+            date -d "@$2" +"$1" 2>/dev/null
         else
-            date -r "$ts" +"$fmt" 2>/dev/null
+            date -r "$2" +"$1" 2>/dev/null
         fi
     else
-        date +"$fmt"
+        date +"$1"
     fi
 }
 
@@ -66,8 +65,7 @@ timedate::timestamp::unix_ns() {
 # Convert unix timestamp to human-readable
 # Usage: timedate::timestamp::to_human timestamp [format]
 timedate::timestamp::to_human() {
-    local ts="$1" fmt="${2:-%Y-%m-%d %H:%M:%S}"
-    _timedate::format "$fmt" "$ts"
+    _timedate::format "${2:-%Y-%m-%d %H:%M:%S}" "$1"
 }
 
 # Convert human-readable date to unix timestamp
@@ -92,8 +90,7 @@ timedate::date::today() {
 # Current date in a custom format
 # Usage: timedate::date::format [format] [timestamp]
 timedate::date::format() {
-    local fmt="${1:-%Y-%m-%d}" ts="${2:-}"
-    _timedate::format "$fmt" "$ts"
+    _timedate::format "${1:-%Y-%m-%d}" "${2:-}"
 }
 
 # Get year
@@ -140,14 +137,13 @@ timedate::date::quarter() {
 # Get last day of a given month
 # Usage: timedate::date::days_in_month year month
 timedate::date::days_in_month() {
-    local year="$1" month="$2"
     # Remove leading zero to avoid octal interpretation
-    month=$(( 10#$month ))
+    local month=$(( 10#$2 ))
     case "$month" in
     1|3|5|7|8|10|12) echo 31 ;;
     4|6|9|11)         echo 30 ;;
     2)
-        if timedate::calendar::is_leap_year "$year"; then
+        if timedate::calendar::is_leap_year "$1"; then
             echo 29
         else
             echo 28
@@ -159,11 +155,10 @@ timedate::date::days_in_month() {
 # Add n days to a date
 # Usage: timedate::date::add_days YYYY-MM-DD n
 timedate::date::add_days() {
-    local date_str="$1" n="$2"
     if _timedate::has_gnu_date; then
-        date -d "$date_str + $n days" +%Y-%m-%d 2>/dev/null
+        date -d "$1 + $2 days" +%Y-%m-%d 2>/dev/null
     else
-        date -v+"${n}d" -j -f "%Y-%m-%d" "$date_str" +%Y-%m-%d 2>/dev/null
+        date -v+"${2}d" -j -f "%Y-%m-%d" "$1" +%Y-%m-%d 2>/dev/null
     fi
 }
 
@@ -174,21 +169,19 @@ timedate::date::sub_days() {
 
 # Add n months to a date
 timedate::date::add_months() {
-    local date_str="$1" n="$2"
     if _timedate::has_gnu_date; then
-        date -d "$date_str + $n months" +%Y-%m-%d 2>/dev/null
+        date -d "$1 + $2 months" +%Y-%m-%d 2>/dev/null
     else
-        date -v+"${n}m" -j -f "%Y-%m-%d" "$date_str" +%Y-%m-%d 2>/dev/null
+        date -v+"${2}m" -j -f "%Y-%m-%d" "$1" +%Y-%m-%d 2>/dev/null
     fi
 }
 
 # Add n years to a date
 timedate::date::add_years() {
-    local date_str="$1" n="$2"
     if _timedate::has_gnu_date; then
-        date -d "$date_str + $n years" +%Y-%m-%d 2>/dev/null
+        date -d "$1 + $2 years" +%Y-%m-%d 2>/dev/null
     else
-        date -v+"${n}y" -j -f "%Y-%m-%d" "$date_str" +%Y-%m-%d 2>/dev/null
+        date -v+"${2}y" -j -f "%Y-%m-%d" "$1" +%Y-%m-%d 2>/dev/null
     fi
 }
 
@@ -252,20 +245,18 @@ timedate::date::year_end() {
 # Next occurrence of a weekday from today
 # Usage: timedate::date::next_weekday weekday_number (1=Mon, 7=Sun)
 timedate::date::next_weekday() {
-    local target="$1"
-    local current_dow
-    current_dow=$(timedate::date::day_of_week)
-    local diff=$(( (target - current_dow + 7) % 7 ))
+    local dow
+    dow=$(timedate::date::day_of_week)
+    local diff=$(( ($1 - dow + 7) % 7 ))
     (( diff == 0 )) && diff=7
     timedate::date::add_days "$(timedate::date::today)" "$diff"
 }
 
 # Previous occurrence of a weekday
 timedate::date::prev_weekday() {
-    local target="$1"
-    local current_dow
-    current_dow=$(timedate::date::day_of_week)
-    local diff=$(( (current_dow - target + 7) % 7 ))
+    local dow
+    dow=$(timedate::date::day_of_week)
+    local diff=$(( (dow - $1 + 7) % 7 ))
     (( diff == 0 )) && diff=7
     timedate::date::add_days "$(timedate::date::today)" "$(( -diff ))"
 }
@@ -294,9 +285,8 @@ timedate::date::is_after() {
 
 # Check if a date is between two dates (inclusive)
 timedate::date::is_between() {
-    local d="$1" start="$2" end="$3"
-    ! timedate::date::is_before "$d" "$start" && \
-    ! timedate::date::is_after  "$d" "$end"
+    ! timedate::date::is_before "$1" "$2" && \
+    ! timedate::date::is_after  "$1" "$3"
 }
 
 # ==============================================================================
@@ -310,8 +300,7 @@ timedate::time::now() {
 
 # Current time in a custom format
 timedate::time::format() {
-    local fmt="${1:-%H:%M:%S}"
-    date +"$fmt"
+    date +"${1:-%H:%M:%S}"
 }
 
 # Get hour (00-23)
@@ -336,37 +325,29 @@ timedate::time::timezone_offset() {
 # Check if current time is before a given time
 # Usage: timedate::time::is_before HH:MM
 timedate::time::is_before() {
-    local target="$1"
-    local current
-    current=$(date +%H:%M)
-    [[ "$current" < "$target" ]]
+    [[ "$(date +%H:%M)" < "$1" ]]
 }
 
 # Check if current time is after a given time
 timedate::time::is_after() {
-    local target="$1"
-    local current
-    current=$(date +%H:%M)
-    [[ "$current" > "$target" ]]
+    [[ "$(date +%H:%M)" > "$1" ]]
 }
 
 # Check if current time is between two times (HH:MM)
 # Usage: timedate::time::is_between HH:MM HH:MM
 timedate::time::is_between() {
-    local start="$1" end="$2"
     local current
     current=$(date +%H:%M)
-    [[ "$current" > "$start" && "$current" < "$end" ]]
+    [[ "$current" > "$1" && "$current" < "$2" ]]
 }
 
 # Check if currently business hours (09:00-17:00 Mon-Fri)
 # Usage: timedate::time::is_business_hours [start_hour] [end_hour]
 timedate::time::is_business_hours() {
-    local start="${1:-09:00}" end="${2:-17:00}"
     local dow
     dow=$(timedate::date::day_of_week)
     (( dow >= 1 && dow <= 5 )) || return 1
-    timedate::time::is_between "$start" "$end"
+    timedate::time::is_between "${1:-09:00}" "${2:-17:00}"
 }
 
 # Check if currently morning (00:00-11:59)
@@ -393,13 +374,12 @@ timedate::time::is_evening() {
 # Sleep with a progress indicator
 # Usage: timedate::time::sleep seconds [message]
 timedate::time::sleep() {
-    local secs="$1" msg="${2:-Waiting}"
     local i
-    for (( i=secs; i>0; i-- )); do
-        printf '\r%s... %ds ' "$msg" "$i"
+    for (( i=$1; i>0; i-- )); do
+        printf '\r%s... %ds ' "${2:-Waiting}" "$i"
         sleep 1
     done
-    printf '\r%s... done\n' "$msg"
+    printf '\r%s... done\n' "${2:-Waiting}"
 }
 
 # Stopwatch — start, returns a token
@@ -411,10 +391,9 @@ timedate::time::stopwatch::start() {
 # Stopwatch — stop, returns elapsed ms
 # Usage: timedate::time::stopwatch::stop token
 timedate::time::stopwatch::stop() {
-    local start="$1"
     local now
     now=$(timedate::timestamp::unix_ms)
-    echo $(( now - start ))
+    echo $(( now - $1 ))
 }
 
 # ==============================================================================
@@ -425,41 +404,39 @@ timedate::time::stopwatch::stop() {
 # Usage: timedate::duration::format seconds
 # Output: 1d 2h 3m 4s
 timedate::duration::format() {
-    local total="$1"
     local neg=""
-    (( total < 0 )) && neg="-" && total=$(( -total ))
+    (( $1 < 0 )) && neg="-" && $1=$(( -$1 ))
 
-    local days=$(( total / 86400 ))
-    local hours=$(( (total % 86400) / 3600 ))
-    local mins=$(( (total % 3600) / 60 ))
-    local secs=$(( total % 60 ))
+    local days=$(( $1 / 86400 ))
+    local hours=$(( ($1 % 86400) / 3600 ))
+    local mins=$(( ($1 % 3600) / 60 ))
+    local secs=$(( $1 % 60 ))
 
     local result=""
     (( days  > 0 )) && result+="${days}d "
     (( hours > 0 )) && result+="${hours}h "
     (( mins  > 0 )) && result+="${mins}m "
-    (( secs  > 0 || total == 0 )) && result+="${secs}s"
+    (( secs  > 0 || $1 == 0 )) && result+="${secs}s"
 
     echo "${neg}${result% }"
 }
 
 # Format milliseconds into human-readable duration
 timedate::duration::format_ms() {
-    local ms="$1"
-    if (( ms < 1000 )); then
-        echo "${ms}ms"
-    elif (( ms < 60000 )); then
-        echo "$(( ms / 1000 ))s $(( ms % 1000 ))ms"
+    if (( $1 < 1000 )); then
+        echo "${1}ms"
+    elif (( $1 < 60000 )); then
+        echo "$(( $1 / 1000 ))s $(( $1 % 1000 ))ms"
     else
-        timedate::duration::format "$(( ms / 1000 ))"
+        timedate::duration::format "$(( $1 / 1000 ))"
     fi
 }
 
 # Parse a duration string into seconds
 # Usage: timedate::duration::parse "1d 2h 3m 4s"
 timedate::duration::parse() {
-    local input="$1" total=0
-    local -a tokens=($input)
+    local total=0
+    local -a tokens=($1)
     for token in "${tokens[@]}"; do
         local val unit
         val="${token%[dhms]*}"
@@ -478,10 +455,9 @@ timedate::duration::parse() {
 # Usage: timedate::duration::relative timestamp
 # Output: "3 hours ago", "in 2 days"
 timedate::duration::relative() {
-    local ts="$1"
     local now
     now=$(timedate::timestamp::unix)
-    local diff=$(( now - ts ))
+    local diff=$(( now - $1 ))
     local abs_diff=$(( diff < 0 ? -diff : diff ))
     local future=false
     (( diff < 0 )) && future=true
@@ -515,8 +491,7 @@ timedate::duration::relative() {
 # Check if a year is a leap year
 # Usage: timedate::calendar::is_leap_year year
 timedate::calendar::is_leap_year() {
-    local year="$1"
-    (( year % 4 == 0 && (year % 100 != 0 || year % 400 == 0) ))
+    (( $1 % 4 == 0 && ($1 % 100 != 0 || $1 % 400 == 0) ))
 }
 
 # Get number of days in a year
@@ -577,12 +552,11 @@ timedate::calendar::quarter() {
 # Usage: timedate::calendar::easter year
 # Output: YYYY-MM-DD
 timedate::calendar::easter() {
-    local year="$1"
     local a b c d e f g h i k l m n p
 
-    a=$(( year % 19 ))
-    b=$(( year / 100 ))
-    c=$(( year % 100 ))
+    a=$(( $1 % 19 ))
+    b=$(( $1 / 100 ))
+    c=$(( $1 % 100 ))
     d=$(( b / 4 ))
     e=$(( b % 4 ))
     f=$(( (b + 8) / 25 ))
@@ -595,15 +569,14 @@ timedate::calendar::easter() {
     n=$(( (h + l - 7 * m + 114) / 31 ))
     p=$(( (h + l - 7 * m + 114) % 31 + 1 ))
 
-    printf '%d-%02d-%02d\n' "$year" "$n" "$p"
+    printf '%d-%02d-%02d\n' "$1" "$n" "$p"
 }
 
 # Number of weekdays between two dates
 # Usage: timedate::calendar::weekdays_between YYYY-MM-DD YYYY-MM-DD
 timedate::calendar::weekdays_between() {
-    local start="$1" end="$2"
-    local count=0 current="$start"
-    while ! timedate::date::is_after "$current" "$end"; do
+    local count=0 current="$1"
+    while ! timedate::date::is_after "$current" "$2"; do
         timedate::calendar::is_weekday "$current" && (( count++ ))
         current=$(timedate::date::add_days "$current" 1)
     done
@@ -649,11 +622,10 @@ timedate::calendar::month() {
 # Usage: timedate::tz::convert timestamp timezone
 # Example: timedate::tz::convert 1700000000 "America/New_York"
 timedate::tz::convert() {
-    local ts="$1" tz="$2"
     if _timedate::has_gnu_date; then
-        TZ="$tz" date -d "@$ts" "+%Y-%m-%d %H:%M:%S %Z" 2>/dev/null
+        TZ="$2" date -d "@$1" "+%Y-%m-%d %H:%M:%S %Z" 2>/dev/null
     else
-        TZ="$tz" date -r "$ts" "+%Y-%m-%d %H:%M:%S %Z" 2>/dev/null
+        TZ="$2" date -r "$1" "+%Y-%m-%d %H:%M:%S %Z" 2>/dev/null
     fi
 }
 
