@@ -20,7 +20,17 @@
 # CAPABILITY DETECTION
 # ==============================================================================
 
-# Check if the terminal supports any colour
+# Check if the terminal supports any colour output.
+# Use this as a guard before applying escape codes — prevents raw escape
+# sequences from leaking into pipes, log files, or non-interactive shells.
+#
+# Usage: colour::supports
+#   if colour::supports; then colour::println 4 fg red "Error!"; fi
+#
+# Returns: 0 if stdout is a terminal and reports at least 8 colours, 1 otherwise
+#
+# Note: Returns 1 when stdout is redirected (e.g. piped to a file), even if
+# the terminal itself would support colour.
 colour::supports() {
     [[ -t 1 ]] || return 1
     local count
@@ -28,18 +38,41 @@ colour::supports() {
     (( count >= 8 ))
 }
 
-# Return the number of colours the terminal supports
+# Return the number of colours the terminal supports as reported by tput.
+# Use this when you need to branch on colour depth rather than just checking
+# a specific threshold — e.g. to pick the richest mode the terminal can handle.
+#
+# Usage: colour::depth
+#   depth=$(colour::depth)
+#
+# Returns: echoes the colour count (typically 8, 256, or 16777216); echoes 0
+# if tput is unavailable or the terminal reports no colour support
 colour::depth() {
     tput colors 2>/dev/null || echo "0"
 }
 
-# Check if terminal supports 256 colours
+# Check if the terminal supports 256 colours (8-bit mode).
+# Use this before using the RGB cube or greyscale ranges with colour::esc 8.
+#
+# Usage: colour::supports_256
+#   if colour::supports_256; then colour::esc 8 fg "rgb3,2,1"; fi
+#
+# Returns: 0 if 256+ colours are available, 1 otherwise
 colour::supports_256() {
     (( $(colour::depth) >= 256 ))
 }
 
-# Check if terminal supports true colour (24-bit)
-# Checks $COLORTERM env var — set by most modern terminals
+# Check if the terminal supports true colour (24-bit, ~16 million colours).
+# Use this before passing full R,G,B values to colour::esc 24. Most modern
+# terminal emulators set $COLORTERM to signal this capability.
+#
+# Usage: colour::supports_truecolor
+#   if colour::supports_truecolor; then colour::esc 24 fg "255,128,0"; fi
+#
+# Returns: 0 if $COLORTERM is "truecolor" or "24bit", 1 otherwise
+#
+# Note: Relies entirely on the $COLORTERM environment variable. Terminals that
+# support true colour but don't set this variable will return 1.
 colour::supports_truecolor() {
     [[ "$COLORTERM" == "truecolor" || "$COLORTERM" == "24bit" ]]
 }
@@ -49,9 +82,17 @@ colour::supports_truecolor() {
 # Internal helpers — returns the numeric colour index for use in escape codes
 # ==============================================================================
 
-# Get 4-bit ANSI colour code index
+# Resolve a colour name to its 4-bit ANSI code number for use in escape sequences.
+# This is an internal helper called by colour::esc — you typically won't call it directly.
+#
 # Usage: colour::index::4bit colour_name [fg|bg]
-# Returns: ANSI code number (30-37, 40-47, 90-97, 100-107)
+#   colour::index::4bit "bright red" fg
+#   colour::index::4bit "blue" bg
+#
+# Returns: echoes the ANSI code number (30–37 fg, 40–47 bg, 90–97 bright fg,
+# 100–107 bright bg); returns 1 for unrecognised colour names
+#
+# Note: Input is case-insensitive. Accepts "bright red" or "brightred" for bright variants.
 colour::index::4bit() {
     local key="${1,,}" fg_bg="${2:-fg}"
 
@@ -82,9 +123,19 @@ colour::index::4bit() {
     echo "$val"
 }
 
-# Get 8-bit colour index (0-255)
+# Resolve a colour name or value to its 8-bit palette index (0–255).
+# This is an internal helper called by colour::esc — you typically won't call it directly.
+#
 # Usage: colour::index::8bit colour_name
-# Accepts: named colours, "bright name", "rgbR,G,B", "greyN"/"grayN"
+#   colour::index::8bit "bright cyan"
+#   colour::index::8bit "rgb3,2,1"
+#   colour::index::8bit "grey12"
+#
+# Returns: echoes the palette index (0–255); returns 1 for unrecognised input
+#
+# Note: Accepts named colours (0–7), bright named colours (8–15), RGB cube values
+# in the format rgb0,0,0–rgb5,5,5 or bare 0,0,0–5,5,5, and greyscale as grey0–grey23
+# or gray0–gray23. The "bright" prefix is silently ignored for RGB inputs.
 colour::index::8bit() {
     local key="${1,,}"
 
@@ -142,11 +193,20 @@ colour::index::8bit() {
 # ESCAPE CODE GENERATION
 # ==============================================================================
 
-# Generate a raw ANSI escape sequence
-# Usage: colour::esc bit fg_bg colour [colour...]
-#   bit    — 4, 8, or 24
-#   fg_bg  — fg or bg
-#   colour — colour name/value (see header for formats)
+# Generate a raw ANSI escape sequence for a given colour and depth.
+# Use this when you need the raw escape code to embed in a string or pass to
+# printf directly. For printing coloured text, colour::print or colour::wrap
+# are usually more convenient.
+#
+# Usage: colour::esc bit fg_bg colour
+#   colour::esc 4 fg "bright red"
+#   colour::esc 8 bg "rgb2,4,1"
+#   colour::esc 24 fg "255,128,0"
+#
+# Returns: prints the escape sequence to stdout; returns 1 on invalid input
+#
+# Note: bit must be 4, 8, or 24. fg_bg must be "fg" or "bg". 24-bit values
+# are clamped to 0–255 per channel automatically.
 colour::esc() {
     local bit="${1:-}" fg_bg="${2:-fg}"; shift 2
     [[ -n "$bit" ]] || return 1
@@ -198,6 +258,18 @@ colour::esc() {
 # Text styling — not colour-depth dependent
 # ==============================================================================
 
+# Emit the ANSI escape code for the named text attribute.
+# These functions print nothing visible — they change how subsequent text is rendered
+# until colour::reset (or the matching colour::reset::* function) is called.
+# Use them when building coloured output with printf or in PS1 prompts.
+#
+# Usage: colour::bold; printf "important"; colour::reset
+#   colour::underline; printf "heading"; colour::reset::underline
+#
+# Returns: prints the escape sequence to stdout; always returns 0
+#
+# Note: colour::blink and colour::hidden have inconsistent support across
+# terminals — blink is often disabled by default, hidden varies by emulator.
 colour::reset()     { printf '\033[0m';  }
 colour::bold()      { printf '\033[1m';  }
 colour::dim()       { printf '\033[2m';  }
@@ -208,6 +280,18 @@ colour::reverse()   { printf '\033[7m';  }
 colour::hidden()    { printf '\033[8m';  }
 colour::strike()    { printf '\033[9m';  }
 
+# Reset a single text attribute without affecting others.
+# Use these instead of colour::reset when you want to turn off one style
+# (e.g. stop underlining) while keeping other active attributes like colour.
+#
+# Usage: colour::reset::underline
+#   colour::reset::fg    # reset foreground colour only
+#   colour::reset::bg    # reset background colour only
+#
+# Returns: prints the escape sequence to stdout; always returns 0
+#
+# Note: colour::reset::bold and colour::reset::dim share the same escape code
+# (ESC[22m) — resetting one resets both.
 # Reset individual attributes
 colour::reset::bold()      { printf '\033[22m'; }
 colour::reset::dim()       { printf '\033[22m'; }
@@ -225,6 +309,13 @@ colour::reset::bg()        { printf '\033[49m'; }
 # colour::fg::red, colour::bg::bright_blue etc.
 # ==============================================================================
 
+# Set the foreground (text) colour using a named 4-bit shortcut.
+# Use these for the most portable colour output — 4-bit colours work in
+# virtually every terminal. Call colour::reset or colour::reset::fg when done.
+#
+# Usage: colour::fg::red; printf "error"; colour::reset
+#
+# Returns: prints the escape sequence to stdout; always returns 0
 # Foreground
 colour::fg::black()          { printf '\033[30m'; }
 colour::fg::red()            { printf '\033[31m'; }
@@ -243,6 +334,13 @@ colour::fg::bright_magenta() { printf '\033[95m'; }
 colour::fg::bright_cyan()    { printf '\033[96m'; }
 colour::fg::bright_white()   { printf '\033[97m'; }
 
+# Set the background colour using a named 4-bit shortcut.
+# Use these to highlight text or create status indicators. Call colour::reset
+# or colour::reset::bg to restore the default background.
+#
+# Usage: colour::bg::yellow; colour::fg::black; printf " WARN "; colour::reset
+#
+# Returns: prints the escape sequence to stdout; always returns 0
 # Background
 colour::bg::black()          { printf '\033[40m';  }
 colour::bg::red()            { printf '\033[41m';  }
@@ -265,9 +363,17 @@ colour::bg::bright_white()   { printf '\033[107m'; }
 # HIGHER-LEVEL HELPERS
 # ==============================================================================
 
-# Print text wrapped in colour, auto-reset after
+# Print text in a given colour, then automatically reset to default.
+# This is the go-to function for simple one-off coloured output — it handles
+# the escape/reset sandwich for you.
+#
 # Usage: colour::print bit fg_bg colour text
-# Example: colour::print 4 fg red "Hello"
+#   colour::print 4 fg red "Error: file not found"
+#   colour::print 8 fg "rgb4,2,0" "Warning"
+#
+# Returns: prints coloured text to stdout; returns 0
+#
+# Note: Prints without a trailing newline. Use colour::println for a newline.
 colour::print() {
     local bit="$1" fg_bg="$2" col="$3" text="$4"
     colour::esc "$bit" "$fg_bg" "$col"
@@ -275,41 +381,82 @@ colour::print() {
     colour::reset
 }
 
-# Print text in colour followed by newline
+# Print text in a given colour followed by a newline, then reset.
+# Identical to colour::print but adds a newline — the most common case
+# for status messages, log lines, and banner output.
+#
+# Usage: colour::println bit fg_bg colour text
+#   colour::println 4 fg green "Done."
+#
+# Returns: prints coloured text with a trailing newline; returns 0
 colour::println() {
     colour::print "$@"
     printf '\n'
 }
 
-# Wrap text in escape codes and return as string (no direct print)
+# Wrap text in colour escape codes and return the result as a string.
+# Use this when you need a coloured string to embed inside a larger message
+# or variable, rather than printing it directly.
+#
 # Usage: colour::wrap bit fg_bg colour text
+#   label=$(colour::wrap 4 fg cyan "INFO")
+#   echo "[$label] server started"
+#
+# Returns: echoes the escape-wrapped string; returns 0
 colour::wrap() {
     local bit="$1" fg_bg="$2" col="$3" text="$4"
     printf '%s%s%s' "$(colour::esc "$bit" "$fg_bg" "$col")" "$text" "$(colour::reset)"
 }
 
-# Strip all ANSI escape codes from a string
+# Remove all ANSI escape codes from a string, leaving only plain text.
+# Use this before writing coloured output to a log file, comparing strings,
+# or passing text to tools that don't understand escape sequences.
+#
 # Usage: colour::strip text
+#   plain=$(colour::strip "$coloured_line")
+#
+# Returns: echoes the cleaned string; returns 0
 colour::strip() {
     echo "$1" | sed 's/\x1b\[[0-9;]*[mGKHF]//g'
 }
 
-# Return the visible length of a string (excluding escape codes)
-# Useful for padding/alignment with coloured strings
+# Return the visible character length of a string, ignoring any ANSI escape codes.
+# Use this when calculating padding or column alignment for coloured output,
+# since ${#string} counts escape code bytes and gives wrong results.
+#
+# Usage: colour::visible_length text
+#   len=$(colour::visible_length "$coloured_label")
+#   printf "%-${len}s\n" "$coloured_label"
+#
+# Returns: echoes the visible character count as an integer; returns 0
 colour::visible_length() {
     local stripped
     stripped=$(colour::strip "$1")
     echo "${#stripped}"
 }
 
-# Check if a string contains any ANSI escape codes
+# Check whether a string contains any ANSI escape codes.
+# Use this to decide whether to strip a string before further processing,
+# or to detect if upstream output is already coloured.
+#
+# Usage: colour::has_colour text
+#   if colour::has_colour "$line"; then colour::strip "$line"; fi
+#
+# Returns: 0 if escape codes are present, 1 if the string is plain text
 colour::has_colour() {
     [[ "$1" =~ $'\033'\[ ]]
 }
 
-# Gracefully degrade — return escape code only if terminal supports the depth
+# Generate an escape sequence only if the terminal supports the requested depth.
+# Use this instead of colour::esc when writing portable scripts — it gracefully
+# degrades to a no-op rather than printing raw codes to unsupported terminals.
+#
 # Usage: colour::safe_esc bit fg_bg colour
-# Returns empty string (no-op) if terminal doesn't support the requested depth
+#   colour::safe_esc 24 fg "255,100,0"   # no-op if true colour unsupported
+#   colour::safe_esc 4 fg red             # safe for virtually any terminal
+#
+# Returns: prints the escape sequence if supported; prints nothing and returns 0
+# if the terminal lacks the required depth
 colour::safe_esc() {
     local bit="$1"
     case "$bit" in
