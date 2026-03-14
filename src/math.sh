@@ -453,6 +453,30 @@ _math::vec3::unpack6() {
 # math::vec2
 # ==============================================================================
 
+math::vec3::new() {
+    local x="${1:-0}" y="${2:-0}"
+
+    [[ "$x" =~ ^-?[0-9]+(\.[0-9]+)?$ ]] || x=0
+    [[ "$y" =~ ^-?[0-9]+(\.[0-9]+)?$ ]] || y=0
+
+    echo "${x},${y}"
+}
+
+math::vec3::new::fast() {
+    [[ $# -lt 1 ]] && {
+        echo "Usage: math::vec3::new::fast <var_name> [x] [y] [z]" >&2
+        return 1
+    }
+
+    local -n vector=$1
+    local x="${2:-0}" y="${3:-0}"
+
+    [[ "$x" =~ ^-?[0-9]+(\.[0-9]+)?$ ]] || x=0
+    [[ "$y" =~ ^-?[0-9]+(\.[0-9]+)?$ ]] || y=0
+
+    vector="${x},${y}"
+}
+
 # Add two vec2 vectors
 # Usage: math::vec2::add "x1,y1" "x2,y2"
 # Returns: "x,y"
@@ -591,6 +615,33 @@ math::vec2::eq() {
 # ==============================================================================
 # math::vec3
 # ==============================================================================
+
+math::vec3::new() {
+    local x="${1:-0}" y="${2:-0}" z="${3:-0}"
+
+    { _math::is_float "$x" || _math::is_int "$x"; } || x=0
+    { _math::is_float "$y" || _math::is_int "$y"; } || y=0
+    { _math::is_float "$z" || _math::is_int "$z"; } || z=0
+
+    echo "${x},${y},${z}"
+}
+
+math::vec3::new::fast() {
+    [[ $# -lt 1 ]] && {
+        echo "Usage: math::vec3::new::fast <var_name> [x] [y] [z]" >&2
+        return 1
+    }
+
+    local -n vector=$1
+    local x="${2:-0}" y="${3:-0}" z="${4:-0}"
+
+    { _math::is_float "$x" || _math::is_int "$x"; } || x=0
+    { _math::is_float "$y" || _math::is_int "$y"; } || y=0
+    { _math::is_float "$z" || _math::is_int "$z"; } || z=0
+
+    vector="${x},${y},${z}"
+}
+
 
 # Add two vec3 vectors
 # Usage: math::vec3::add "x1,y1,z1" "x2,y2,z2"
@@ -817,6 +868,84 @@ _math::matrix::unpack2() {
         _tb=("${_sb[@]}")
     fi
 }
+
+# ==============================================================================
+# math::matrix::new - Create a new matrix array
+#
+# Usage:
+#   arr=($(math::matrix::new 3x4))          # Creates 3x4 matrix with zeros
+#   arr=($(math::matrix::new 3x4 5))        # Creates 3x4 matrix with value 5
+#
+# Returns: Space-separated matrix elements
+# ==============================================================================
+math::matrix::new() {
+    local dimensions="$1"
+    local initial_value="${2:-0}"
+
+    if [[ ! "$dimensions" =~ ^([0-9]+)x([0-9]+)$ ]]; then
+        echo "Error: Invalid dimensions format. Use 'rowsxcols' (e.g., '3x4')" >&2
+        return 1
+    fi
+
+    local rows="${BASH_REMATCH[1]}"
+    local cols="${BASH_REMATCH[2]}"
+
+    if [[ "$rows" -eq 0 ]] || [[ "$cols" -eq 0 ]]; then
+        echo "Error: rows and cols must be greater than 0" >&2
+        return 1
+    fi
+
+    # Just output the matrix elements
+    for ((i=0; i<rows*cols; i++)); do
+        echo "$initial_value"
+    done
+}
+
+# ==============================================================================
+# math::matrix::new::fast - Create a new matrix array using nameref (bash 4.3+)
+#
+# Usage:
+#   math::matrix::new::fast <array_name> <rows>x<cols> [initial_value]
+#
+# Example:
+#   math::matrix::new::fast my_matrix 3x4
+#   math::matrix::new::fast my_matrix 3x4 5
+# ==============================================================================
+math::matrix::new::fast() {
+    if [[ $# -lt 2 ]]; then
+        echo "Usage: math::matrix::new::fast <array_name> <rows>x<cols> [initial_value]" >&2
+        return 1
+    fi
+
+    local -n arr_ref="$1"  # nameref to the array
+    local dimensions="$2"
+    local initial_value="${3:-0}"
+
+    # Validate format and extract dimensions
+    if [[ ! "$dimensions" =~ ^([0-9]+)x([0-9]+)$ ]]; then
+        echo "Error: Invalid dimensions format. Use 'rowsxcols' (e.g., '3x4')" >&2
+        return 1
+    fi
+
+    local rows="${BASH_REMATCH[1]}"
+    local cols="${BASH_REMATCH[2]}"
+
+    # Validate positive integers
+    if [[ "$rows" -eq 0 ]] || [[ "$cols" -eq 0 ]]; then
+        echo "Error: rows and cols must be greater than 0" >&2
+        return 1
+    fi
+
+    # Clear and initialize the array
+    arr_ref=()
+    local total=$((rows * cols))
+
+    # Populate with initial values
+    for ((i=0; i<total; i++)); do
+        arr_ref[$i]="$initial_value"
+    done
+}
+
 
 # ==============================================================================
 # math::matrix::add — Element-wise addition
