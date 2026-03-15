@@ -475,6 +475,39 @@ test::array::range() {
     _sub_done
 }
 
+# array::fast variants
+test::array::length::fast()    { local r; array::length::fast r a b c;      if [[ "$r" == "3" ]]; then _pass; else _fail; fi; }
+test::array::first::fast()     { local r; array::first::fast r a b c;       if [[ "$r" == "a" ]]; then _pass; else _fail; fi; }
+test::array::last::fast()      { local r; array::last::fast r a b c;        if [[ "$r" == "c" ]]; then _pass; else _fail; fi; }
+test::array::get::fast()       { local r; array::get::fast r 1 a b c;       if [[ "$r" == "b" ]]; then _pass; else _fail; fi; }
+test::array::index_of::fast()  { local r; array::index_of::fast r b a b c;  if [[ "$r" == "1" ]]; then _pass; else _fail; fi; }
+test::array::reverse::fast()   { local -a r; array::reverse::fast r a b c;  if [[ "${r[*]}" == "c b a" ]]; then _pass; else _fail; fi; }
+test::array::slice::fast()     { local -a r; array::slice::fast r 1 2 a b c d; if [[ "${r[*]}" == "b c" ]]; then _pass; else _fail; fi; }
+test::array::push::fast()      { local -a r; array::push::fast r d a b c;   if [[ "${r[*]}" == "a b c d" ]]; then _pass; else _fail; fi; }
+test::array::pop::fast()       { local -a r; array::pop::fast r a b c;      if [[ "${r[*]}" == "a b" ]]; then _pass; else _fail; fi; }
+test::array::shift::fast()     { local -a r; array::shift::fast r a b c;    if [[ "${r[*]}" == "b c" ]]; then _pass; else _fail; fi; }
+test::array::unshift::fast()   { local -a r; array::unshift::fast r a b c;  if [[ "${r[*]}" == "a b c" ]]; then _pass; else _fail; fi; }
+test::array::set::fast()       { local -a r; array::set::fast r 1 X a b c; if [[ "${r[*]}" == "a X c" ]]; then _pass; else _fail; fi; }
+test::array::insert_at::fast() { local -a r; array::insert_at::fast r 1 X a b c; if [[ "${r[*]}" == "a X b c" ]]; then _pass; else _fail; fi; }
+test::array::remove_at::fast() { local -a r; array::remove_at::fast r 1 a b c; if [[ "${r[*]}" == "a c" ]]; then _pass; else _fail; fi; }
+test::array::remove::fast()    { local -a r; array::remove::fast r b a b c; if [[ "${r[*]}" == "a c" ]]; then _pass; else _fail; fi; }
+test::array::filter::fast()    { local -a r; array::filter::fast r '^a' ab bc ac; if [[ "${r[*]}" == "ab ac" ]]; then _pass; else _fail; fi; }
+test::array::reject::fast()    { local -a r; array::reject::fast r '^a' ab bc ac; if [[ "${r[*]}" == "bc" ]]; then _pass; else _fail; fi; }
+test::array::compact::fast()   { local -a r; array::compact::fast r a '' b ''; if [[ "${r[*]}" == "a b" ]]; then _pass; else _fail; fi; }
+test::array::join::fast()      { local r; array::join::fast r , a b c;        if [[ "$r" == "a,b,c" ]]; then _pass; else _fail; fi; }
+test::array::sum::fast()       { local r; array::sum::fast r 1 2 3;           if [[ "$r" == "6" ]]; then _pass; else _fail; fi; }
+test::array::min::fast()       { local r; array::min::fast r 3 1 2;           if [[ "$r" == "1" ]]; then _pass; else _fail; fi; }
+test::array::max::fast()       { local r; array::max::fast r 1 3 2;           if [[ "$r" == "3" ]]; then _pass; else _fail; fi; }
+test::array::intersect::fast() { local -a r; array::intersect::fast r "a b" "b c"; if [[ "${r[*]}" == "b" ]]; then _pass; else _fail; fi; }
+test::array::diff::fast()      { local -a r; array::diff::fast r "a b" "b c"; if [[ "${r[*]}" == "a" ]]; then _pass; else _fail; fi; }
+test::array::union::fast()     { local -a r; array::union::fast r "a b" "b c"; if [[ "${r[*]}" == "a b c" ]]; then _pass; else _fail; fi; }
+test::array::unique::fast()    { local -a r; array::unique::fast r a b a c b; if [[ "${r[*]}" == "a b c" ]]; then _pass; else _fail; fi; }
+test::array::zip::fast()       { local -a r; array::zip::fast r "a b" "1 2"; if [[ "${r[*]}" == "a 1 b 2" ]]; then _pass; else _fail; fi; }
+test::array::rotate::fast()    { local -a r; array::rotate::fast r 1 a b c; if [[ "${r[*]}" == "b c a" ]]; then _pass; else _fail; fi; }
+test::array::chunk::fast()     { local -a r; array::chunk::fast r 2 a b c d e; if [[ "${r[0]}" == "a b" && "${r[1]}" == "c d" && "${r[2]}" == "e" ]]; then _pass; else _fail; fi; }
+test::array::count_of::fast()  { local r; array::count_of::fast r a a b a c;  if [[ "$r" == "2" ]]; then _pass; else _fail; fi; }
+test::array::equals::fast()    { local r; array::equals::fast r "a b c" "a b c"; if [[ "$r" == "true" ]]; then _pass; else _fail; fi; }
+
 # ==============================================================================
 # Tests — math
 # ==============================================================================
@@ -603,6 +636,86 @@ test::math::softmax() {
     local -a _vals=(1 2 3)
     if [[ -n "$(math::softmax _vals 1 2)" ]]; then _pass; else _fail; fi
 }
+
+test::math::is_int() {
+    _assert "is_int (integer)" "0" "$(math::is_int 42; echo $?)"
+    _assert "is_int (negative)" "0" "$(math::is_int -17; echo $?)"
+    _assert "is_int (zero)" "0" "$(math::is_int 0; echo $?)"
+    _assert "is_int (non-integer)" "1" "$(math::is_int 3.14; echo $?)"
+    _sub_done
+}
+
+# ==============================================================================
+# Tests — pfloat (pure-bash floating point, scale=10^5)
+# ==============================================================================
+
+# Basic arithmetic
+test::pfloat::add() { if [[ "$(pfloat::add 1.5 2.5)" == "4" ]]; then _pass; else _fail; fi; }
+test::pfloat::sub() { if [[ "$(pfloat::sub 5.0 2.5)" == "2.5" ]]; then _pass; else _fail; fi; }
+test::pfloat::mul() { if [[ "$(pfloat::mul 2.0 3.0)" == "6" ]]; then _pass; else _fail; fi; }
+test::pfloat::div() { if [[ "$(pfloat::div 6.0 2.0)" == "3" ]]; then _pass; else _fail; fi; }
+test::pfloat::mod() { if [[ "$(pfloat::mod 7.5 2.0)" == "1.5" ]]; then _pass; else _fail; fi; }
+
+# Comparison
+test::pfloat::eq() { if pfloat::eq 1.5 1.5; then _pass; else _fail; fi; }
+test::pfloat::ne() { if pfloat::ne 1.5 2.5; then _pass; else _fail; fi; }
+test::pfloat::lt() { if pfloat::lt 1.0 2.0; then _pass; else _fail; fi; }
+test::pfloat::le() { if pfloat::le 1.0 1.0; then _pass; else _fail; fi; }
+test::pfloat::gt() { if pfloat::gt 2.0 1.0; then _pass; else _fail; fi; }
+test::pfloat::ge() { if pfloat::ge 2.0 2.0; then _pass; else _fail; fi; }
+
+# Sign and absolute
+test::pfloat::abs() { if [[ "$(pfloat::abs -3.5)" == "3.5" ]]; then _pass; else _fail; fi; }
+test::pfloat::neg() { if [[ "$(pfloat::neg 3.5)" == "-3.5" ]]; then _pass; else _fail; fi; }
+test::pfloat::sign() { if [[ "$(pfloat::sign -3.5)" == "-1" ]]; then _pass; else _fail; fi; }
+test::pfloat::is_positive() { if pfloat::is_positive 3.5; then _pass; else _fail; fi; }
+test::pfloat::is_negative() { if pfloat::is_negative -3.5; then _pass; else _fail; fi; }
+test::pfloat::is_zero() { if pfloat::is_zero 0; then _pass; else _fail; fi; }
+
+# Rounding
+test::pfloat::floor() { if [[ "$(pfloat::floor 3.7)" == "3" ]]; then _pass; else _fail; fi; }
+test::pfloat::ceil() { if [[ "$(pfloat::ceil 3.2)" == "4" ]]; then _pass; else _fail; fi; }
+test::pfloat::round() { if [[ "$(pfloat::round 3.6)" == "4" ]]; then _pass; else _fail; fi; }
+test::pfloat::trunc() { if [[ "$(pfloat::trunc 3.9)" == "3" ]]; then _pass; else _fail; fi; }
+
+# Power and roots
+test::pfloat::sqr() { if [[ "$(pfloat::sqr 3.0)" == "9" ]]; then _pass; else _fail; fi; }
+test::pfloat::sqrt() { if [[ "$(pfloat::sqrt 4.0)" == "2" ]]; then _pass; else _fail; fi; }
+test::pfloat::pow() { if [[ "$(pfloat::pow 2 3)" == "8" ]]; then _pass; else _fail; fi; }
+test::pfloat::recip() { if [[ "$(pfloat::recip 2.0)" == "0.5" ]]; then _pass; else _fail; fi; }
+
+# Statistics
+test::pfloat::sum() { if [[ "$(pfloat::sum 1.0 2.0 3.0)" == "6" ]]; then _pass; else _fail; fi; }
+test::pfloat::avg() { if [[ "$(pfloat::avg 1.0 2.0 3.0)" == "2" ]]; then _pass; else _fail; fi; }
+test::pfloat::min() { if [[ "$(pfloat::min 3.0 1.0 2.0)" == "1" ]]; then _pass; else _fail; fi; }
+test::pfloat::max() { if [[ "$(pfloat::max 1.0 3.0 2.0)" == "3" ]]; then _pass; else _fail; fi; }
+test::pfloat::mean() { if [[ -n "$(pfloat::mean 1.0 2.0 3.0)" ]]; then _pass; else _fail; fi; }
+
+# Advanced functions
+test::pfloat::factorial() { if [[ "$(pfloat::factorial 5)" == "120" ]]; then _pass; else _fail; fi; }
+test::pfloat::clamp() { if [[ "$(pfloat::clamp 5.0 1.0 10.0)" == "5" ]]; then _pass; else _fail; fi; }
+test::pfloat::lerp() { if [[ "$(pfloat::lerp 0.5 1.0 3.0)" == "2" ]]; then _pass; else _fail; fi; }
+test::pfloat::inv_lerp() { if [[ "$(pfloat::inv_lerp 2.0 1.0 3.0)" == "0.5" ]]; then _pass; else _fail; fi; }
+test::pfloat::map() { if [[ "$(pfloat::map 5.0 0.0 10.0 0.0 100.0)" == "50" ]]; then _pass; else _fail; fi; }
+test::pfloat::percent() { if [[ "$(pfloat::percent 25.0 100.0)" == "25" ]]; then _pass; else _fail; fi; }
+test::pfloat::percent_of() { if [[ "$(pfloat::percent_of 0.25 100.0)" == "0.25" ]]; then _pass; else _fail; fi; }
+test::pfloat::percent_change() { if [[ "$(pfloat::percent_change 100.0 125.0)" == "25" ]]; then _pass; else _fail; fi; }
+
+# Distance functions
+test::pfloat::dist2() { if [[ "$(pfloat::dist2 0.0 0.0 3.0 4.0)" == "5" ]]; then _pass; else _fail; fi; }
+test::pfloat::dist3() { if [[ -n "$(pfloat::dist3 0.0 0.0 0.0 1.0 2.0 2.0)" ]]; then _pass; else _fail; fi; }
+
+# Geometric and harmonic means
+test::pfloat::geomean() { if [[ "$(pfloat::geomean 4.0 9.0)" == "6" ]]; then _pass; else _fail; fi; }
+test::pfloat::harmean() { if [[ -n "$(pfloat::harmean 2.0 4.0)" ]]; then _pass; else _fail; fi; }
+
+# Normalize
+test::pfloat::normalize() { if [[ "$(pfloat::normalize 5.0 0.0 10.0)" == "0.5" ]]; then _pass; else _fail; fi; }
+
+# Special functions
+test::pfloat::sigmoid() { if [[ "$(pfloat::sigmoid 0)" == "0.5" ]]; then _pass; else _fail; fi; }
+test::pfloat::softplus() { if [[ -n "$(pfloat::softplus 1.0)" ]]; then _pass; else _fail; fi; }
+test::pfloat::cbrt() { if [[ "$(pfloat::cbrt 8.0)" == "2" ]]; then _pass; else _fail; fi; }
 
 # ==============================================================================
 # Tests — hash
@@ -1730,6 +1843,8 @@ test::math::vec2::distancef() {
 # Tests — math::vec3
 # ==============================================================================
 
+test::math::vec3::new()   { if [[ "$(math::vec3::new 1 2 3)" == "1,2,3" ]]; then _pass; else _fail; fi; }
+test::math::vec3::new::fast() { local r; math::vec3::new::fast r 1 2 3; if [[ "$r" == "1,2,3" ]]; then _pass; else _fail; fi; }
 test::math::vec3::add()   { if [[ "$(math::vec3::add   "1,2,3" "4,5,6")" == "5,7,9"  ]]; then _pass; else _fail; fi; }
 test::math::vec3::sub()   { if [[ "$(math::vec3::sub   "4,5,6" "1,2,3")" == "3,3,3"  ]]; then _pass; else _fail; fi; }
 test::math::vec3::scale() { if [[ "$(math::vec3::scale "1,2,3" 2)"        == "2,4,6"  ]]; then _pass; else _fail; fi; }
@@ -1792,6 +1907,8 @@ _MA="1 2 3 4"        # [[1,2],[3,4]]
 _MB="5 6 7 8"        # [[5,6],[7,8]]
 _MI="1 0 0 1"        # identity 2x2
 
+test::math::matrix::new()      { if [[ "$(math::matrix::new "2x2" 1)" == "$(printf '1\n1\n1\n1')" ]]; then _pass; else _fail; fi; }
+test::math::matrix::new::fast(){ local r; math::matrix::new::fast r "2x2" 1; if [[ "${r[*]}" == "1 1 1 1" ]]; then _pass; else _fail; fi; }
 test::math::matrix::add()      { if [[ "$(math::matrix::add      "$_M2" $_MA $_MB)" == "6 8 10 12" ]]; then _pass; else _fail; fi; }
 test::math::matrix::sub()      { if [[ "$(math::matrix::sub      "$_M2" $_MA $_MB)" == "-4 -4 -4 -4" ]]; then _pass; else _fail; fi; }
 test::math::matrix::scale()    { if [[ "$(math::matrix::scale    "$_M2" 2 $_MA)"    == "2 4 6 8"   ]]; then _pass; else _fail; fi; }
