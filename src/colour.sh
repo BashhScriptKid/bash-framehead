@@ -267,44 +267,54 @@ colour::bg::bright_white()   { printf '\033[107m'; }
 
 # Print text wrapped in colour, auto-reset after
 # Usage: colour::print bit fg_bg colour text
-# Example: colour::print 4 fg red "Hello"
+#        echo "text" | colour::print bit fg_bg colour
 colour::print() {
-    local bit="$1" fg_bg="$2" col="$3" text="$4"
-    colour::esc "$bit" "$fg_bg" "$col"
-    printf '%s' "$text"
-    colour::reset
+  local bit="$1" fg_bg="$2" col="$3" text
+  if [[ ! -t 0 ]]; then text=$(cat); else text="$4"; fi
+  colour::esc "$bit" "$fg_bg" "$col"
+  printf '%s' "$text"
+  colour::reset
 }
 
 # Print text in colour followed by newline
 colour::println() {
-    colour::print "$@"
-    printf '\n'
+  colour::print "$@"
+  printf '\n'
 }
 
 # Wrap text in escape codes and return as string (no direct print)
 # Usage: colour::wrap bit fg_bg colour text
+#        echo "text" | colour::wrap bit fg_bg colour
 colour::wrap() {
-    local bit="$1" fg_bg="$2" col="$3" text="$4"
-    printf '%s%s%s' "$(colour::esc "$bit" "$fg_bg" "$col")" "$text" "$(colour::reset)"
+  local bit="$1" fg_bg="$2" col="$3" text
+  if [[ ! -t 0 ]]; then text=$(cat); else text="$4"; fi
+  printf '%s%s%s' "$(colour::esc "$bit" "$fg_bg" "$col")" "$text" "$(colour::reset)"
 }
 
 # Strip all ANSI escape codes from a string
 # Usage: colour::strip text
+#        echo "text" | colour::strip
 colour::strip() {
-    echo "$1" | sed 's/\x1b\[[0-9;]*[mGKHF]//g'
+  local input
+  if [[ ! -t 0 ]]; then input=$(cat); else input="$1"; fi
+  printf '%s\n' "$input" | sed 's/\x1b\[[0-9;]*[mGKHF]//g'
 }
 
 # Return the visible length of a string (excluding escape codes)
 # Useful for padding/alignment with coloured strings
 colour::visible_length() {
-    local stripped
-    stripped=$(colour::strip "$1")
-    echo "${#stripped}"
+  local input
+  if [[ ! -t 0 ]]; then input=$(cat); else input="$1"; fi
+  local stripped
+  stripped=$(colour::strip "$input")
+  echo "${#stripped}"
 }
 
 # Check if a string contains any ANSI escape codes
 colour::has_colour() {
-    [[ "$1" =~ $'\033'\[ ]]
+  local input
+  if [[ ! -t 0 ]]; then input=$(cat); else input="$1"; fi
+  [[ "$input" =~ $'\033'\[ ]]
 }
 
 # Gracefully degrade — return escape code only if terminal supports the depth

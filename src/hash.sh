@@ -13,9 +13,26 @@
 
 # Feed a string to a hash command portably
 # Usage: _hash::pipe string command [args...]
+#        echo "string" | _hash::pipe "" command [args...]
 _hash::pipe() {
-    local s="$1"; shift
+  local s="$1"; shift
+  if [[ -z "$s" && ! -t 0 ]]; then
+    cat | "$@"
+  else
     printf '%s' "$s" | "$@"
+  fi
+}
+
+# Internal: read primary input from arg or stdin
+_hash::read_input() {
+  local -n _hash_read_result="$1"
+  if [[ $# -ge 2 ]]; then
+    _hash_read_result="$2"
+  elif [[ ! -t 0 ]]; then
+    _hash_read_result=$(cat)
+  else
+    _hash_read_result=""
+  fi
 }
 
 # ==============================================================================
@@ -25,11 +42,12 @@ _hash::pipe() {
 # MD5 hash of a string
 # Usage: hash::md5 string
 hash::md5() {
+  local input; _hash::read_input input "$@"
     if runtime::has_command md5sum; then
-        _hash::pipe "$1" md5sum | awk '{print $1}'
+        _hash::pipe "$input" md5sum | awk '{print $1}'
     elif runtime::has_command md5; then
-        _hash::pipe "$1" md5 -q 2>/dev/null || \
-        _hash::pipe "$1" md5 | awk '{print $NF}'
+        _hash::pipe "$input" md5 -q 2>/dev/null || \
+        _hash::pipe "$input" md5 | awk '{print $NF}'
     else
         echo "hash::md5: requires md5sum or md5" >&2
         return 1
@@ -38,12 +56,13 @@ hash::md5() {
 
 # SHA1 hash of a string
 hash::sha1() {
+  local input; _hash::read_input input "$@"
     if runtime::has_command sha1sum; then
-        _hash::pipe "$1" sha1sum | awk '{print $1}'
+        _hash::pipe "$input" sha1sum | awk '{print $1}'
     elif runtime::has_command shasum; then
-        _hash::pipe "$1" shasum -a 1 | awk '{print $1}'
+        _hash::pipe "$input" shasum -a 1 | awk '{print $1}'
     elif runtime::has_command openssl; then
-        _hash::pipe "$1" openssl dgst -sha1 | awk '{print $NF}'
+        _hash::pipe "$input" openssl dgst -sha1 | awk '{print $NF}'
     else
         echo "hash::sha1: requires sha1sum, shasum, or openssl" >&2
         return 1
@@ -52,12 +71,13 @@ hash::sha1() {
 
 # SHA256 hash of a string
 hash::sha256() {
+  local input; _hash::read_input input "$@"
     if runtime::has_command sha256sum; then
-        _hash::pipe "$1" sha256sum | awk '{print $1}'
+        _hash::pipe "$input" sha256sum | awk '{print $1}'
     elif runtime::has_command shasum; then
-        _hash::pipe "$1" shasum -a 256 | awk '{print $1}'
+        _hash::pipe "$input" shasum -a 256 | awk '{print $1}'
     elif runtime::has_command openssl; then
-        _hash::pipe "$1" openssl dgst -sha256 | awk '{print $NF}'
+        _hash::pipe "$input" openssl dgst -sha256 | awk '{print $NF}'
     else
         echo "hash::sha256: requires sha256sum, shasum, or openssl" >&2
         return 1
@@ -66,12 +86,13 @@ hash::sha256() {
 
 # SHA512 hash of a string
 hash::sha512() {
+  local input; _hash::read_input input "$@"
     if runtime::has_command sha512sum; then
-        _hash::pipe "$1" sha512sum | awk '{print $1}'
+        _hash::pipe "$input" sha512sum | awk '{print $1}'
     elif runtime::has_command shasum; then
-        _hash::pipe "$1" shasum -a 512 | awk '{print $1}'
+        _hash::pipe "$input" shasum -a 512 | awk '{print $1}'
     elif runtime::has_command openssl; then
-        _hash::pipe "$1" openssl dgst -sha512 | awk '{print $NF}'
+        _hash::pipe "$input" openssl dgst -sha512 | awk '{print $NF}'
     else
         echo "hash::sha512: requires sha512sum, shasum, or openssl" >&2
         return 1
@@ -80,8 +101,9 @@ hash::sha512() {
 
 # SHA3-256 hash of a string
 hash::sha3_256() {
+  local input; _hash::read_input input "$@"
     if runtime::has_command openssl; then
-        _hash::pipe "$1" openssl dgst -sha3-256 2>/dev/null | awk '{print $NF}'
+        _hash::pipe "$input" openssl dgst -sha3-256 2>/dev/null | awk '{print $NF}'
     else
         echo "hash::sha3_256: requires openssl with sha3 support" >&2
         return 1
@@ -90,10 +112,11 @@ hash::sha3_256() {
 
 # BLAKE2b hash of a string
 hash::blake2b() {
+  local input; _hash::read_input input "$@"
     if runtime::has_command b2sum; then
-        _hash::pipe "$1" b2sum | awk '{print $1}'
+        _hash::pipe "$input" b2sum | awk '{print $1}'
     elif runtime::has_command openssl; then
-        _hash::pipe "$1" openssl dgst -blake2b512 2>/dev/null | awk '{print $NF}'
+        _hash::pipe "$input" openssl dgst -blake2b512 2>/dev/null | awk '{print $NF}'
     else
         echo "hash::blake2b: requires b2sum or openssl" >&2
         return 1
@@ -153,7 +176,8 @@ hash::hmac::md5() {
 # Returns unsigned 32-bit integer
 # Usage: hash::djb2 string
 hash::djb2() {
-    local s="$1" hash=5381 i char
+  local input; _hash::read_input input "$@"
+    local s="$input" hash=5381 i char
     for (( i=0; i<${#s}; i++ )); do
         char=$(printf '%d' "'${s:$i:1}")
         hash=$(( ((hash << 5) + hash + char) & 0xFFFFFFFF ))
@@ -163,7 +187,8 @@ hash::djb2() {
 
 # DJB2a (xor variant) — slightly better distribution than djb2
 hash::djb2a() {
-    local s="$1" hash=5381 i char
+  local input; _hash::read_input input "$@"
+    local s="$input" hash=5381 i char
     for (( i=0; i<${#s}; i++ )); do
         char=$(printf '%d' "'${s:$i:1}")
         hash=$(( ((hash << 5) + hash ^ char) & 0xFFFFFFFF ))
@@ -174,7 +199,8 @@ hash::djb2a() {
 # SDBM hash — used in the SDBM database library
 # Often outperforms DJB2 for database keys
 hash::sdbm() {
-    local s="$1" hash=0 i char
+  local input; _hash::read_input input "$@"
+    local s="$input" hash=0 i char
     for (( i=0; i<${#s}; i++ )); do
         char=$(printf '%d' "'${s:$i:1}")
         hash=$(( (char + (hash << 6) + (hash << 16) - hash) & 0xFFFFFFFF ))
@@ -185,7 +211,8 @@ hash::sdbm() {
 # FNV-1a 32-bit — Fowler-Noll-Vo, excellent avalanche, widely used
 # Period: 2^32
 hash::fnv1a32() {
-    local s="$1" hash=2166136261 i char
+  local input; _hash::read_input input "$@"
+    local s="$input" hash=2166136261 i char
     for (( i=0; i<${#s}; i++ )); do
         char=$(printf '%d' "'${s:$i:1}")
         hash=$(( (hash ^ char) * 16777619 & 0xFFFFFFFF ))
@@ -196,7 +223,8 @@ hash::fnv1a32() {
 # FNV-1a 64-bit — larger state, better for longer strings
 # Note: bash uses signed 64-bit integers; result may be negative for large hashes
 hash::fnv1a64() {
-    local s="$1"
+  local input; _hash::read_input input "$@"
+    local s="$input"
     local hash_lo=2166136261 hash_hi=0
     local fnv_prime_lo=16777619 i char
 
@@ -217,7 +245,8 @@ hash::fnv1a64() {
 # Adler-32 — fast checksum used in zlib/PNG
 # Not a hash in the traditional sense but useful for data integrity
 hash::adler32() {
-    local s="$1"
+  local input; _hash::read_input input "$@"
+    local s="$input"
     local a=1 b=0 i char MOD=65521
 
     for (( i=0; i<${#s}; i++ )); do
@@ -232,7 +261,8 @@ hash::adler32() {
 # CRC32 — delegates to system tools, pure bash fallback is too slow for real use
 # Usage: hash::crc32 string
 hash::crc32() {
-    local s="$1"
+  local input; _hash::read_input input "$@"
+    local s="$input"
     if runtime::has_command crc32; then
         printf '%s' "$s" | crc32 /dev/stdin 2>/dev/null
     elif runtime::has_command python3; then
@@ -249,7 +279,8 @@ hash::crc32() {
 # MurmurHash2 — pure bash, good distribution, faster than cryptographic hashes
 # Austin Appleby, 2008
 hash::murmur2() {
-    local s="$1" seed="${2:-0}"
+  local input; _hash::read_input input "$@"
+    local s="$input" seed="${2:-0}"
     local len="${#s}"
     local m=2246822519 r=13
     local h=$(( seed ^ len ))
@@ -313,7 +344,8 @@ hash::slot() {
 # Generate a short hash — first n chars of sha256
 # Usage: hash::short string [length]
 hash::short() {
-    local s="$1" len="${2:-8}"
+  local input; _hash::read_input input "$@"
+    local s="$input" len="${2:-8}"
     local full
     full=$(hash::sha256 "$s") || return 1
     echo "${full:0:$len}"
