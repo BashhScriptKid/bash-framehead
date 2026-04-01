@@ -1155,6 +1155,586 @@ optimize_function() {
     local func_indent=""
     local brace_count=0
 
+    # --------------------------------------------------------------------------
+    # Sub-functions for optimization passes
+    # --------------------------------------------------------------------------
+
+    # Normalize test conditionals: convert [ ] to [[ ]]
+    _normalize_test_conditionals() {
+        local input="$1"
+        local output="$input"
+
+        # Convert single [ to double [[ for test conditionals
+        # Pattern: [ followed by space and test operator/content, ending with ]
+        # Handle multiple [ ] on same line
+
+        # Step 1: Convert "[ " to "[[ " but NOT if already "[[ "
+        output=$(echo "$output" | sed 's/\[\[ /__DBL_OPEN__/g')       # Protect existing [[
+        output=$(echo "$output" | sed 's/\[ /[[ /g')                   # Convert [ to [[
+        output=$(echo "$output" | sed 's/__DBL_OPEN__/[[ /g')          # Restore
+
+        # Step 2: Convert " ]" to " ]]" but NOT if already " ]]"
+        # Match " ]" followed by end-of-line, semicolon, pipe, ampersand, or closing paren
+        output=$(echo "$output" | sed 's/ \]\]/__DBL_CLOSE__/g')       # Protect existing ]]
+        output=$(echo "$output" | sed 's/ \]/ ]]/g')                   # Convert ] to ]]
+        output=$(echo "$output" | sed 's/__DBL_CLOSE__/ ]]/g')         # Restore with space
+
+        printf '%s' "$output"
+    }
+
+    # Fold constants and inline constant variables within a function
+    _fold_constants() {
+        local input="$1"
+        local current="$input"
+        local dirty=1
+        local pass=0
+
+        while (( dirty )); do
+            ((pass++))
+            dirty=0
+
+            local -a lines=()
+            while IFS= read -r line; do
+                lines+=("$line")
+            done <<< "$current"
+
+            # PASS 1: Collect constant assignments (local/readonly VAR=NUMBER)
+            declare -A constants=()
+            for line in "${lines[@]}"; do
+                # Match: local VAR=N or readonly VAR=N (where N is integer, line ends there)
+                if [[ "$line" =~ ^[[:space:]]*(local|readonly)[[:space:]]+([a-zA-Z_][a-zA-Z0-9_]*)=(-?[0-9]+)[[:space:]]*$ ]]; then
+                    constants["${BASH_REMATCH[2]}"]="${BASH_REMATCH[3]}"
+                elif [[ "$line" =~ ^[[:space:]]*(local|readonly)[[:space:]]+([a-zA-Z_][a-zA-Z0-9_]*)=\"(-?[0-9]+)\"[[:space:]]*$ ]]; then
+                    constants["${BASH_REMATCH[2]}"]="${BASH_REMATCH[3]}"
+                fi
+            done
+
+            # PASS 2: Check which constants are safe to inline
+            declare -A to_inline=()
+            for const_var in "${!constants[@]}"; do
+                local const_val="${constants[$const_var]}"
+                local safe=true
+                local usage_count=0
+
+                for line in "${lines[@]}"; do
+                    # Skip the declaration line itself
+                    [[ "$line" =~ ^[[:space:]]*(local|readonly)[[:space:]]+${const_var}= ]] && continue
+
+                    # Check if variable is reassigned
+                    [[ "$line" =~ ${const_var}= ]] && { safe=false; break; }
+
+                    # Check if variable is modified in arithmetic, allowing whitespace
+                    [[ "$line" =~ \(\([[:space:]]*${const_var}[[:space:]]*(\+\+|--|\+=|-=|\*=|/=|%=|=) ]] && { safe=false; break; }
+
+                    # Count usages - match $VAR, ${VAR}, or bare VAR in arithmetic
+                    local temp="$line"
+                    while [[ "$temp" =~ \$${const_var}([^a-zA-Z0-9_]|$) ]] || \
+                          [[ "$temp" =~ \$\{${const_var}\} ]] || \
+                          [[ "$temp" =~ [^a-zA-Z0-9_]${const_var}([^a-zA-Z0-9_]|$) ]]; do
+                        ((usage_count++))
+                        temp="${temp#*${const_var}}"
+                    done
+                done
+
+                # Safe if used at least once and never reassigned
+                if $safe && (( usage_count > 0 )); then
+                    to_inline["$const_var"]="$const_val"
+                fi
+            done
+
+            # PASS 3: Apply inlining and folding
+            if (( ${#to_inline[@]} > 0 )); then
+                local -a new_output=()
+                for line in "${lines[@]}"; do
+                    local skip_line=false
+
+                    # Check if this line declares a constant we're inlining
+                    for const_var in "${!to_inline[@]}"; do
+                        if [[ "$line" =~ ^[[:space:]]*(local|readonly)[[:space:]]+${const_var}= ]]; then
+                            # Only skip if it's the ONLY thing on the line
+                            if [[ "$line" =~ ^[[:space:]]*(local|readonly)[[:space:]]+${const_var}=[^[:space:]]*$ ]]; then
+                                skip_line=true
+                            fi
+                            break
+                        fi
+                    done
+
+                    if ! $skip_line; then
+                        # Inline constants
+                        for const_var in "${!to_inline[@]}"; do
+                            local const_val="${to_inline[$const_var]}"
+                            # Replace ${VAR} with value
+                            line="${line//\$\{${const_var}\}/${const_val}}"
+                            # Replace $VAR with value
+                            line="${line//\$${const_var}/${const_val}}"
+                            # Replace bare VAR in arithmetic using sed
+                            line=$(echo "$line" | sed "s/\\([^a-zA-Z0-9_]\\)${const_var}\\([^a-zA-Z0-9_]\\)/\\1${const_val}\\2/g")
+                        done
+
+                        # Fold arithmetic: $(( N )) → result
+                        while [[ "$line" =~ \$\(\([[:space:]]*(-?[0-9]+)[[:space:]]*\+\ *[[:space:]]*(-?[0-9]+)[[:space:]]*\)\) ]]; do
+                            local a="${BASH_REMATCH[1]}"
+                            local b="${BASH_REMATCH[2]}"
+                            local result=$(( a + b ))
+                            line="${line//\$(\(( $a + $b \)))/$result}"
+                            line="${line//\$(\(( $a  +  $b \)))/$result}"
+                            line="${line//\$(\(( $a + $b \)))/$result}"
+                            line="${line//\$(\(( $a  + $b \)))/$result}"
+                        done
+                        while [[ "$line" =~ \$\(\([[:space:]]*(-?[0-9]+)[[:space:]]*-[[:space:]]*(-?[0-9]+)[[:space:]]*\)\) ]]; do
+                            local a="${BASH_REMATCH[1]}"
+                            local b="${BASH_REMATCH[2]}"
+                            local result=$(( a - b ))
+                            line="${line//\$(\(( $a - $b \)))/$result}"
+                            line="${line//\$(\(( $a  -  $b \)))/$result}"
+                        done
+                        while [[ "$line" =~ \$\(\([[:space:]]*(-?[0-9]+)[[:space:]]*\*[[:space:]]*(-?[0-9]+)[[:space:]]*\)\) ]]; do
+                            local a="${BASH_REMATCH[1]}"
+                            local b="${BASH_REMATCH[2]}"
+                            local result=$(( a * b ))
+                            line="${line//\$(\(( $a * $b \)))/$result}"
+                            line="${line//\$(\(( $a  *  $b \)))/$result}"
+                        done
+                        while [[ "$line" =~ \$\(\([[:space:]]*(-?[0-9]+)[[:space:]]*\/[[:space:]]*(-?[0-9]+)[[:space:]]*\)\) ]]; do
+                            local a="${BASH_REMATCH[1]}"
+                            local b="${BASH_REMATCH[2]}"
+                            if (( b != 0 )); then
+                                local result=$(( a / b ))
+                                line="${line//\$(\(( $a \/ $b \)))/$result}"
+                                line="${line//\$(\(( $a  \/  $b \)))/$result}"
+                            fi
+                        done
+
+                        new_output+=("$line")
+                    fi
+                done
+
+                current=$(printf '%s\n' "${new_output[@]}")
+                dirty=1
+            fi
+
+            unset constants to_inline
+        done
+
+        printf '%s' "$current"
+    }
+
+    # Eliminate dead code within a function (function-scoped only)
+    _eliminate_dead_code() {
+        local input="$1"
+        local current="$input"
+        local dirty=1
+
+        while (( dirty )); do
+            dirty=0
+
+            local -a lines=()
+            while IFS= read -r line; do
+                lines+=("$line")
+            done <<< "$current"
+
+            # PASS 1: Remove dead branches: if (( 0 )); then ... fi
+            local -a new_output=()
+            local skip_until_fi=0
+            local in_else=0
+            local skip_else=0
+
+            for line in "${lines[@]}"; do
+                if (( skip_until_fi > 0 )); then
+                    # Check for nested if
+                    if [[ "$line" =~ ^[[:space:]]*if[[:space:]] ]]; then
+                        ((skip_until_fi++))
+                    elif [[ "$line" =~ ^[[:space:]]*fi[[:space:]]*$ ]] || [[ "$line" =~ ^[[:space:]]*fi\; ]]; then
+                        ((skip_until_fi--))
+                        if (( skip_until_fi == 0 )); then
+                            in_else=0
+                            skip_else=0
+                        fi
+                    elif [[ "$line" =~ ^[[:space:]]*else[[:space:]]*$ ]] || [[ "$line" =~ ^[[:space:]]*else\; ]]; then
+                        in_else=1
+                    fi
+
+                    # If we're in else block and should skip it, continue skipping
+                    # If we're in then block and else follows, start skipping else
+                    if (( skip_until_fi > 0 )); then
+                        continue
+                    fi
+                fi
+
+                # Check for if (( 0 )) or if (( 1 ))
+                if [[ "$line" =~ ^[[:space:]]*if[[:space:]]+\(\([[:space:]]*0[[:space:]]*\)\)[[:space:]]*(\;|then) ]]; then
+                    # Dead branch - skip until fi, but don't skip else
+                    skip_until_fi=1
+                    in_else=0
+                    dirty=1
+                    continue
+                elif [[ "$line" =~ ^[[:space:]]*if[[:space:]]+\(\([[:space:]]*1[[:space:]]*\)\)[[:space:]]*(\;|then) ]]; then
+                    # Always true - remove the if line, keep body, remove else if present
+                    # Just output the line without the if
+                    continue
+                fi
+
+                new_output+=("$line")
+            done
+
+            current=$(printf '%s\n' "${new_output[@]}")
+
+            # PASS 2: Remove unused local variables (function-scoped)
+            lines=()
+            while IFS= read -r line; do
+                lines+=("$line")
+            done <<< "$current"
+
+            # Collect declared locals and their usage
+            declare -A declared=()
+            for line in "${lines[@]}"; do
+                if [[ "$line" =~ ^[[:space:]]*local[[:space:]]+([a-zA-Z_][a-zA-Z0-9_]*)= ]]; then
+                    declared["${BASH_REMATCH[1]}"]=1
+                fi
+            done
+
+            for decl_var in "${!declared[@]}"; do
+                local usage_count=0
+                for line in "${lines[@]}"; do
+                    [[ "$line" =~ ^[[:space:]]*local[[:space:]]+${decl_var}= ]] && continue
+                    # Match $VAR, ${VAR}, or bare VAR in arithmetic
+                    if [[ "$line" =~ \$\{?${decl_var}\}? ]] || [[ "$line" =~ [^a-zA-Z0-9_]${decl_var}([^a-zA-Z0-9_]|$) ]]; then
+                        ((usage_count++))
+                    fi
+                done
+
+                if (( usage_count == 0 )); then
+                    # Variable is declared but never used - remove it
+                    new_output=()
+                    for line in "${lines[@]}"; do
+                        if [[ "$line" =~ ^[[:space:]]*local[[:space:]]+${decl_var}= ]]; then
+                            dirty=1
+                            continue
+                        fi
+                        new_output+=("$line")
+                    done
+                    current=$(printf '%s\n' "${new_output[@]}")
+                    # Re-read lines after modification
+                    lines=()
+                    while IFS= read -r line; do
+                        lines+=("$line")
+                    done <<< "$current"
+                fi
+            done
+
+            unset declared
+        done
+
+        printf '%s' "$current"
+    }
+
+    # Optimize a single function body with multi-pass
+    _optimize_function_body() {
+        local input="$1"
+        local dirty=1
+        local current="$input"
+        local pass=0
+
+        while (( dirty )); do
+            ((pass++))
+            dirty=0
+            declare -A candidates=()
+            declare -A to_inline=()
+            declare -A array_candidates=()
+            declare -A array_to_inline=()
+
+            local -a lines=()
+            while IFS= read -r line; do
+                lines+=("$line")
+            done <<< "$current"
+
+            # PASS 1: Collect candidates (scalars and arrays)
+            for line in "${lines[@]}"; do
+                # Scalar: local var="$1", local var="${2:-default}", etc.
+                # Skip nameref declarations (local -n) as they're used for output, not input
+                if [[ "$line" =~ ^[[:space:]]*local[[:space:]]+ ]] && [[ ! "$line" =~ ^[[:space:]]*local[[:space:]]+-n[[:space:]] ]] && [[ ! "$line" =~ ^[[:space:]]*local[[:space:]]+-n$ ]]; then
+                    local decl_part="${line#*local }"
+                    local remaining="$decl_part"
+                    while [[ "$remaining" =~ ([a-zA-Z_][a-zA-Z0-9_]*)=\"([^\"]+)\" ]]; do
+                        local varname="${BASH_REMATCH[1]}"
+                        local value="${BASH_REMATCH[2]}"
+                        remaining="${remaining#*"${BASH_REMATCH[0]}"}"
+
+                        if [[ "$value" =~ ^\$([0-9]+)$ ]]; then
+                            candidates["$varname"]="\$${BASH_REMATCH[1]}"
+                        elif [[ "$value" =~ ^\$\{([0-9]+)\}$ ]]; then
+                            candidates["$varname"]="\$${BASH_REMATCH[1]}"
+                        elif [[ "$value" =~ ^\$\{([0-9]+)(:-[^}]+)\}$ ]]; then
+                            candidates["$varname"]="\${${BASH_REMATCH[1]}${BASH_REMATCH[2]}}"
+                        elif [[ "$value" =~ ^\$\{([0-9]+)([#%][^/}]+)\}$ ]]; then
+                            candidates["$varname"]="\${${BASH_REMATCH[1]}${BASH_REMATCH[2]}}"
+                        elif [[ "$value" == "\$@" ]]; then
+                            candidates["$varname"]="\$@"
+                        elif [[ "$value" == '"$@"' ]]; then
+                            candidates["$varname"]="\$@"
+                        fi
+                    done
+                fi
+
+                # Array: local -a var=("$@") or local -a var=("${src[@]}")
+                if [[ "$line" =~ ^[[:space:]]*local[[:space:]]+-a[[:space:]]+([a-zA_Z_][a-zA-Z0-9_]*)=\(\"?\$@\"?\)$ ]]; then
+                    array_candidates["${BASH_REMATCH[1]}"]='AT_SIGN_ARRAY'
+                elif [[ "$line" =~ ^[[:space:]]*local[[:space:]]+-a[[:space:]]+([a-zA-Z_][a-zA-Z0-9_]*)=\(\"?\$\{([a-zA-Z_][a-zA-Z0-9_]*)\[@\]\}\"?\)$ ]]; then
+                    array_candidates["${BASH_REMATCH[1]}"]="SRC_ARRAY:${BASH_REMATCH[2]}"
+                fi
+            done
+
+            # PASS 2: Check legality for scalars
+            # First, check if function uses both shift AND $@ (dangerous combination)
+            local has_shift=false
+            local has_at=false
+            for line in "${lines[@]}"; do
+                [[ "$line" =~ shift([[:space:]]|\;|$) ]] && has_shift=true
+                # Detect $@ in all forms: $@, "$@", ${@}, "${@}", ${@:offset:length}
+                [[ "$line" =~ \$@ ]] && has_at=true
+                [[ "$line" =~ \$\{@ ]] && has_at=true
+            done
+
+            # Only mark positional inlining as illegal if BOTH shift and $@ are present
+            local shift_at_conflict=false
+            if $has_shift && $has_at; then
+                shift_at_conflict=true
+            fi
+
+            for target_var in "${!candidates[@]}"; do
+                local replacement="${candidates[$target_var]}"
+                local illegal=0
+
+                # If function has both shift and $@, inlining positional args is dangerous
+                if $shift_at_conflict && [[ "$replacement" =~ ^\$[0-9]+$ ]]; then
+                    illegal=1
+                fi
+
+                for line in "${lines[@]}"; do
+                    [[ "$line" =~ ^[[:space:]]*local[[:space:]]+${target_var}= ]] && continue
+
+                    # Check illegal patterns
+                    [[ "$line" =~ unset[[:space:]]+${target_var}([[:space:]]|$) ]] && { illegal=1; break; }
+                    [[ "$line" =~ export[[:space:]]+${target_var}([[:space:]]|$) ]] && { illegal=1; break; }
+                    [[ "$line" =~ read[[:space:]]+(.*[[:space:]]+)?${target_var}([[:space:]]|$) ]] && { illegal=1; break; }
+                    [[ "$line" =~ getopts[[:space:]] ]] && [[ "$line" =~ ${target_var}([[:space:]]|$) ]] && { illegal=1; break; }
+                    [[ "$line" =~ printf[[:space:]]+[^[:space:]]*[[:space:]]+-v[[:space:]]+${target_var}([[:space:]]|$) ]] && { illegal=1; break; }
+                    [[ "$line" =~ \(\([[:space:]]*${target_var}(\+\+|--|\+=|-=) ]] && { illegal=1; break; }
+                    [[ "$line" =~ \$\{!${target_var} ]] && { illegal=1; break; }
+
+                    # Check for arithmetic usage (e.g., (( i % size )) - cannot inline in complex expressions)
+                    [[ "$line" =~ "(( ".*${target_var}.*"))" ]] && { illegal=1; break; }
+                done
+
+                (( !illegal )) && to_inline["$target_var"]="$replacement"
+            done
+
+            # If we're inlining positional args and there's a shift, we need to handle offset
+            # For now, just remove shift lines (simpler approach)
+            local remove_shift=false
+            for target_var in "${!to_inline[@]}"; do
+                if [[ "${to_inline[$target_var]}" =~ ^\$[0-9]+$ ]]; then
+                    remove_shift=true
+                    break
+                fi
+            done
+
+            # PASS 2b: Check legality for arrays
+            for arr_var in "${!array_candidates[@]}"; do
+                local illegal=0
+                local usage_count=0
+                local array_type="${array_candidates[$arr_var]}"
+
+                for line in "${lines[@]}"; do
+                    # Skip declaration line
+                    [[ "$line" =~ ^[[:space:]]*local[[:space:]]+-a[[:space:]]+${arr_var}= ]] && continue
+
+                    # Check for modifications
+                    [[ "$line" =~ ${arr_var}\[.*\]= ]] && { illegal=1; break; }
+                    [[ "$line" =~ ${arr_var}\+=\( ]] && { illegal=1; break; }
+                    [[ "$line" =~ unset[[:space:]]+\'?${arr_var} ]] && { illegal=1; break; }
+
+                    # Count usages of "${arr_var[@]}"
+                    local temp="$line"
+                    while [[ "$temp" =~ \"\$\{${arr_var}\[@\]\}\" ]]; do
+                        ((usage_count++))
+                        temp="${temp#*"${BASH_REMATCH[0]}"}"
+                    done
+
+                    # Also count index access: ${arr_var[N]} or ${arr_var[-1]}
+                    temp="$line"
+                    while [[ "$temp" =~ \$\{${arr_var}\[[-0-9]+\]\} ]]; do
+                        ((usage_count++))
+                        temp="${temp#*"${BASH_REMATCH[0]}"}"
+                    done
+                done
+
+                # Safe if used at least once and not modified
+                if (( !illegal && usage_count > 0 )); then
+                    array_to_inline["$arr_var"]="$array_type"
+                fi
+            done
+
+            # Check for eval (flag entire function as unsafe)
+            for line in "${lines[@]}"; do
+                [[ "$line" =~ eval[[:space:]] ]] && { to_inline=(); array_to_inline=(); break; }
+            done
+
+            # PASS 3: Apply transformations
+            if (( ${#to_inline[@]} > 0 || ${#array_to_inline[@]} > 0 )); then
+                local -a new_output=()
+                for line in "${lines[@]}"; do
+                    local skip_line=false
+                    local is_local_line=false
+
+                    # Check if this is a local declaration line
+                    if [[ "$line" =~ ^[[:space:]]*local[[:space:]]+ ]]; then
+                        is_local_line=true
+                    fi
+
+                    # Skip shift lines if we're inlining positional args
+                    # Match: "shift" at start of line OR after semicolon
+                    if $remove_shift; then
+                        if [[ "$line" =~ ^[[:space:]]*shift([[:space:]]|\;|$) ]] || [[ "$line" =~ \;[[:space:]]*shift([[:space:]]|\;|$) ]]; then
+                            skip_line=true
+                        fi
+                    fi
+
+                    # Skip array declaration lines (these are fully removed)
+                    for arr_var in "${!array_to_inline[@]}"; do
+                        if [[ "$line" =~ ^[[:space:]]*local[[:space:]]+-a[[:space:]]+${arr_var}= ]]; then
+                            skip_line=true
+                            break
+                        fi
+                    done
+
+                    if ! $skip_line; then
+                        # Apply scalar replacements first
+                        for target_var in "${!to_inline[@]}"; do
+                            local replacement="${to_inline[$target_var]}"
+                            [[ "$line" =~ \'[^\']*\$${target_var}[^\']*\' ]] && continue
+
+                            while [[ "$line" =~ \$\{([a-zA-Z_][a-zA-Z0-9_]*)\[${target_var}\]\} ]]; do
+                                local arr_name="${BASH_REMATCH[1]}"
+                                local new_val="\${${arr_name}[${replacement}]}"
+                                local old_val="\${${arr_name}[${target_var}]}"
+                                line="${line//"$old_val"/"$new_val"}"
+                            done
+                            while [[ "$line" =~ \$\{([a-zA-Z_][a-zA-Z0-9_]*)\[\$${target_var}\]\} ]]; do
+                                local arr_name="${BASH_REMATCH[1]}"
+                                local new_val="\${${arr_name}[${replacement}]}"
+                                local old_val="\${${arr_name}[\$${target_var}]}"
+                                line="${line//"$old_val"/"$new_val"}"
+                            done
+
+                            line="${line//\$\{${target_var}\}/${replacement}}"
+                            line="${line//\$${target_var}/${replacement}}"
+
+                            local unescaped_replacement="$replacement"
+                            unescaped_replacement="${unescaped_replacement#\$}"
+                            line="${line//\\\$${target_var}/\\\$${unescaped_replacement}}"
+                        done
+
+                        # After replacements, clean up local declarations
+                        # IMPORTANT: Preserve "local" for remaining variables to avoid global leakage
+                        if $is_local_line; then
+                            for target_var in "${!to_inline[@]}"; do
+                                # Remove just the variable assignment, keep "local" for other vars
+                                line=$(printf '%s' "$line" | sed -E "s/${target_var}=\"[^\"]*\" *//")
+                                # Clean up: "local  " -> "local "
+                                line=$(printf '%s' "$line" | sed 's/local  */local /')
+                                # Clean up "local ;" -> ";"
+                                line=$(printf '%s' "$line" | sed 's/local ;/;/')
+                            done
+                            # Clean up leading "; " if local was removed
+                            line=$(printf '%s' "$line" | sed 's/^[[:space:]]*;[[:space:]]*//')
+                            # Clean up standalone "local" with no variables
+                            if [[ "$line" =~ ^[[:space:]]*local[[:space:]]*$ ]]; then
+                                skip_line=true
+                            fi
+                            # Skip if line is now empty or just whitespace
+                            if [[ -z "${line}" || "$line" =~ ^[[:space:]]*$ ]]; then
+                                skip_line=true
+                            fi
+                        fi
+
+                        # Apply array replacements
+                        for arr_var in "${!array_to_inline[@]}"; do
+                            local array_type="${array_to_inline[$arr_var]}"
+                            local replacement
+
+                            # Convert marker to actual replacement
+                            if [[ "$array_type" == "AT_SIGN_ARRAY" ]]; then
+                                replacement='"$@"'
+                            elif [[ "$array_type" =~ ^SRC_ARRAY:(.+)$ ]]; then
+                                local src_var="${BASH_REMATCH[1]}"
+                                replacement="\"\${${src_var}[@]}\""
+                            else
+                                continue
+                            fi
+
+                            # Replace "${arr_var[@]}" with replacement using sed for safety
+                            line=$(echo "$line" | sed "s/\"\\\${${arr_var}\[@\]}\"/${replacement//\//\\/}/g")
+
+                            # Replace ${#arr_var[@]} with $#
+                            line="${line//\$\{#${arr_var}\[@\]\}/\$#}"
+
+                            # Replace ${arr_var[N]} with $(N+1)
+                            while [[ "$line" =~ \$\{${arr_var}\[([0-9]+)\]\} ]]; do
+                                local idx="${BASH_REMATCH[1]}"
+                                local new_idx=$((idx + 1))
+                                line="${line//\$\{${arr_var}\[$idx\]\}/\$${new_idx}}"
+                            done
+
+                            # Replace ${arr_var[-1]} with ${!#}
+                            line="${line//\$\{${arr_var}\[-1\]\}/\$\{!#\}}"
+                        done
+
+                        if ! $skip_line; then
+                            new_output+=("$line")
+                        fi
+                    fi
+                done
+
+                # Post-process: collapse consecutive blank lines
+                local -a final_output=()
+                local prev_blank=false
+                for line in "${new_output[@]}"; do
+                    if [[ -z "$line" || "$line" =~ ^[[:space:]]*$ ]]; then
+                        if ! $prev_blank; then
+                            final_output+=("$line")
+                            prev_blank=true
+                        fi
+                        # Skip consecutive blank lines
+                    else
+                        final_output+=("$line")
+                        prev_blank=false
+                    fi
+                done
+
+                current=$(printf '%s\n' "${final_output[@]}")
+                dirty=1
+            fi
+
+            unset candidates to_inline array_candidates array_to_inline
+        done
+
+        # Apply constant folding and dead code elimination as post-processing passes
+        current=$(_fold_constants "$current")
+        current=$(_eliminate_dead_code "$current")
+
+        printf '%s' "$current"
+    }
+
+    # Optimize a single line in global scope (simplified, no multi-pass)
+    _optimize_global_line() {
+        printf '%s' "$1"
+    }
+
+    # --------------------------------------------------------------------------
+    # Main optimization logic
+    # --------------------------------------------------------------------------
+
     # First pass: identify and optimize function-scoped code
     while IFS= read -r line || [[ -n "$line" ]]; do
         # Detect function start: name() { or name() \n {
@@ -1179,7 +1759,7 @@ optimize_function() {
                 if (( brace_count == 0 )); then
                     # Function closed on same line
                     in_function=false
-                    output+=("$(optimize_function_body "$func_body")")
+                    output+=("$(_optimize_function_body "$func_body")")
                     func_body=""
                 fi
             else
@@ -1201,18 +1781,18 @@ optimize_function() {
             if (( brace_count <= 0 )); then
                 # Function ended
                 in_function=false
-                output+=("$(optimize_function_body "$func_body")")
+                output+=("$(_optimize_function_body "$func_body")")
                 func_body=""
             fi
         else
             # Global scope - optimize directly
-            output+=("$(optimize_global_line "$line")")
+            output+=("$(_optimize_global_line "$line")")
         fi
     done <<< "$input"
 
     # Handle any remaining function body
     if [[ -n "$func_body" ]]; then
-        output+=("$(optimize_function_body "$func_body")")
+        output+=("$(_optimize_function_body "$func_body")")
     fi
 
     # Print result
@@ -1220,307 +1800,7 @@ optimize_function() {
 }
 
 # Optimize a single function body with multi-pass
-optimize_function_body() {
-    local input="$1"
-    local dirty=1
-    local current="$input"
-    local pass=0
 
-    while (( dirty )); do
-        ((pass++))
-        dirty=0
-        declare -A candidates=()
-        declare -A to_inline=()
-        declare -A array_candidates=()
-        declare -A array_to_inline=()
-
-        local -a lines=()
-        while IFS= read -r line; do
-            lines+=("$line")
-        done <<< "$current"
-
-        # PASS 1: Collect candidates (scalars and arrays)
-        for line in "${lines[@]}"; do
-            # Scalar: local var="$1", local var="${2:-default}", etc.
-            # Skip nameref declarations (local -n) as they're used for output, not input
-            if [[ "$line" =~ ^[[:space:]]*local[[:space:]]+ ]] && [[ ! "$line" =~ ^[[:space:]]*local[[:space:]]+-n[[:space:]] ]] && [[ ! "$line" =~ ^[[:space:]]*local[[:space:]]+-n$ ]]; then
-                local decl_part="${line#*local }"
-                local remaining="$decl_part"
-                while [[ "$remaining" =~ ([a-zA-Z_][a-zA-Z0-9_]*)=\"([^\"]+)\" ]]; do
-                    local varname="${BASH_REMATCH[1]}"
-                    local value="${BASH_REMATCH[2]}"
-                    remaining="${remaining#*"${BASH_REMATCH[0]}"}"
-
-                    if [[ "$value" =~ ^\$([0-9]+)$ ]]; then
-                        candidates["$varname"]="\$${BASH_REMATCH[1]}"
-                    elif [[ "$value" =~ ^\$\{([0-9]+)\}$ ]]; then
-                        candidates["$varname"]="\$${BASH_REMATCH[1]}"
-                    elif [[ "$value" =~ ^\$\{([0-9]+)(:-[^}]+)\}$ ]]; then
-                        candidates["$varname"]="\${${BASH_REMATCH[1]}${BASH_REMATCH[2]}}"
-                    elif [[ "$value" =~ ^\$\{([0-9]+)([#%][^/}]+)\}$ ]]; then
-                        candidates["$varname"]="\${${BASH_REMATCH[1]}${BASH_REMATCH[2]}}"
-                    elif [[ "$value" == "\$@" ]]; then
-                        candidates["$varname"]="\$@"
-                    elif [[ "$value" == '"$@"' ]]; then
-                        candidates["$varname"]="\$@"
-                    fi
-                done
-            fi
-
-            # Array: local -a var=("$@") or local -a var=("${src[@]}")
-            if [[ "$line" =~ ^[[:space:]]*local[[:space:]]+-a[[:space:]]+([a-zA-Z_][a-zA-Z0-9_]*)=\(\"?\$@\"?\)$ ]]; then
-                array_candidates["${BASH_REMATCH[1]}"]='AT_SIGN_ARRAY'
-            elif [[ "$line" =~ ^[[:space:]]*local[[:space:]]+-a[[:space:]]+([a-zA-Z_][a-zA-Z0-9_]*)=\(\"?\$\{([a-zA-Z_][a-zA-Z0-9_]*)\[@\]\}\"?\)$ ]]; then
-                array_candidates["${BASH_REMATCH[1]}"]="SRC_ARRAY:${BASH_REMATCH[2]}"
-            fi
-        done
-
-        # PASS 2: Check legality for scalars
-        # First, check if function uses both shift AND $@ (dangerous combination)
-        local has_shift=false
-        local has_at=false
-        for line in "${lines[@]}"; do
-            [[ "$line" =~ shift([[:space:]]|\;|$) ]] && has_shift=true
-            # Detect $@ in all forms: $@, "$@", ${@}, "${@}", ${@:offset:length}
-            [[ "$line" =~ \$@ ]] && has_at=true
-            [[ "$line" =~ \$\{@ ]] && has_at=true
-        done
-
-        # Only mark positional inlining as illegal if BOTH shift and $@ are present
-        local shift_at_conflict=false
-        if $has_shift && $has_at; then
-            shift_at_conflict=true
-        fi
-
-        for target_var in "${!candidates[@]}"; do
-            local replacement="${candidates[$target_var]}"
-            local illegal=0
-
-            # If function has both shift and $@, inlining positional args is dangerous
-            if $shift_at_conflict && [[ "$replacement" =~ ^\$[0-9]+$ ]]; then
-                illegal=1
-            fi
-
-            for line in "${lines[@]}"; do
-                [[ "$line" =~ ^[[:space:]]*local[[:space:]]+${target_var}= ]] && continue
-
-                # Check illegal patterns
-                [[ "$line" =~ unset[[:space:]]+${target_var}([[:space:]]|$) ]] && { illegal=1; break; }
-                [[ "$line" =~ export[[:space:]]+${target_var}([[:space:]]|$) ]] && { illegal=1; break; }
-                [[ "$line" =~ read[[:space:]]+(.*[[:space:]]+)?${target_var}([[:space:]]|$) ]] && { illegal=1; break; }
-                [[ "$line" =~ getopts[[:space:]] ]] && [[ "$line" =~ ${target_var}([[:space:]]|$) ]] && { illegal=1; break; }
-                [[ "$line" =~ printf[[:space:]]+[^[:space:]]*[[:space:]]+-v[[:space:]]+${target_var}([[:space:]]|$) ]] && { illegal=1; break; }
-                [[ "$line" =~ \(\([[:space:]]*${target_var}(\+\+|--|\+=|-=) ]] && { illegal=1; break; }
-                [[ "$line" =~ \$\{!${target_var} ]] && { illegal=1; break; }
-
-                # Check for arithmetic usage (e.g., (( i % size )) - cannot inline in complex expressions)
-                [[ "$line" =~ "(( ".*${target_var}.*"))" ]] && { illegal=1; break; }
-            done
-
-            (( !illegal )) && to_inline["$target_var"]="$replacement"
-        done
-
-        # If we're inlining positional args and there's a shift, we need to handle offset
-        # For now, just remove shift lines (simpler approach)
-        local remove_shift=false
-        for target_var in "${!to_inline[@]}"; do
-            if [[ "${to_inline[$target_var]}" =~ ^\$[0-9]+$ ]]; then
-                remove_shift=true
-                break
-            fi
-        done
-
-        # PASS 2b: Check legality for arrays
-        for arr_var in "${!array_candidates[@]}"; do
-            local illegal=0
-            local usage_count=0
-            local array_type="${array_candidates[$arr_var]}"
-
-            for line in "${lines[@]}"; do
-                # Skip declaration line
-                [[ "$line" =~ ^[[:space:]]*local[[:space:]]+-a[[:space:]]+${arr_var}= ]] && continue
-
-                # Check for modifications
-                [[ "$line" =~ ${arr_var}\[.*\]= ]] && { illegal=1; break; }
-                [[ "$line" =~ ${arr_var}\+=\( ]] && { illegal=1; break; }
-                [[ "$line" =~ unset[[:space:]]+\'?${arr_var} ]] && { illegal=1; break; }
-
-                # Count usages of "${arr_var[@]}"
-                local temp="$line"
-                while [[ "$temp" =~ \"\$\{${arr_var}\[@\]\}\" ]]; do
-                    ((usage_count++))
-                    temp="${temp#*"${BASH_REMATCH[0]}"}"
-                done
-
-                # Also count index access: ${arr_var[N]} or ${arr_var[-1]}
-                temp="$line"
-                while [[ "$temp" =~ \$\{${arr_var}\[[-0-9]+\]\} ]]; do
-                    ((usage_count++))
-                    temp="${temp#*"${BASH_REMATCH[0]}"}"
-                done
-            done
-
-            # Safe if used at least once and not modified
-            if (( !illegal && usage_count > 0 )); then
-                array_to_inline["$arr_var"]="$array_type"
-            fi
-        done
-
-        # Check for eval (flag entire function as unsafe)
-        for line in "${lines[@]}"; do
-            [[ "$line" =~ eval[[:space:]] ]] && { to_inline=(); array_to_inline=(); break; }
-        done
-
-        # PASS 3: Apply transformations
-        if (( ${#to_inline[@]} > 0 || ${#array_to_inline[@]} > 0 )); then
-            local -a new_output=()
-            for line in "${lines[@]}"; do
-                local skip_line=false
-                local is_local_line=false
-
-                # Check if this is a local declaration line
-                if [[ "$line" =~ ^[[:space:]]*local[[:space:]]+ ]]; then
-                    is_local_line=true
-                fi
-
-                # Skip shift lines if we're inlining positional args
-                # Match: "shift" at start of line OR after semicolon
-                if $remove_shift; then
-                    if [[ "$line" =~ ^[[:space:]]*shift([[:space:]]|\;|$) ]] || [[ "$line" =~ \;[[:space:]]*shift([[:space:]]|\;|$) ]]; then
-                        skip_line=true
-                    fi
-                fi
-
-                # Skip array declaration lines (these are fully removed)
-                for arr_var in "${!array_to_inline[@]}"; do
-                    if [[ "$line" =~ ^[[:space:]]*local[[:space:]]+-a[[:space:]]+${arr_var}= ]]; then
-                        skip_line=true
-                        break
-                    fi
-                done
-
-                if ! $skip_line; then
-                    # Apply scalar replacements first
-                    for target_var in "${!to_inline[@]}"; do
-                        local replacement="${to_inline[$target_var]}"
-                        [[ "$line" =~ \'[^\']*\$${target_var}[^\']*\' ]] && continue
-
-                        while [[ "$line" =~ \$\{([a-zA-Z_][a-zA-Z0-9_]*)\[${target_var}\]\} ]]; do
-                            local arr_name="${BASH_REMATCH[1]}"
-                            local new_val="\${${arr_name}[${replacement}]}"
-                            local old_val="\${${arr_name}[${target_var}]}"
-                            line="${line//"$old_val"/"$new_val"}"
-                        done
-                        while [[ "$line" =~ \$\{([a-zA-Z_][a-zA-Z0-9_]*)\[\$${target_var}\]\} ]]; do
-                            local arr_name="${BASH_REMATCH[1]}"
-                            local new_val="\${${arr_name}[${replacement}]}"
-                            local old_val="\${${arr_name}[\$${target_var}]}"
-                            line="${line//"$old_val"/"$new_val"}"
-                        done
-
-                        line="${line//\$\{${target_var}\}/${replacement}}"
-                        line="${line//\$${target_var}/${replacement}}"
-
-                        local unescaped_replacement="$replacement"
-                        unescaped_replacement="${unescaped_replacement#\$}"
-                        line="${line//\\\$${target_var}/\\\$${unescaped_replacement}}"
-                    done
-
-                    # After replacements, clean up local declarations
-                    # IMPORTANT: Preserve "local" for remaining variables to avoid global leakage
-                    if $is_local_line; then
-                        for target_var in "${!to_inline[@]}"; do
-                            # Remove just the variable assignment, keep "local" for other vars
-                            line=$(printf '%s' "$line" | sed -E "s/${target_var}=\"[^\"]*\" *//")
-                            # Clean up: "local  " -> "local "
-                            line=$(printf '%s' "$line" | sed 's/local  */local /')
-                            # Clean up "local ;" -> ";"
-                            line=$(printf '%s' "$line" | sed 's/local ;/;/')
-                        done
-                        # Clean up leading "; " if local was removed
-                        line=$(printf '%s' "$line" | sed 's/^[[:space:]]*;[[:space:]]*//')
-                        # Clean up standalone "local" with no variables
-                        if [[ "$line" =~ ^[[:space:]]*local[[:space:]]*$ ]]; then
-                            skip_line=true
-                        fi
-                        # Skip if line is now empty or just whitespace
-                        if [[ -z "${line}" || "$line" =~ ^[[:space:]]*$ ]]; then
-                            skip_line=true
-                        fi
-                    fi
-
-                    # Apply array replacements
-                    for arr_var in "${!array_to_inline[@]}"; do
-                        local array_type="${array_to_inline[$arr_var]}"
-                        local replacement
-
-                        # Convert marker to actual replacement
-                        if [[ "$array_type" == "AT_SIGN_ARRAY" ]]; then
-                            replacement='"$@"'
-                        elif [[ "$array_type" =~ ^SRC_ARRAY:(.+)$ ]]; then
-                            local src_var="${BASH_REMATCH[1]}"
-                            replacement="\"\${${src_var}[@]}\""
-                        else
-                            continue
-                        fi
-
-                        # Replace "${arr_var[@]}" with replacement using sed for safety
-                        line=$(echo "$line" | sed "s/\"\\\${${arr_var}\[@\]}\"/${replacement//\//\\/}/g")
-
-                        # Replace ${#arr_var[@]} with $#
-                        line="${line//\$\{#${arr_var}\[@\]\}/\$#}"
-
-                        # Replace ${arr_var[N]} with $(N+1)
-                        while [[ "$line" =~ \$\{${arr_var}\[([0-9]+)\]\} ]]; do
-                            local idx="${BASH_REMATCH[1]}"
-                            local new_idx=$((idx + 1))
-                            line="${line//\$\{${arr_var}\[$idx\]\}/\$${new_idx}}"
-                        done
-
-                        # Replace ${arr_var[-1]} with ${!#}
-                        line="${line//\$\{${arr_var}\[-1\]\}/\$\{!#\}}"
-                    done
-
-                    if ! $skip_line; then
-                        new_output+=("$line")
-                    fi
-                fi
-            done
-
-            # Post-process: collapse consecutive blank lines
-            local -a final_output=()
-            local prev_blank=false
-            for line in "${new_output[@]}"; do
-                if [[ -z "$line" || "$line" =~ ^[[:space:]]*$ ]]; then
-                    if ! $prev_blank; then
-                        final_output+=("$line")
-                        prev_blank=true
-                    fi
-                    # Skip consecutive blank lines
-                else
-                    final_output+=("$line")
-                    prev_blank=false
-                fi
-            done
-
-            current=$(printf '%s\n' "${final_output[@]}")
-            dirty=1
-        fi
-
-        unset candidates to_inline array_candidates array_to_inline
-    done
-
-    # Apply constant folding and dead code elimination as post-processing passes
-    current=$(fold_constants "$current")
-    current=$(eliminate_dead_code "$current")
-
-    printf '%s' "$current"
-}
-
-# Optimize a single line in global scope (simplified, no multi-pass)
-optimize_global_line() {
-    printf '%s' "$1"
-}
 
 # ==============================================================================
 # ==============================================================================
