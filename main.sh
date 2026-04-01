@@ -26,6 +26,44 @@ LICENSE="
 ##
 ##==============================================================================
 "
+
+# Pipeline logging controls (shared by tokeniser + minifier)
+# _pipeline_log_mode: unset = progress (default when MINIFY=1), "verbose" = verbose, "quiet" = quiet
+# Set via env MINIFY_LOG or MINIFY_LOG_MODE for backwards-compat
+_pipeline_log_mode="${MINIFY_LOG_MODE:-${MINIFY_LOG:-}}"
+if [[ -z "$_pipeline_log_mode" && "${MINIFY:-0}" == "1" ]]; then
+    _pipeline_log_mode="progress"
+fi
+
+# Shared log queue + helpers for dynamic progress output
+LOG_QUEUE=()
+pipeline_verbose() {
+    [[ "$_pipeline_log_mode" == verbose ]] || return 0
+    LOG_QUEUE+=("$1")
+}
+
+# Strip ANSI CSI sequences to keep logs readable
+sanitize_ansi() {
+    # Replace ESC byte or literal \e with <ESC>, leave following text intact for readability
+    sed -e $'s/\x1B/<ESC>/g' \
+        -e $'s/\\e/<ESC>/g'
+}
+
+pipeline_flush() {
+    local label="$1"
+    if [[ "$_pipeline_log_mode" == progress || "$_pipeline_log_mode" == verbose ]]; then
+        if [[ ${#LOG_QUEUE[@]} -gt 0 ]]; then
+            printf '%s\n%s\r' "$(printf '%s\n' "${LOG_QUEUE[@]}")" "$label" >&2
+        else
+            printf '%s\r' "$label" >&2
+        fi
+        LOG_QUEUE=()
+    fi
+}
+
+pipeline_flush_final() {
+    [[ "$_pipeline_log_mode" == progress || "$_pipeline_log_mode" == verbose ]] && echo >&2
+}
 compile_files() {
     local output_file="${1:-compiled.sh}"
     local src_dir="$(dirname "${BASH_SOURCE[0]}")/src"
@@ -818,8 +856,9 @@ tokenise() {
             _case_state=OFF
             return
         fi
-        # comment line — bail out and let the comment handler take it
+        # comment line — skip to EOL so we don't spin in PAT state on inline comments
         if [[ "${_src:_pos:1}" == '#' ]]; then
+            _pos=${#_src}
             return
         fi
         while (( _pos < ${#_src} )) && [[ "${_src:_pos:1}" =~ [[:space:]] ]]; do
@@ -953,8 +992,18 @@ tokenise() {
     done <<< "$input"
 
     while (( _li < ${#_lines[@]} )); do
+        if [[ "$_pipeline_log_mode" == progress || "$_pipeline_log_mode" == verbose ]]; then
+                if [[ ${#LOG_QUEUE[@]} -gt 0 ]]; then
+                echo -ne "$(printf '%s\n' "${LOG_QUEUE[@]}")\nTokenise: processed ${_li}/${#_lines[@]} lines\r" >&2
+                else
+                    echo -ne "Tokenise: processed ${_li}/${#_lines[@]} lines\r" >&2
+                fi
+                LOG_QUEUE=()
+        fi
+
         # Multi-line single-quoted string continuation
         if (( _sq_open )); then
+            [[ "$_pipeline_log_mode" == verbose ]] && LOG_QUEUE+=("[tokenise] line ${_li}: sq_open continuation")
             local _sq_line="${_lines[_li]}"
             (( _li++ ))
             # Scan for closing ' — first ' on the line closes it (no escapes in '...')
@@ -970,6 +1019,7 @@ tokenise() {
 
             local _last=$(( _tc - 1 ))
             if (( _sq_close >= 0 )); then
+                [[ "$_pipeline_log_mode" == verbose ]] && LOG_QUEUE+=("[tokenise] line ${_li}: sq closed at col ${_sq_close}, remainder: '${_sq_line:$(( _sq_close + 1 ))}'")
                 # Found closing ' — append prefix (with \n separator) and close
                 _tk[${_last}_val]+=$'\n'"${_sq_line:0:_sq_close}"
                 _sq_open=0
@@ -978,6 +1028,7 @@ tokenise() {
                 _pos=0
                 _scan_line
             else
+                [[ "$_pipeline_log_mode" == verbose ]] && LOG_QUEUE+=("[tokenise] line ${_li}: sq still open, appending whole line")
                 # Still no closing ' — append whole line and keep waiting
                 _tk[${_last}_val]+=$'\n'"$_sq_line"
             fi
@@ -986,6 +1037,7 @@ tokenise() {
 
         # Multi-line double-quoted string continuation
         if (( _dq_open )); then
+            [[ "$_pipeline_log_mode" == verbose ]] && LOG_QUEUE+=("[tokenise] line ${_li}: dq_open continuation")
             local _dq_line="${_lines[_li]}"
             (( _li++ ))
             local _last=$(( _tc - 1 ))
@@ -995,10 +1047,12 @@ tokenise() {
             _pos=0
             _dq
             if (( $? == 94 )); then
+                [[ "$_pipeline_log_mode" == verbose ]] && LOG_QUEUE+=("[tokenise] line ${_li}: dq still open, merging partial token $_tc into $_last")
                 # Still unclosed — append what _dq scanned and keep waiting
                 _tk[${_last}_val]+="${_tk[$(( _tc - 1 ))_val]}"
                 (( _tc-- ))
             else
+                [[ "$_pipeline_log_mode" == verbose ]] && LOG_QUEUE+=("[tokenise] line ${_li}: dq closed, merging token $_tc into $_last, tc now $(( _tc - 1 ))")
                 # Closed — merge the continuation into the original token
                 _tk[${_last}_val]+="${_tk[$(( _tc - 1 ))_val]}"
                 (( _tc-- ))
@@ -1008,6 +1062,7 @@ tokenise() {
         fi
 
         if $_pending_heredoc; then
+            [[ "$_pipeline_log_mode" == verbose ]] && LOG_QUEUE+=("[tokenise] line ${_li}: consuming heredoc body for marker '${_pending_marker}' (dash=${_pending_has_dash})")
             _heredoc_body "$_pending_marker" "$_pending_has_dash"
             _pending_heredoc=false
             _pending_marker=""
@@ -1016,10 +1071,14 @@ tokenise() {
         fi
 
         _src="${_lines[_li]}"
+        local clean_src
+        clean_src=${_src//\\/\\\\}
+        [[ "$_pipeline_log_mode" == verbose ]] && LOG_QUEUE+=("[tokenise] line ${_li}: normal scan, src='${clean_src}'")
         (( _li++ ))
 
         (( _tc > 0 )) && _emit OP $'\n'
         _scan_line
+        [[ "$_pipeline_log_mode" == verbose ]] && LOG_QUEUE+=("[tokenise] line $(( _li - 1 )): scan_line done, tc=${_tc}")
 
         # Look back for HEREDOC_HEAD + TAG
         local _i=$(( _tc - 1 ))
@@ -1027,12 +1086,14 @@ tokenise() {
             local _t="${_tk[${_i}_type]}"
             [[ "$_t" == "OP" && "${_tk[${_i}_val]}" == $'\n' ]] && break
             if [[ "$_t" == "HEREDOC_HEAD" ]]; then
+                [[ "$_pipeline_log_mode" == verbose ]] && LOG_QUEUE+=("[tokenise] line $(( _li - 1 )): found HEREDOC_HEAD at token ${_i}, val='${_tk[${_i}_val]}'")
                 # <<< is a herestring — no body/marker follows, skip pending
-                [[ "${_tk[${_i}_val]}" == '<<<' ]] && break
+                [[ "${_tk[${_i}_val]}" == '<<<' ]] && { [[ "$_pipeline_log_mode" == verbose ]] && LOG_QUEUE+=("[tokenise] line $(( _li - 1 )): herestring (<<<), skipping pending"); break; }
                 local _j=$(( _i + 1 ))
                 while (( _j < _tc )); do
                     local _tj="${_tk[${_j}_type]}"
                     if [[ "$_tj" == "WORD" || "$_tj" == "STRING_SQ" || "$_tj" == "STRING_DQ" ]]; then
+                        [[ "$_pipeline_log_mode" == verbose ]] && LOG_QUEUE+=("[tokenise] line $(( _li - 1 )): heredoc tag found at token ${_j}, marker='${_tk[${_j}_val]}' dash=${_pending_has_dash}")
                         _tk[${_j}_type]="HEREDOC_TAG"
                         _pending_marker="${_tk[${_j}_val]}"
                         _pending_has_dash=false
@@ -1080,277 +1141,8 @@ tokenise() {
 # Aggressively inlines positional argument variables to reduce local declarations
 # ==============================================================================
 
-# Normalize test conditionals: convert [ ] to [[ ]]
-# Usage: normalize_test_conditionals "content"
-normalize_test_conditionals() {
-    local input="$1"
-    local output="$input"
 
-    # Convert single [ to double [[ for test conditionals
-    # Pattern: [ followed by space and test operator/content, ending with ]
-    # Handle multiple [ ] on same line
 
-    # Step 1: Convert "[ " to "[[ " but NOT if already "[[ "
-    output=$(echo "$output" | sed 's/\[\[ /__DBL_OPEN__/g')       # Protect existing [[
-    output=$(echo "$output" | sed 's/\[ /[[ /g')                   # Convert [ to [[
-    output=$(echo "$output" | sed 's/__DBL_OPEN__/[[ /g')          # Restore
-
-    # Step 2: Convert " ]" to " ]]" but NOT if already " ]]"
-    # Match " ]" followed by end-of-line, semicolon, pipe, ampersand, or closing paren
-    output=$(echo "$output" | sed 's/ \]\]/__DBL_CLOSE__/g')       # Protect existing ]]
-    output=$(echo "$output" | sed 's/ \]/ ]]/g')                   # Convert ] to ]]
-    output=$(echo "$output" | sed 's/__DBL_CLOSE__/ ]]/g')         # Restore with space
-
-    printf '%s' "$output"
-}
-
-# Fold constants and inline constant variables within a function
-# Usage: fold_constants "function_body"
-fold_constants() {
-    local input="$1"
-    local current="$input"
-    local dirty=1
-    local pass=0
-
-    while (( dirty )); do
-        ((pass++))
-        dirty=0
-
-        local -a lines=()
-        while IFS= read -r line; do
-            lines+=("$line")
-        done <<< "$current"
-
-        # PASS 1: Collect constant assignments (local/readonly VAR=NUMBER)
-        declare -A constants=()
-        for line in "${lines[@]}"; do
-            # Match: local VAR=N or readonly VAR=N (where N is integer, line ends there)
-            if [[ "$line" =~ ^[[:space:]]*(local|readonly)[[:space:]]+([a-zA-Z_][a-zA-Z0-9_]*)=(-?[0-9]+)[[:space:]]*$ ]]; then
-                constants["${BASH_REMATCH[2]}"]="${BASH_REMATCH[3]}"
-            elif [[ "$line" =~ ^[[:space:]]*(local|readonly)[[:space:]]+([a-zA-Z_][a-zA-Z0-9_]*)=\"(-?[0-9]+)\"[[:space:]]*$ ]]; then
-                constants["${BASH_REMATCH[2]}"]="${BASH_REMATCH[3]}"
-            fi
-        done
-
-        # PASS 2: Check which constants are safe to inline
-        declare -A to_inline=()
-        for const_var in "${!constants[@]}"; do
-            local const_val="${constants[$const_var]}"
-            local safe=true
-            local usage_count=0
-
-            for line in "${lines[@]}"; do
-                # Skip the declaration line itself
-                [[ "$line" =~ ^[[:space:]]*(local|readonly)[[:space:]]+${const_var}= ]] && continue
-
-                # Check if variable is reassigned
-                [[ "$line" =~ ${const_var}= ]] && { safe=false; break; }
-
-                # Check if variable is modified in arithmetic
-                [[ "$line" =~ \(\([[:space:]]*${const_var}(\+\+|--|\+=|-=) ]] && { safe=false; break; }
-
-                # Count usages - match $VAR, ${VAR}, or bare VAR in arithmetic
-                local temp="$line"
-                while [[ "$temp" =~ \$${const_var}([^a-zA-Z0-9_]|$) ]] || \
-                      [[ "$temp" =~ \$\{${const_var}\} ]] || \
-                      [[ "$temp" =~ [^a-zA-Z0-9_]${const_var}([^a-zA-Z0-9_]|$) ]]; do
-                    ((usage_count++))
-                    temp="${temp#*${const_var}}"
-                done
-            done
-
-            # Safe if used at least once and never reassigned
-            if $safe && (( usage_count > 0 )); then
-                to_inline["$const_var"]="$const_val"
-            fi
-        done
-
-        # PASS 3: Apply inlining and folding
-        if (( ${#to_inline[@]} > 0 )); then
-            local -a new_output=()
-            for line in "${lines[@]}"; do
-                local skip_line=false
-
-                # Check if this line declares a constant we're inlining
-                for const_var in "${!to_inline[@]}"; do
-                    if [[ "$line" =~ ^[[:space:]]*(local|readonly)[[:space:]]+${const_var}= ]]; then
-                        # Only skip if it's the ONLY thing on the line
-                        if [[ "$line" =~ ^[[:space:]]*(local|readonly)[[:space:]]+${const_var}=[^[:space:]]*$ ]]; then
-                            skip_line=true
-                        fi
-                        break
-                    fi
-                done
-
-                if ! $skip_line; then
-                    # Inline constants
-                    for const_var in "${!to_inline[@]}"; do
-                        local const_val="${to_inline[$const_var]}"
-                        # Replace ${VAR} with value
-                        line="${line//\$\{${const_var}\}/${const_val}}"
-                        # Replace $VAR with value
-                        line="${line//\$${const_var}/${const_val}}"
-                        # Replace bare VAR in arithmetic using sed
-                        line=$(echo "$line" | sed "s/\\([^a-zA-Z0-9_]\\)${const_var}\\([^a-zA-Z0-9_]\\)/\\1${const_val}\\2/g")
-                    done
-
-                    # Fold arithmetic: $(( N )) → result
-                    while [[ "$line" =~ \$\(\([[:space:]]*(-?[0-9]+)[[:space:]]*\+\ *[[:space:]]*(-?[0-9]+)[[:space:]]*\)\) ]]; do
-                        local a="${BASH_REMATCH[1]}"
-                        local b="${BASH_REMATCH[2]}"
-                        local result=$(( a + b ))
-                        line="${line//\$(\(( $a + $b \)))/$result}"
-                        line="${line//\$(\(( $a  +  $b \)))/$result}"
-                        line="${line//\$(\(( $a + $b \)))/$result}"
-                        line="${line//\$(\(( $a  + $b \)))/$result}"
-                    done
-                    while [[ "$line" =~ \$\(\([[:space:]]*(-?[0-9]+)[[:space:]]*-[[:space:]]*(-?[0-9]+)[[:space:]]*\)\) ]]; do
-                        local a="${BASH_REMATCH[1]}"
-                        local b="${BASH_REMATCH[2]}"
-                        local result=$(( a - b ))
-                        line="${line//\$(\(( $a - $b \)))/$result}"
-                        line="${line//\$(\(( $a  -  $b \)))/$result}"
-                    done
-                    while [[ "$line" =~ \$\(\([[:space:]]*(-?[0-9]+)[[:space:]]*\*[[:space:]]*(-?[0-9]+)[[:space:]]*\)\) ]]; do
-                        local a="${BASH_REMATCH[1]}"
-                        local b="${BASH_REMATCH[2]}"
-                        local result=$(( a * b ))
-                        line="${line//\$(\(( $a * $b \)))/$result}"
-                        line="${line//\$(\(( $a  *  $b \)))/$result}"
-                    done
-                    while [[ "$line" =~ \$\(\([[:space:]]*(-?[0-9]+)[[:space:]]*\/[[:space:]]*(-?[0-9]+)[[:space:]]*\)\) ]]; do
-                        local a="${BASH_REMATCH[1]}"
-                        local b="${BASH_REMATCH[2]}"
-                        if (( b != 0 )); then
-                            local result=$(( a / b ))
-                            line="${line//\$(\(( $a \/ $b \)))/$result}"
-                            line="${line//\$(\(( $a  \/  $b \)))/$result}"
-                        fi
-                    done
-
-                    new_output+=("$line")
-                fi
-            done
-
-            current=$(printf '%s\n' "${new_output[@]}")
-            dirty=1
-        fi
-
-        unset constants to_inline
-    done
-
-    printf '%s' "$current"
-}
-
-# Eliminate dead code within a function (function-scoped only)
-# Usage: eliminate_dead_code "function_body"
-eliminate_dead_code() {
-    local input="$1"
-    local current="$input"
-    local dirty=1
-
-    while (( dirty )); do
-        dirty=0
-
-        local -a lines=()
-        while IFS= read -r line; do
-            lines+=("$line")
-        done <<< "$current"
-
-        # PASS 1: Remove dead branches: if (( 0 )); then ... fi
-        local -a new_output=()
-        local skip_until_fi=0
-        local in_else=0
-        local skip_else=0
-
-        for line in "${lines[@]}"; do
-            if (( skip_until_fi > 0 )); then
-                # Check for nested if
-                if [[ "$line" =~ ^[[:space:]]*if[[:space:]] ]]; then
-                    ((skip_until_fi++))
-                elif [[ "$line" =~ ^[[:space:]]*fi[[:space:]]*$ ]] || [[ "$line" =~ ^[[:space:]]*fi\; ]]; then
-                    ((skip_until_fi--))
-                    if (( skip_until_fi == 0 )); then
-                        in_else=0
-                        skip_else=0
-                    fi
-                elif [[ "$line" =~ ^[[:space:]]*else[[:space:]]*$ ]] || [[ "$line" =~ ^[[:space:]]*else\; ]]; then
-                    in_else=1
-                fi
-
-                # If we're in else block and should skip it, continue skipping
-                # If we're in then block and else follows, start skipping else
-                if (( skip_until_fi > 0 )); then
-                    continue
-                fi
-            fi
-
-            # Check for if (( 0 )) or if (( 1 ))
-            if [[ "$line" =~ ^[[:space:]]*if[[:space:]]+\(\([[:space:]]*0[[:space:]]*\)\)[[:space:]]*(\;|then) ]]; then
-                # Dead branch - skip until fi, but don't skip else
-                skip_until_fi=1
-                in_else=0
-                dirty=1
-                continue
-            elif [[ "$line" =~ ^[[:space:]]*if[[:space:]]+\(\([[:space:]]*1[[:space:]]*\)\)[[:space:]]*(\;|then) ]]; then
-                # Always true - remove the if line, keep body, remove else if present
-                # Just output the line without the if
-                continue
-            fi
-
-            new_output+=("$line")
-        done
-
-        current=$(printf '%s\n' "${new_output[@]}")
-
-        # PASS 2: Remove unused local variables (function-scoped)
-        lines=()
-        while IFS= read -r line; do
-            lines+=("$line")
-        done <<< "$current"
-
-        # Collect declared locals and their usage
-        declare -A declared=()
-        for line in "${lines[@]}"; do
-            if [[ "$line" =~ ^[[:space:]]*local[[:space:]]+([a-zA-Z_][a-zA-Z0-9_]*)= ]]; then
-                declared["${BASH_REMATCH[1]}"]=1
-            fi
-        done
-
-        for decl_var in "${!declared[@]}"; do
-            local usage_count=0
-            for line in "${lines[@]}"; do
-                [[ "$line" =~ ^[[:space:]]*local[[:space:]]+${decl_var}= ]] && continue
-                # Match $VAR, ${VAR}, or bare VAR in arithmetic
-                if [[ "$line" =~ \$\{?${decl_var}\}? ]] || [[ "$line" =~ [^a-zA-Z0-9_]${decl_var}([^a-zA-Z0-9_]|$) ]]; then
-                    ((usage_count++))
-                fi
-            done
-
-            if (( usage_count == 0 )); then
-                # Variable is declared but never used - remove it
-                new_output=()
-                for line in "${lines[@]}"; do
-                    if [[ "$line" =~ ^[[:space:]]*local[[:space:]]+${decl_var}= ]]; then
-                        dirty=1
-                        continue
-                    fi
-                    new_output+=("$line")
-                done
-                current=$(printf '%s\n' "${new_output[@]}")
-                # Re-read lines after modification
-                lines=()
-                while IFS= read -r line; do
-                    lines+=("$line")
-                done <<< "$current"
-            fi
-        done
-
-        unset declared
-    done
-
-    printf '%s' "$current"
-}
 
 # Optimize a function by inlining positional argument variables
 # Uses multi-pass with dirty flag until no more optimizations possible
@@ -1743,14 +1535,20 @@ minify() {
     local input="$1"
     local -A tokens=()
     local token_count=0
-
+    pipeline_verbose "[Minifier] tokenising input..."
+    pipeline_flush "Minifier: tokenising input..."
     # Tokenize input
     tokenise "$input" tokens token_count
+    pipeline_verbose "[Minifier] tokenise done (${token_count} tokens)"
+    pipeline_flush "Minifier: tokenise done (${token_count} tokens)"
 
     # Pre-processing: remove COMMENT tokens, collapse consecutive newlines,
     # rebuild as clean associative array
     local -A clean_tokens=()
     local ti=0 ci=0 _prev_was_nl=0
+
+    pipeline_verbose
+    pipeline_verbose "Filtering COMMENT tokens..."
     for (( ti=0; ti<token_count; ti++ )); do
         local _tt="${tokens[${ti}_type]}" _tv="${tokens[${ti}_val]}"
         [[ "$_tt" == "COMMENT" ]] && continue
@@ -1766,6 +1564,7 @@ minify() {
     done
     unset tokens
     declare -A tokens=()
+    pipeline_verbose "Rebuilding clean token table..."
     for (( ti=0; ti<ci; ti++ )); do
         tokens[${ti}_type]="${clean_tokens[${ti}_type]}"
         tokens[${ti}_val]="${clean_tokens[${ti}_val]}"
@@ -1781,11 +1580,14 @@ minify() {
     local array_depth=0      # Track depth inside [[]] for arrays
     local bracket_depth=0    # Track depth inside [] for array subscripts
 
+    pipeline_verbose "[Minifier] Processing ${token_count} tokens..."
+
     # --------------------------------------------------------------------------
     # _update_depth — track bracket/paren depth for array/subshell handling
     # --------------------------------------------------------------------------
     _update_depth() {
         local type="$1" val="$2"
+        local old_paren_depth=$paren_depth old_array_depth=$array_depth old_bracket_depth=$bracket_depth
         if [[ "$type" == "OP" ]]; then
             case "$val" in
                 '(')  (( paren_depth++ )) ;;
@@ -1796,6 +1598,8 @@ minify() {
                 ']')  (( bracket_depth > 0 )) && (( bracket_depth-- )) ;;
             esac
         fi
+        (( old_array_depth != array_depth || old_paren_depth != paren_depth || old_bracket_depth != bracket_depth )) && pipeline_verbose "Updated depths: paren=$paren_depth, array=$array_depth, bracket=$bracket_depth"
+
     }
 
     # --------------------------------------------------------------------------
@@ -1834,11 +1638,13 @@ minify() {
             OP) [[ "$val" == 'CASE)' ]] && printf ')' || printf '%s' "$val" ;;
             STRING_SQ)
                 if [[ "$val" == *$'\n'* ]]; then
-                    # Multi-line — convert to $'...' so output stays on one line
+                    # Multi-line — convert to $'...' so output stays on one line.
+                    # Only two substitutions: \ → \\ and real newline → \n.
+                    # Everything else (including \033, \n as two chars, etc.) is untouched.
                     local _sq="$val"
-                    _sq="${_sq//\\/\\\\}"  # \ → \
-                    _sq="${_sq//'/\\'}"        # ' → \'
-                    _sq="${_sq//$'\n'/\\n}"    # real newline → \n
+                    _sq="${_sq//\\/\\\\}"       # \ → \\ (must be first)
+                    _sq="${_sq//'/\\'}"          # ' → \' (needed inside $'...')
+                    _sq="${_sq//$'\n'/\\n}"      # real newline → \n
                     printf "\$'%s'" "$_sq"
                 else
                     printf "'%s'" "$val"
@@ -2070,12 +1876,15 @@ minify() {
         local val="${tokens[${i}_val]}"
         (( i++ ))
 
-
+        if [[ "$_pipeline_log_mode" == progress || "$_pipeline_log_mode" == verbose ]]; then
+            pipeline_flush "Minify: processed ${i}/${token_count} tokens"
+        fi
 
         # Handle newlines: convert to semicolons (conservative default)
         if [[ "$type" == "OP" && "$val" == $'\n' ]]; then
             # Backslash continuation — strip the \ already in buffer and join with space
             if [[ "$prev_type" == "OP" && "$prev_val" == '\' ]]; then
+                pipeline_verbose "Backslash continuation in token $i, joining."
                 buffer="${buffer%\\} "
                 prev_type=""
                 prev_val=""
@@ -2085,6 +1894,7 @@ minify() {
 
             # Preserve newline after HEREDOC_TAIL
             if [[ "$prev_type" == "HEREDOC_TAIL" ]]; then
+                pipeline_verbose "HEREDOC Tail on token $i, preserving newline."
                 buffer+=$'\n'
                 prev_type=""
                 prev_val=""
@@ -2094,6 +1904,7 @@ minify() {
 
             # Skip consecutive newlines
             while (( i < token_count )); do
+                pipeline_verbose "Skipped redundant newline."
                 local next_type="${tokens[${i}_type]}"
                 local next_val="${tokens[${i}_val]}"
                 [[ "$next_type" == "OP" && "$next_val" == $'\n' ]] && { (( i++ )); continue; }
@@ -2102,6 +1913,7 @@ minify() {
 
             # Inside brackets/parens (arrays), use space instead of semicolon
             if (( paren_depth > 0 || array_depth > 0 || bracket_depth > 0 )); then
+                pipeline_verbose "Inside brackets or arrays. Using space separator instead."
                 buffer+=" "
                 prev_type="OP"; prev_val=" "
             elif [[ -n "$prev_type" && "$buffer" =~ [^[:space:]]$ ]]; then
@@ -2109,6 +1921,7 @@ minify() {
                     local next_type="${tokens[${i}_type]}"
                     local next_val="${tokens[${i}_val]}"
                     if ! _skip_semi "$prev_type" "$prev_val" "$next_type" "$next_val"; then
+                        pipeline_verbose "[Minifier] Using semicolons for a valid pattern in token $i (within bracket/array)"
                         buffer+="; "
                         prev_type="OP"; prev_val=";"
                     fi
@@ -2124,6 +1937,7 @@ minify() {
         # Add space if needed
         if [[ -n "$prev_type" && "$buffer" =~ [^[:space:]]$ ]]; then
             if _needs_space "$prev_type" "$prev_val" "$type" "$val"; then
+                pipeline_verbose "[Minifier] Pattern in token $i required space, adding."
                 buffer+=" "
             fi
         fi
@@ -2134,9 +1948,18 @@ minify() {
         prev_val="$val"
     done
 
+    if [[ "$_pipeline_log_mode" == progress || "$_pipeline_log_mode" == verbose ]]; then
+        pipeline_flush "Minify: processed ${token_count}/${token_count} tokens"
+    fi
+
+    pipeline_verbose "[Minifier] Done. Output: ${#buffer} bytes"
+    if [[ "$_pipeline_log_mode" == progress || "$_pipeline_log_mode" == verbose ]]; then
+        pipeline_flush "Minify: done"
+        pipeline_flush_final
+    fi
+
     # Final cleanup
     buffer="${buffer//  / }"
-    buffer="${buffer//; ;/;}"
     buffer="${buffer# }"
     buffer="${buffer% }"
     buffer="${buffer%;}"
