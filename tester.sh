@@ -717,6 +717,155 @@ test::pfloat::sigmoid() { if [[ "$(pfloat::sigmoid 0)" == "0.5" ]]; then _pass; 
 test::pfloat::softplus() { if [[ -n "$(pfloat::softplus 1.0)" ]]; then _pass; else _fail; fi; }
 test::pfloat::cbrt() { if [[ "$(pfloat::cbrt 8.0)" == "2" ]]; then _pass; else _fail; fi; }
 
+# IEEE 754 tests
+test::pfloat::ieee754::add() {
+  local a b result
+  a=$(pfloat::ieee754::from_string "1")
+  b=$(pfloat::ieee754::from_string "2")
+  result=$(pfloat::ieee754::add "$a" "$b")
+  if [[ "$(pfloat::ieee754::to_string "$result")" == "3" ]]; then _pass; else _fail; fi
+}
+
+test::pfloat::ieee754::sub() {
+  local a b result
+  a=$(pfloat::ieee754::from_string "5")
+  b=$(pfloat::ieee754::from_string "3")
+  result=$(pfloat::ieee754::sub "$a" "$b")
+  if [[ "$(pfloat::ieee754::to_string "$result")" == "2" ]]; then _pass; else _fail; fi
+}
+
+test::pfloat::ieee754::mul() {
+  local a b result
+  a=$(pfloat::ieee754::from_string "2")
+  b=$(pfloat::ieee754::from_string "3")
+  result=$(pfloat::ieee754::mul "$a" "$b")
+  if [[ "$(pfloat::ieee754::to_string "$result")" == "6" ]]; then _pass; else _fail; fi
+}
+
+test::pfloat::ieee754::div() {
+  local a b result
+  a=$(pfloat::ieee754::from_string "6")
+  b=$(pfloat::ieee754::from_string "2")
+  result=$(pfloat::ieee754::div "$a" "$b")
+  if [[ "$(pfloat::ieee754::to_string "$result")" == "3" ]]; then _pass; else _fail; fi
+}
+
+test::pfloat::ieee754::eq() {
+  local a b
+  a=$(pfloat::ieee754::from_string "1")
+  b=$(pfloat::ieee754::from_string "1")
+  if pfloat::ieee754::eq "$a" "$b"; then _pass; else _fail; fi
+}
+
+test::pfloat::ieee754::ne() {
+  local a b
+  a=$(pfloat::ieee754::from_string "1")
+  b=$(pfloat::ieee754::from_string "2")
+  if pfloat::ieee754::ne "$a" "$b"; then _pass; else _fail; fi
+}
+
+test::pfloat::ieee754::lt() {
+  local a b
+  a=$(pfloat::ieee754::from_string "1")
+  b=$(pfloat::ieee754::from_string "2")
+  if pfloat::ieee754::lt "$a" "$b"; then _pass; else _fail; fi
+}
+
+test::pfloat::ieee754::is_nan() {
+  local nan=$((2047 << 52 | 1))
+  if pfloat::ieee754::is_nan "$nan"; then _pass; else _fail; fi
+}
+
+test::pfloat::ieee754::is_inf() {
+  local inf=$((2047 << 52))
+  if pfloat::ieee754::is_inf "$inf"; then _pass; else _fail; fi
+}
+
+test::pfloat::ieee754::is_zero() {
+  if pfloat::ieee754::is_zero 0; then _pass; else _fail; fi
+}
+
+test::pfloat::ieee754::neg() {
+  local a result
+  a=$(pfloat::ieee754::from_string "1")
+  result=$(pfloat::ieee754::neg "$a")
+  if [[ "$(pfloat::ieee754::to_string "$result")" == "-1" ]]; then _pass; else _fail; fi
+}
+
+test::pfloat::ieee754::abs() {
+  local a result
+  a=$(pfloat::ieee754::from_string "-1")
+  result=$(pfloat::ieee754::abs "$a")
+  if [[ "$(pfloat::ieee754::to_string "$result")" == "1" ]]; then _pass; else _fail; fi
+}
+
+test::pfloat::ieee754::from_string() {
+  local a
+  a=$(pfloat::ieee754::from_string "1")
+  # 1.0 = exp 1023, mant 0 → bits = 1023 << 52 = 4607182418800017408
+  if [[ "$a" -eq 4607182418800017408 ]]; then _pass; else _fail; fi
+}
+
+test::pfloat::ieee754::to_string() {
+  local a str
+  a=$(pfloat::ieee754::from_string "1")
+  str=$(pfloat::ieee754::to_string "$a")
+  if [[ "$str" == "1" ]]; then _pass; else _fail; fi
+}
+
+test::pfloat::ieee754::ge() {
+  local a b
+  a=$(pfloat::ieee754::from_string "2")
+  b=$(pfloat::ieee754::from_string "1")
+  if pfloat::ieee754::ge "$a" "$b"; then _pass; else _fail; fi
+}
+
+test::pfloat::ieee754::gt() {
+  local a b
+  a=$(pfloat::ieee754::from_string "2")
+  b=$(pfloat::ieee754::from_string "1")
+  if pfloat::ieee754::gt "$a" "$b"; then _pass; else _fail; fi
+}
+
+test::pfloat::ieee754::le() {
+  local a b
+  a=$(pfloat::ieee754::from_string "1")
+  b=$(pfloat::ieee754::from_string "2")
+  if pfloat::ieee754::le "$a" "$b"; then _pass; else _fail; fi
+}
+
+test::pfloat::ieee754::is_finite() {
+  local a
+  a=$(pfloat::ieee754::from_string "1")
+  if pfloat::ieee754::is_finite "$a"; then _pass; else _fail; fi
+}
+
+test::pfloat::ieee754::is_negative() {
+  local a
+  a=$(pfloat::ieee754::from_string "-1")
+  if pfloat::ieee754::is_negative "$a"; then _pass; else _fail; fi
+}
+
+test::pfloat::ieee754::is_positive() {
+  local a
+  a=$(pfloat::ieee754::from_string "1")
+  if pfloat::ieee754::is_positive "$a"; then _pass; else _fail; fi
+}
+
+test::pfloat::ieee754::sign() {
+  local a result
+  a=$(pfloat::ieee754::from_string "1")
+  result=$(pfloat::ieee754::sign "$a")
+  if [[ "$result" -eq 1 ]]; then _pass; else _fail; fi
+}
+
+test::pfloat::ieee754::sqrt() {
+  local a result
+  a=$(pfloat::ieee754::from_string "4")
+  result=$(pfloat::ieee754::sqrt "$a")
+  if [[ "$(pfloat::ieee754::to_string "$result")" == "2" ]]; then _pass; else _fail; fi
+}
+
 # ==============================================================================
 # Tests — hash
 # ==============================================================================
