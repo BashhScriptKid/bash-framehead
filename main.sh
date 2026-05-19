@@ -411,6 +411,7 @@ EOF
 #   tokenise "$source" tokens token_count
 # ==============================================================================
 tokenise() {
+    [[ "$_pipeline_log_mode" == verbose ]] && LOG_QUEUE+=("[tokenise] Starting tokenisation (input: ${#input} chars)")
     local input="$1"
     local -n _tk="$2"
     local -n _tc="$3"
@@ -423,8 +424,11 @@ tokenise() {
     local _dq_open=0  # set when _dq returned 94 (multi-line double-quoted string in progress)
     local -a _dq_stack=()  # quote stack, preserved across _dq line continuations
     local _dq_cmd_depth=0  # $( nesting depth inside _dq — suppresses quote stack while > 0
-    local _case_state=OFF _case_depth=0  # case pattern consumption state
+    local -a _case_state_stack=()  # case state stack: "WORD", "PAT", "BODY"
+    local -a _case_depth_stack=()  # pattern depth stack for each case level
+    local _case_depth=0            # current pattern depth (parentheses within pattern)
     local -a _lines=()
+    local _src_safe=${_src//\\/\\\\}
 
     # --------------------------------------------------------------------------
     # _emit — append one token
@@ -432,6 +436,7 @@ tokenise() {
     _emit() {
         _tk[${_tc}_type]="$1"
         _tk[${_tc}_val]="$2"
+        [[ "$_pipeline_log_mode" == verbose ]] && LOG_QUEUE+=("[tokenise] Token ${_tc}: '${2//\\/\\\\}' as ${1}")
         (( _tc++ ))
     }
 
@@ -452,17 +457,28 @@ tokenise() {
     # Caller must append subsequent lines to the last token val until closed.
     # --------------------------------------------------------------------------
     _sq() {
+        [[ "$_pipeline_log_mode" == verbose ]] && LOG_QUEUE+=("[tokenise] Starting single-quoted string at position ${_pos}")
         local i=$(( _pos + 1 ))
         while (( i < ${#_src} )); do
             [[ "${_src:i:1}" == "'" ]] && {
-                _emit STRING_SQ "${_src:_pos+1:i-_pos-1}"
+                local sq_content="${_src:_pos+1:i-_pos-1}"
+                local sq_content_safe=${sq_content//\\/\\\\}
+                [[ "$_pipeline_log_mode" == verbose ]] &&
+                if [[ ${#sq_content} -ge 50 ]]; then
+                    LOG_QUEUE+=("[tokenise] Closed single-quoted string (${#sq_content} chars): '${sq_content_safe:0:50}...'")
+                else
+                    LOG_QUEUE+=("[tokenise] Closed single-quoted string (${#sq_content} chars): '${sq_content_safe}'")
+                fi
+                _emit STRING_SQ "$sq_content"
                 _pos=$(( i + 1 ))
                 return 0
             }
             (( i++ ))
         done
         # EOL without closing ' — emit partial, signal continuation
-        _emit STRING_SQ "${_src:_pos+1}"
+        local sq_partial="${_src:_pos+1}"
+        [[ "$_pipeline_log_mode" == verbose ]] && LOG_QUEUE+=("[tokenise] Single-quoted string continues to next line (${#sq_partial} chars so far)")
+        _emit STRING_SQ "$sq_partial"
         _pos=${#_src}
         return 94
     }
@@ -475,6 +491,7 @@ tokenise() {
     # Single-quotes are inert inside "..." — never pushed.
     # --------------------------------------------------------------------------
     _dq() {
+        [[ "$_pipeline_log_mode" == verbose ]] && LOG_QUEUE+=("[tokenise] Starting double-quoted string at position ${_pos}")
         # QUOTE_PAT: characters that open a new quote context inside "..."
         # Only " and ` are valid openers — ' is inert inside double-quotes
         local QUOTE_PAT='^(["`])$'
@@ -505,7 +522,9 @@ tokenise() {
                 unset '_dq_stack[-1]'
                 # Stack empty — closed the root "
                 if (( ${#_dq_stack[@]} == 0 )); then
-                    _emit STRING_DQ "$(_lit "${_src:_pos+1:i-_pos-1}")"
+                    local dq_content="${_src:_pos+1:i-_pos-1}"
+                    [[ "$_pipeline_log_mode" == verbose ]] && LOG_QUEUE+=("[tokenise] Closed double-quoted string (${#dq_content} chars): '${dq_content:0:50}...'")
+                    _emit STRING_DQ "$(_lit "$dq_content")"
                     _pos=$(( i + 1 ))
                     return 0
                 fi
@@ -521,7 +540,9 @@ tokenise() {
             (( i++ ))
         done
         # EOL without closing " — emit partial, signal continuation
-        _emit STRING_DQ "$(_lit "${_src:_pos+1}")"
+        local dq_partial="${_src:_pos+1}"
+        [[ "$_pipeline_log_mode" == verbose ]] && LOG_QUEUE+=("[tokenise] Double-quoted string continues to next line (${#dq_partial} chars so far)")
+        _emit STRING_DQ "$(_lit "$dq_partial")"
         _pos=${#_src}
         return 94
     }
@@ -530,6 +551,7 @@ tokenise() {
     # _arith — consume $(( )) starting at _pos; emits ARITH (interior lit'd)
     # --------------------------------------------------------------------------
     _arith() {
+        [[ "$_pipeline_log_mode" == verbose ]] && LOG_QUEUE+=("[tokenise] Starting arithmetic expansion at position ${_pos}")
         local i=$(( _pos + 3 )) depth=1
         while (( i < ${#_src} && depth > 0 )); do
             local two="${_src:i:2}"
@@ -542,7 +564,9 @@ tokenise() {
             fi
         done
         # Capture interior: from after $(( to before ))
-        _emit ARITH "$(_lit "${_src:_pos+3:i-_pos-5}")"
+        local arith_content="${_src:_pos+3:i-_pos-5}"
+        [[ "$_pipeline_log_mode" == verbose ]] && LOG_QUEUE+=("[tokenise] Arithmetic expansion (depth ${depth}): '${arith_content:0:50}...'")
+        _emit ARITH "$(_lit "$arith_content")"
         _pos=$i  # _pos is now at position after ))
     }
 
@@ -550,6 +574,7 @@ tokenise() {
     # _arith_stmt — arithmetic (( )) at statement level; emits ARITH
     # --------------------------------------------------------------------------
     _arith_stmt() {
+        [[ "$_pipeline_log_mode" == verbose ]] && LOG_QUEUE+=("[tokenise] Starting arithmetic statement at position ${_pos}")
         local i=$(( _pos + 2 )) depth=1
         while (( i < ${#_src} && depth > 0 )); do
             local two="${_src:i:2}"
@@ -561,7 +586,9 @@ tokenise() {
             else (( i++ ))
             fi
         done
-        _emit ARITH "$(_lit "${_src:_pos+2:i-_pos-2}")"
+        local arith_stmt_content="${_src:_pos+2:i-_pos-2}"
+        [[ "$_pipeline_log_mode" == verbose ]] && LOG_QUEUE+=("[tokenise] Closed arithmetic statement (depth ${depth}, ${#arith_stmt_content} chars): '${arith_stmt_content:0:50}...'")
+        _emit ARITH "$(_lit "$arith_stmt_content")"
         _pos=$(( i + 2 ))
     }
 
@@ -572,6 +599,7 @@ tokenise() {
     # Tracks single-quote state so ) inside 'awk scripts' is not mistaken for close.
     # --------------------------------------------------------------------------
     _cmdsub() {
+        [[ "$_pipeline_log_mode" == verbose ]] && LOG_QUEUE+=("[tokenise] Starting command substitution at position ${_pos}")
         local depth=1 in_sq=0
         local body="" start_src="$_src" start_pos=$(( _pos + 2 ))
         local ci=$start_pos
@@ -593,6 +621,7 @@ tokenise() {
                         (( depth-- ))
                         if (( depth == 0 )); then
                             body+="${_src:start_pos:ci-start_pos}"
+                            [[ "$_pipeline_log_mode" == verbose ]] && LOG_QUEUE+=("[tokenise] Closed command substitution (depth ${depth}, ${#body} chars): '${body:0:50}...'")
                             _emit CMD_SUB "$(_lit "$body")"
                             _pos=$(( ci + 1 ))
                             return 0
@@ -604,6 +633,7 @@ tokenise() {
 
             # EOL without close — accumulate this line and pull the next
             if (( _li >= ${#_lines[@]} )); then break; fi
+            [[ "$_pipeline_log_mode" == verbose ]] && LOG_QUEUE+=("[tokenise] Command substitution continues to next line, depth=${depth}")
             body+="${_src:start_pos}"$'\n'
             _src="${_lines[_li]}"
             (( _li++ ))
@@ -613,6 +643,7 @@ tokenise() {
 
         # Unterminated — emit what we have
         body+="${_src:start_pos}"
+        [[ "$_pipeline_log_mode" == verbose ]] && LOG_QUEUE+=("[tokenise] Unterminated command substitution (${#body} chars): '${body:0:50}...'")
         _emit CMD_SUB "$(_lit "$body")"
         _pos=${#_src}
         return 94
@@ -622,6 +653,7 @@ tokenise() {
     # _cmdsub_ps — process substitution <( ) or >( ); emits PROC_SUB
     # --------------------------------------------------------------------------
     _cmdsub_ps() {
+        [[ "$_pipeline_log_mode" == verbose ]] && LOG_QUEUE+=("[tokenise] Starting process substitution '${1}(' at position ${_pos}")
         local dir="$1"
         local i=$(( _pos + 2 )) depth=1
         while (( i < ${#_src} && depth > 0 )); do
@@ -634,7 +666,9 @@ tokenise() {
             (( i++ ))
         done
         # Store direction + interior content
-        _emit PROC_SUB "${dir}|$(_lit "${_src:_pos+2:i-_pos-2}")"
+        local ps_content="${_src:_pos+2:i-_pos-2}"
+        [[ "$_pipeline_log_mode" == verbose ]] && LOG_QUEUE+=("[tokenise] Closed process substitution (depth ${depth}, ${#ps_content} chars): '${ps_content:0:50}...'")
+        _emit PROC_SUB "${dir}|$(_lit "$ps_content")"
         _pos=$(( i + 1 ))
     }
 
@@ -642,18 +676,23 @@ tokenise() {
     # _backtick — consume `...` starting at _pos; emits CMD_SUB
     # --------------------------------------------------------------------------
     _backtick() {
+        [[ "$_pipeline_log_mode" == verbose ]] && LOG_QUEUE+=("[tokenise] Starting backtick command substitution at position ${_pos}")
         local i=$(( _pos + 1 ))
         while (( i < ${#_src} )); do
             local c="${_src:i:1}"
             [[ "$c" == '\' ]] && { (( i += 2 )); continue; }
             [[ "$c" == '`' ]] && {
-                _emit CMD_SUB "$(_lit "${_src:_pos+1:i-_pos-1}")"
+                local backtick_content="${_src:_pos+1:i-_pos-1}"
+                [[ "$_pipeline_log_mode" == verbose ]] && LOG_QUEUE+=("[tokenise] Closed backtick command substitution (${#backtick_content} chars): '${backtick_content:0:50}...'")
+                _emit CMD_SUB "$(_lit "$backtick_content")"
                 _pos=$(( i + 1 ))
                 return
             }
             (( i++ ))
         done
-        _emit CMD_SUB "$(_lit "${_src:_pos+1}")"
+        local backtick_partial="${_src:_pos+1}"
+        [[ "$_pipeline_log_mode" == verbose ]] && LOG_QUEUE+=("[tokenise] Unterminated backtick command substitution (${#backtick_partial} chars): '${backtick_partial:0:50}...'")
+        _emit CMD_SUB "$(_lit "$backtick_partial")"
         _pos=${#_src}
     }
 
@@ -661,6 +700,7 @@ tokenise() {
     # _paramexp — consume ${ } starting at _pos; emits PARAM_EXP
     # --------------------------------------------------------------------------
     _paramexp() {
+        [[ "$_pipeline_log_mode" == verbose ]] && LOG_QUEUE+=("[tokenise] Starting parameter expansion at position ${_pos}")
         local i=$(( _pos + 2 )) depth=1
         while (( i < ${#_src} && depth > 0 )); do
             local c="${_src:i:1}"
@@ -671,7 +711,9 @@ tokenise() {
             fi
             (( i++ ))
         done
-        _emit PARAM_EXP "${_src:_pos+2:i-_pos-2}"
+        local param_content="${_src:_pos+2:i-_pos-2}"
+        [[ "$_pipeline_log_mode" == verbose ]] && LOG_QUEUE+=("[tokenise] Closed parameter expansion (depth ${depth}, ${#param_content} chars): '${param_content:0:50}...'")
+        _emit PARAM_EXP "$param_content"
         _pos=$(( i + 1 ))
     }
 
@@ -679,11 +721,13 @@ tokenise() {
     # _var_literal — consume $var, $1, $#, $@, etc.; emits VAR_LITERAL
     # --------------------------------------------------------------------------
     _var_literal() {
+        [[ "$_pipeline_log_mode" == verbose ]] && LOG_QUEUE+=("[tokenise] Starting variable literal at position ${_pos}")
         local start=$_pos
         (( _pos++ ))
         local next="${_src:_pos:1}"
         case "$next" in
             '#'|'@'|'*'|'?'|'$'|'!'|'-'|'0')
+                [[ "$_pipeline_log_mode" == verbose ]] && LOG_QUEUE+=("[tokenise] Special variable: \$${next}")
                 _emit VAR_LITERAL "\$${next}"
                 (( _pos++ ))
                 return
@@ -699,14 +743,18 @@ tokenise() {
         elif [[ "$next" =~ [1-9] ]]; then
             (( _pos++ ))
         fi
-        _emit VAR_LITERAL "${_src:start:_pos-start}"
+        local var_content="${_src:start:_pos-start}"
+        [[ "$_pipeline_log_mode" == verbose ]] && LOG_QUEUE+=("[tokenise] Variable literal: '${var_content}'")
+        _emit VAR_LITERAL "$var_content"
     }
 
     # --------------------------------------------------------------------------
     # _comment — consume # through end of _src; emits COMMENT
     # --------------------------------------------------------------------------
     _comment() {
-        _emit COMMENT "${_src:_pos}"
+        local comment_content="${_src:_pos}"
+        [[ "$_pipeline_log_mode" == verbose ]] && LOG_QUEUE+=("[tokenise] Comment: '${comment_content:0:50}...'")
+        _emit COMMENT "$comment_content"
         _pos=${#_src}
     }
 
@@ -715,6 +763,7 @@ tokenise() {
     # --------------------------------------------------------------------------
     _heredoc_body() {
         local marker="$1" has_dash="$2"
+        [[ "$_pipeline_log_mode" == verbose ]] && LOG_QUEUE+=("[tokenise] Starting heredoc body consumption for marker '${marker}' (dash=${has_dash})")
         local body="" sep=""
         while (( _li < ${#_lines[@]} )); do
             local line="${_lines[_li]}"
@@ -722,6 +771,7 @@ tokenise() {
             local check="$line"
             [[ "$has_dash" == true ]] && check="${line#"${line%%[!$'\t']*}"}"
             if [[ "$check" == "$marker" ]]; then
+                [[ "$_pipeline_log_mode" == verbose ]] && LOG_QUEUE+=("[tokenise] Found heredoc marker '${marker}', body length: ${#body} chars")
                 _emit HEREDOC_BODY "$(_lit "$body")"
                 _emit HEREDOC_TAIL "$check"
                 return
@@ -729,6 +779,7 @@ tokenise() {
             body="${body}${sep}${line}"
             sep=$'\n'
         done
+        [[ "$_pipeline_log_mode" == verbose ]] && LOG_QUEUE+=("[tokenise] Heredoc marker '${marker}' not found, body length: ${#body} chars")
         _emit HEREDOC_BODY "$(_lit "$body")"
     }
 
@@ -736,40 +787,59 @@ tokenise() {
     # _op — consume an operator at _pos; emits OP, REDIRECT, or HEREDOC_HEAD
     # --------------------------------------------------------------------------
     _op() {
+        [[ "$_pipeline_log_mode" == verbose ]] && LOG_QUEUE+=("[tokenise] Checking operator at position ${_pos}")
         local three="${_src:_pos:3}" two="${_src:_pos:2}" one="${_src:_pos:1}"
 
         # Three-char operators
         case "$three" in
-            ';;&') _emit OP  ';;&'; (( _pos += 3 )); [[ "$_case_state" == BODY ]] && _case_state=PAT; return ;;
+            ';;&') [[ "$_pipeline_log_mode" == verbose ]] && LOG_QUEUE+=("[tokenise] Found three-char operator ';;&'")
+                   _emit OP  ';;&'; (( _pos += 3 )); [[ ${#_case_state_stack[@]} -gt 0 && "${_case_state_stack[-1]}" == "BODY" ]] && _case_state_stack[-1]="PAT"; return ;;
             '&>>'|'2>>'|'2>&'|'1>&')
+                   [[ "$_pipeline_log_mode" == verbose ]] && LOG_QUEUE+=("[tokenise] Found three-char redirect '${three}'")
                    _emit REDIRECT "$three"; (( _pos += 3 )); return ;;
-            '<<<') _emit HEREDOC_HEAD '<<<'; (( _pos += 3 )); return ;;
-            '<<-') _emit HEREDOC_HEAD '<<-'; (( _pos += 3 )); return ;;
+            '<<<') [[ "$_pipeline_log_mode" == verbose ]] && LOG_QUEUE+=("[tokenise] Found here-string operator '<<<'")
+                   _emit HEREDOC_HEAD '<<<'; (( _pos += 3 )); return ;;
+            '<<-') [[ "$_pipeline_log_mode" == verbose ]] && LOG_QUEUE+=("[tokenise] Found heredoc operator '<<-'")
+                   _emit HEREDOC_HEAD '<<-'; (( _pos += 3 )); return ;;
         esac
 
         # Two-char operators
         case "$two" in
-            '<<')  _emit HEREDOC_HEAD '<<'; (( _pos += 2 )); return ;;
-            '<('|'>(') _cmdsub_ps "${two:0:1}"; return ;;
-            '((')  _arith_stmt; return ;;
-            ';;')  _emit OP  ';;'; (( _pos += 2 )); [[ "$_case_state" == BODY ]] && _case_state=PAT; return ;;
-            ';&')  _emit OP  ';&'; (( _pos += 2 )); [[ "$_case_state" == BODY ]] && _case_state=PAT; return ;;
-            '&&')  _emit OP  '&&'; (( _pos += 2 )); return ;;
-            '||')  _emit OP  '||'; (( _pos += 2 )); return ;;
+            '<<')  [[ "$_pipeline_log_mode" == verbose ]] && LOG_QUEUE+=("[tokenise] Found heredoc operator '<<'")
+                   _emit HEREDOC_HEAD '<<'; (( _pos += 2 )); return ;;
+            '<('|'>(') [[ "$_pipeline_log_mode" == verbose ]] && LOG_QUEUE+=("[tokenise] Found process substitution '${two}'")
+                   _cmdsub_ps "${two:0:1}"; return ;;
+            '((')  [[ "$_pipeline_log_mode" == verbose ]] && LOG_QUEUE+=("[tokenise] Found arithmetic statement '(('")
+                   _arith_stmt; return ;;
+            ';;')  [[ "$_pipeline_log_mode" == verbose ]] && LOG_QUEUE+=("[tokenise] Found case terminator ';;'")
+                   _emit OP  ';;'; (( _pos += 2 )); if [[ ${#_case_state_stack[@]} -gt 0 ]]; then [[ "$_pipeline_log_mode" == verbose ]] && LOG_QUEUE+=("[tokenise] ;; handler: stack=${_case_state_stack[*]}, top=${_case_state_stack[-1]}"); if [[ "${_case_state_stack[-1]}" == "BODY" ]]; then [[ "$_pipeline_log_mode" == verbose ]] && LOG_QUEUE+=("[tokenise] ;; → PAT (was BODY)"); _case_state_stack[-1]="PAT"; fi; fi; return ;;
+            ';&')  [[ "$_pipeline_log_mode" == verbose ]] && LOG_QUEUE+=("[tokenise] Found case terminator ';&'")
+                   _emit OP  ';&'; (( _pos += 2 )); [[ ${#_case_state_stack[@]} -gt 0 && "${_case_state_stack[-1]}" == "BODY" ]] && _case_state_stack[-1]="PAT"; return ;;
+            '&&')  [[ "$_pipeline_log_mode" == verbose ]] && LOG_QUEUE+=("[tokenise] Found logical AND '&&'")
+                   _emit OP  '&&'; (( _pos += 2 )); return ;;
+            '||')  [[ "$_pipeline_log_mode" == verbose ]] && LOG_QUEUE+=("[tokenise] Found logical OR '||'")
+                   _emit OP  '||'; (( _pos += 2 )); return ;;
             '>>'|'>&'|'<&'|'<>'|'&>')
+                   [[ "$_pipeline_log_mode" == verbose ]] && LOG_QUEUE+=("[tokenise] Found two-char redirect '${two}'")
                    _emit REDIRECT "$two"; (( _pos += 2 )); return ;;
         esac
 
         # Single-char
         case "$one" in
             ';'|'|'|'&'|'('|')')
+                         [[ "$_pipeline_log_mode" == verbose ]] && LOG_QUEUE+=("[tokenise] Found operator '${one}'")
                          _emit OP       "$one"; (( _pos++ )); return ;;
-            '{'|'}')     _emit OP       "$one"; (( _pos++ )); return ;;
-            '>'|'<')     _emit REDIRECT "$one"; (( _pos++ )); return ;;
-            $'\n')       _emit OP       $'\n';  (( _pos++ )); return ;;
-            '\')         _emit OP '\'; (( _pos += 2 )); return ;;
+            '{'|'}')     [[ "$_pipeline_log_mode" == verbose ]] && LOG_QUEUE+=("[tokenise] Found brace '${one}'")
+                         _emit OP       "$one"; (( _pos++ )); return ;;
+            '>'|'<')     [[ "$_pipeline_log_mode" == verbose ]] && LOG_QUEUE+=("[tokenise] Found redirect '${one}'")
+                         _emit REDIRECT "$one"; (( _pos++ )); return ;;
+            $'\n')       [[ "$_pipeline_log_mode" == verbose ]] && LOG_QUEUE+=("[tokenise] Found newline")
+                         _emit OP       $'\n';  (( _pos++ )); return ;;
+            '\')         [[ "$_pipeline_log_mode" == verbose ]] && LOG_QUEUE+=("[tokenise] Found backslash continuation")
+                         _emit OP '\'; (( _pos += 2 )); return ;;
         esac
 
+        [[ "$_pipeline_log_mode" == verbose ]] && LOG_QUEUE+=("[tokenise] No operator match, trying word")
         _word
     }
 
@@ -777,6 +847,7 @@ tokenise() {
     # _word — consume a bare word at _pos; emits WORD
     # --------------------------------------------------------------------------
     _word() {
+        [[ "$_pipeline_log_mode" == verbose ]] && LOG_QUEUE+=("[tokenise] Starting word at position ${_pos}")
         local start=$_pos
         while (( _pos < ${#_src} )); do
             local c="${_src:_pos:1}"
@@ -785,7 +856,10 @@ tokenise() {
             (( _pos++ ))
         done
         local word="${_src:start:_pos-start}"
-        [[ -z "$word" ]] && { (( _pos++ )); return; }
+        [[ -z "$word" ]] && {
+            [[ "$_pipeline_log_mode" == verbose ]] && LOG_QUEUE+=("[tokenise] Empty word, skipping")
+            (( _pos++ )); return;
+        }
 
         if [[ "$word" =~ ^[0-9]+$ ]]; then
             local next_two="${_src:_pos:2}" next_one="${_src:_pos:1}"
@@ -804,6 +878,7 @@ tokenise() {
                 return
             fi
         fi
+        [[ "$_pipeline_log_mode" == verbose ]] && LOG_QUEUE+=("[tokenise] Word: '${word}'")
         _emit WORD "$word"
 
         # After =~, raw-scan to ]] and emit the entire regex as REGEX_PATTERN
@@ -834,18 +909,36 @@ tokenise() {
 
         # case state transitions
         case "$word" in
-            case) _case_state=WORD ;;
-            in)   [[ "$_case_state" == WORD ]] && { _case_state=PAT; _case_depth=0; } ;;
-            'esac') _case_state=OFF ;;
+            case)
+                _case_state_stack+=("WORD")
+                _case_depth_stack+=(0)
+                [[ "$_pipeline_log_mode" == verbose ]] && LOG_QUEUE+=("[tokenise] case → WORD, stack=${_case_state_stack[*]}")
+                ;;
+            in)
+                if [[ ${#_case_state_stack[@]} -gt 0 && "${_case_state_stack[-1]}" == "WORD" ]]; then
+                    _case_state_stack[-1]="PAT"
+                    _case_depth_stack[-1]=0
+                    _case_depth=0
+                    [[ "$_pipeline_log_mode" == verbose ]] && LOG_QUEUE+=("[tokenise] in → PAT, stack=${_case_state_stack[*]}")
+                fi
+                ;;
+            'esac')
+                if [[ ${#_case_state_stack[@]} -gt 0 ]]; then
+                    [[ "$_pipeline_log_mode" == verbose ]] && LOG_QUEUE+=("[tokenise] esac popping ${_case_state_stack[-1]}, stack=${_case_state_stack[*]}")
+                    unset '_case_state_stack[-1]'
+                    unset '_case_depth_stack[-1]'
+                fi
+                ;;
         esac
     }
 
     # --------------------------------------------------------------------------
     # _case_pat — consume a case arm pattern starting at _pos
-    # Called when _case_state==PAT; consumes until ) at _case_depth,
+    # Called when case state is PAT; consumes until ) at _case_depth,
     # emits REGEX_PATTERN with verbatim content, then OP ")"
     # --------------------------------------------------------------------------
     _case_pat() {
+        [[ "$_pipeline_log_mode" == verbose ]] && LOG_QUEUE+=("[tokenise] Starting case pattern consumption at position ${_pos}, case_depth=${_case_depth}")
         local depth=0 buf=""
         # Skip leading whitespace first, then check for esac
         while (( _pos < ${#_src} )) && [[ "${_src:_pos:1}" =~ [[:space:]] ]]; do
@@ -853,11 +946,16 @@ tokenise() {
         done
         # esac closes the case statement — don't consume it as a pattern
         if [[ "${_src:_pos:4}" == "esac" && ( ${#_src} -eq _pos+4 || "${_src:_pos+4:1}" =~ [[:space:]\;] ) ]]; then
-            _case_state=OFF
+            [[ "$_pipeline_log_mode" == verbose ]] && LOG_QUEUE+=("[tokenise] Found 'esac', ending case pattern consumption")
+            # Mark that we've seen esac so _word doesn't pop again
+            if [[ ${#_case_state_stack[@]} -gt 0 ]]; then
+                _case_state_stack[-1]="ESAC_SEEN"
+            fi
             return
         fi
         # comment line — skip to EOL so we don't spin in PAT state on inline comments
         if [[ "${_src:_pos:1}" == '#' ]]; then
+            [[ "$_pipeline_log_mode" == verbose ]] && LOG_QUEUE+=("[tokenise] Comment in case pattern, skipping to EOL")
             _pos=${#_src}
             return
         fi
@@ -867,6 +965,7 @@ tokenise() {
         # Skip optional leading ( — it's syntactic sugar, not part of the pattern
         local _cp_c="${_src:_pos:1}"
         if [[ "$_cp_c" == '(' ]]; then
+            [[ "$_pipeline_log_mode" == verbose ]] && LOG_QUEUE+=("[tokenise] Skipping leading '(' in case pattern")
             (( _pos++ ))
         fi
         local start=$_pos
@@ -878,10 +977,14 @@ tokenise() {
                 if (( depth == _case_depth )); then
                     # This ) closes the arm pattern
                     buf="${_src:start:_pos-start}"
+                    [[ "$_pipeline_log_mode" == verbose ]] && LOG_QUEUE+=("[tokenise] Closed case pattern (depth ${depth}, ${#buf} chars): '${buf:0:50}...'")
                     _emit REGEX_PATTERN "$buf"
                     _emit OP "CASE)"
                     (( _pos++ ))
-                    _case_state=BODY
+                    if [[ ${#_case_state_stack[@]} -gt 0 ]]; then
+                        [[ "$_pipeline_log_mode" == verbose ]] && LOG_QUEUE+=("[tokenise] pattern ) → BODY, stack=${_case_state_stack[*]}")
+                        _case_state_stack[-1]="BODY"
+                    fi
                     return
                 fi
                 (( depth-- ))
@@ -890,20 +993,30 @@ tokenise() {
         done
         # EOL without closing ) — shouldn't happen in valid bash but emit what we have
         buf="${_src:start:_pos-start}"
-        [[ -n "$buf" ]] && _emit REGEX_PATTERN "$buf"
+        [[ -n "$buf" ]] && {
+            [[ "$_pipeline_log_mode" == verbose ]] && LOG_QUEUE+=("[tokenise] Unterminated case pattern (${#buf} chars): '${buf:0:50}...'")
+            _emit REGEX_PATTERN "$buf"
+        }
     }
 
     # --------------------------------------------------------------------------
     # _scan_line — tokenise one logical line stored in _src
     # --------------------------------------------------------------------------
     _scan_line() {
+        [[ "$_pipeline_log_mode" == verbose ]] &&
+        if [[ ${#_src_safe} -ge 50 ]]; then
+            LOG_QUEUE+=("[tokenise] Scanning line: '${_src_safe:0:50}...'")
+        else
+            LOG_QUEUE+=("[tokenise] Scanning line: '${_src_safe:0}'")
+        fi
         _pos=0
         local len=${#_src}
         while (( _pos < len )); do
             local c="${_src:_pos:1}" two="${_src:_pos:2}"
 
             # Case pattern consumption — highest priority
-            if [[ "$_case_state" == PAT ]]; then
+            if [[ ${#_case_state_stack[@]} -gt 0 && "${_case_state_stack[-1]}" == "PAT" ]]; then
+                [[ "$_pipeline_log_mode" == verbose ]] && LOG_QUEUE+=("[tokenise] PAT state detected, calling _case_pat, stack=${_case_state_stack[*]}")
                 _case_pat; continue
             fi
 
@@ -933,12 +1046,15 @@ tokenise() {
 
             # $'...' ANSI-C quoted string — must be before bare $var check
             if [[ "$two" == "$'" ]]; then
+                [[ "$_pipeline_log_mode" == verbose ]] && LOG_QUEUE+=("[tokenise] Starting ANSI-C quoted string at position ${_pos}")
                 local _qs=$(( _pos + 2 ))
                 while (( _qs < ${#_src} )); do
                     local _qc="${_src:_qs:1}"
                     [[ "$_qc" == '\' ]] && (( _qs += 2 )) && continue
                     if [[ "$_qc" == "'" ]]; then
-                        _emit RICH_STRING "${_src:_pos:_qs-_pos+1}"
+                        local rich_string_content="${_src:_pos:_qs-_pos+1}"
+                        [[ "$_pipeline_log_mode" == verbose ]] && LOG_QUEUE+=("[tokenise] Closed ANSI-C quoted string (${#rich_string_content} chars): '${rich_string_content:0:50}...'")
+                        _emit RICH_STRING "$rich_string_content"
                         _pos=$(( _qs + 1 ))
                         break
                     fi
@@ -1815,20 +1931,19 @@ minify() {
     local input="$1"
     local -A tokens=()
     local token_count=0
-    pipeline_verbose "[Minifier] tokenising input..."
+    pipeline_verbose "[Minifier] Starting tokenisation..."
     pipeline_flush "Minifier: tokenising input..."
     # Tokenize input
     tokenise "$input" tokens token_count
-    pipeline_verbose "[Minifier] tokenise done (${token_count} tokens)"
-    pipeline_flush "Minifier: tokenise done (${token_count} tokens)"
+    pipeline_verbose "[Minifier] Tokenisation complete: ${token_count} tokens"
+    pipeline_flush "Minifier: tokenisation done (${token_count} tokens)"
 
     # Pre-processing: remove COMMENT tokens, collapse consecutive newlines,
     # rebuild as clean associative array
     local -A clean_tokens=()
     local ti=0 ci=0 _prev_was_nl=0
 
-    pipeline_verbose
-    pipeline_verbose "Filtering COMMENT tokens..."
+    pipeline_verbose "[Minifier] Filtering COMMENT tokens and collapsing newlines..."
     for (( ti=0; ti<token_count; ti++ )); do
         local _tt="${tokens[${ti}_type]}" _tv="${tokens[${ti}_val]}"
         [[ "$_tt" == "COMMENT" ]] && continue
@@ -1844,7 +1959,7 @@ minify() {
     done
     unset tokens
     declare -A tokens=()
-    pipeline_verbose "Rebuilding clean token table..."
+    pipeline_verbose "[Minifier] Rebuilding clean token table (${ci} tokens after filtering)..."
     for (( ti=0; ti<ci; ti++ )); do
         tokens[${ti}_type]="${clean_tokens[${ti}_type]}"
         tokens[${ti}_val]="${clean_tokens[${ti}_val]}"
@@ -1860,7 +1975,7 @@ minify() {
     local array_depth=0      # Track depth inside [[]] for arrays
     local bracket_depth=0    # Track depth inside [] for array subscripts
 
-    pipeline_verbose "[Minifier] Processing ${token_count} tokens..."
+    pipeline_verbose "[Minifier] Starting token processing loop (${token_count} tokens)..."
 
     # --------------------------------------------------------------------------
     # _update_depth — track bracket/paren depth for array/subshell handling
@@ -1878,7 +1993,7 @@ minify() {
                 ']')  (( bracket_depth > 0 )) && (( bracket_depth-- )) ;;
             esac
         fi
-        (( old_array_depth != array_depth || old_paren_depth != paren_depth || old_bracket_depth != bracket_depth )) && pipeline_verbose "Updated depths: paren=$paren_depth, array=$array_depth, bracket=$bracket_depth"
+        (( old_array_depth != array_depth || old_paren_depth != paren_depth || old_bracket_depth != bracket_depth )) && pipeline_verbose "[Minifier] Depth update: paren=$paren_depth, array=$array_depth, bracket=$bracket_depth"
 
     }
 
@@ -1989,8 +2104,9 @@ minify() {
         # No semi after background operator
         [[ "$prev_type" == "OP" && "$prev_val" == "&" ]] && return 0
 
-        # No semi before closing parens (but DO add before })
+        # No semi before closing parens
         [[ "$curr_type" == "OP" && "$curr_val" == ")" ]] && return 0
+        # Allow semicolons before } - Bash requires semicolon or newline before } in function bodies
 
         # No semi before block STARTERS (then/do/in) - they follow conditionals
         [[ "$curr_type" == "WORD" && "$curr_val" =~ ^(then|do|in)$ ]] && return 0
@@ -2003,7 +2119,16 @@ minify() {
         [[ "$prev_type" == "WORD" && "$prev_val" =~ ^(then|do|in|else|elif)$ ]] && return 0
 
         # No semi after case operators or case arm terminator
-        [[ "$prev_type" == "OP" && "$prev_val" =~ ^(;;|;;&|;&|CASE\))$ ]] && return 0
+        if [[ "$prev_type" == "OP" && "$prev_val" =~ ^(;;|;;&|;&|CASE\))$ ]]; then
+            pipeline_verbose "[Minifier] _skip_semi: skipping semicolon after case pattern '${prev_val}'"
+            return 0
+        fi
+
+        # No semi before case operators or case arm terminator
+        if [[ "$curr_type" == "OP" && "$curr_val" =~ ^(;;|;;&|;&|CASE\))$ ]]; then
+            pipeline_verbose "[Minifier] _skip_semi: skipping semicolon before case pattern '${curr_val}'"
+            return 0
+        fi
 
         # No semi after heredoc
         [[ "$prev_type" == "HEREDOC_TAIL" ]] && return 0
@@ -2012,7 +2137,7 @@ minify() {
         [[ "$prev_type" == "OP" && "$prev_val" == "&&" ]] && return 0
         [[ "$prev_type" == "OP" && "$prev_val" == "||" ]] && return 0
 
-        return 1  # Default: add semi (including before fi/done/esac/})
+        return 1  # Default: add semi (including before fi/done/esac)
     }
 
     # --------------------------------------------------------------------------
@@ -2138,6 +2263,12 @@ minify() {
         # } after ; needs space
         [[ "$prev_type" == "OP" && "$prev_val" == ";" && "$curr_type" == "OP" && "$curr_val" == "}" ]] && return 0
 
+        # } after non-OP tokens needs space (e.g., { echo "test" } needs space before })
+        if [[ "$curr_type" == "OP" && "$curr_val" == "}" && "$prev_type" != "OP" ]]; then
+            pipeline_verbose "[Minifier] _needs_space: adding space before '}' (prev_type=${prev_type}, prev_val='${prev_val}')"
+            return 0
+        fi
+
         # ( after = needs no space (array assignment: _var=(
         [[ "$prev_type" == "WORD" && "$prev_val" =~ (([a-zA-Z0-9_]|\])=)$ && "$curr_type" == "OP" && "$curr_val" == "(" ]] && return 1
 
@@ -2164,7 +2295,7 @@ minify() {
         if [[ "$type" == "OP" && "$val" == $'\n' ]]; then
             # Backslash continuation — strip the \ already in buffer and join with space
             if [[ "$prev_type" == "OP" && "$prev_val" == '\' ]]; then
-                pipeline_verbose "Backslash continuation in token $i, joining."
+                pipeline_verbose "[Minifier] Backslash continuation at token ${i}, joining lines"
                 buffer="${buffer%\\} "
                 prev_type=""
                 prev_val=""
@@ -2174,7 +2305,7 @@ minify() {
 
             # Preserve newline after HEREDOC_TAIL
             if [[ "$prev_type" == "HEREDOC_TAIL" ]]; then
-                pipeline_verbose "HEREDOC Tail on token $i, preserving newline."
+                pipeline_verbose "[Minifier] HEREDOC tail at token ${i}, preserving newline"
                 buffer+=$'\n'
                 prev_type=""
                 prev_val=""
@@ -2184,7 +2315,7 @@ minify() {
 
             # Skip consecutive newlines
             while (( i < token_count )); do
-                pipeline_verbose "Skipped redundant newline."
+                pipeline_verbose "[Minifier] Skipped redundant newline"
                 local next_type="${tokens[${i}_type]}"
                 local next_val="${tokens[${i}_val]}"
                 [[ "$next_type" == "OP" && "$next_val" == $'\n' ]] && { (( i++ )); continue; }
@@ -2193,7 +2324,7 @@ minify() {
 
             # Inside brackets/parens (arrays), use space instead of semicolon
             if (( paren_depth > 0 || array_depth > 0 || bracket_depth > 0 )); then
-                pipeline_verbose "Inside brackets or arrays. Using space separator instead."
+                pipeline_verbose "[Minifier] Inside brackets/arrays (paren=$paren_depth, array=$array_depth, bracket=$bracket_depth), using space separator"
                 buffer+=" "
                 prev_type="OP"; prev_val=" "
             elif [[ -n "$prev_type" && "$buffer" =~ [^[:space:]]$ ]]; then
@@ -2201,7 +2332,7 @@ minify() {
                     local next_type="${tokens[${i}_type]}"
                     local next_val="${tokens[${i}_val]}"
                     if ! _skip_semi "$prev_type" "$prev_val" "$next_type" "$next_val"; then
-                        pipeline_verbose "[Minifier] Using semicolons for a valid pattern in token $i (within bracket/array)"
+                        pipeline_verbose "[Minifier] Inserting semicolon at token ${i} (outside brackets/arrays)"
                         buffer+="; "
                         prev_type="OP"; prev_val=";"
                     fi
@@ -2217,8 +2348,10 @@ minify() {
         # Add space if needed
         if [[ -n "$prev_type" && "$buffer" =~ [^[:space:]]$ ]]; then
             if _needs_space "$prev_type" "$prev_val" "$type" "$val"; then
-                pipeline_verbose "[Minifier] Pattern in token $i required space, adding."
+                pipeline_verbose "[Minifier] Adding space between '${prev_val}' (${prev_type}) and '${val}' (${type})"
                 buffer+=" "
+            else
+                pipeline_verbose "[Minifier] No space needed between '${prev_val}' (${prev_type}) and '${val}' (${type})"
             fi
         fi
 
@@ -2232,17 +2365,20 @@ minify() {
         pipeline_flush "Minify: processed ${token_count}/${token_count} tokens"
     fi
 
-    pipeline_verbose "[Minifier] Done. Output: ${#buffer} bytes"
+    pipeline_verbose "[Minifier] Processing complete. Output size: ${#buffer} bytes"
     if [[ "$_pipeline_log_mode" == progress || "$_pipeline_log_mode" == verbose ]]; then
         pipeline_flush "Minify: done"
         pipeline_flush_final
     fi
 
     # Final cleanup
+    pipeline_verbose "[Minifier] Final cleanup: removing extra spaces, trimming..."
+    local before_cleanup=${#buffer}
     buffer="${buffer//  / }"
     buffer="${buffer# }"
     buffer="${buffer% }"
     buffer="${buffer%;}"
+    pipeline_verbose "[Minifier] Cleanup removed $((before_cleanup - ${#buffer})) bytes"
 
     printf '%s\n' "$buffer"
 }
