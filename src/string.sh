@@ -1642,6 +1642,17 @@ string::split() {
 }
 
 
+# Fast split — writes directly into the named array via nameref.
+# No subshell, no cat, no temp files.
+# Usage: string::split::fast result_var delimiter string
+string::split::fast() {
+  local -n _split_out="$1"
+  local _split_delim="$2" _split_str="$3"
+  local IFS="$_split_delim"
+  set -- $_split_str
+  _split_out=("$@")
+}
+
 # Join an array of arguments with a delimiter
 # Usage: string::join delimiter arg1 arg2 ...
 string::join() {
