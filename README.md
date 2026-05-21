@@ -1,10 +1,9 @@
 # bash::framehead
 
-A framework for Bash — a runtime standard library with a comprehensive (and frankly ridiculous) set of helpers. String manipulation, math, filesystem, networking, git, hardware, colour, terminal, time, process management, and more — all compiled into a single sourceable file.
-No dependencies beyond what's already on your system. No installation. Just source it and go.
+A framework for Bash — a runtime standard library with a comprehensive (and frankly ridiculous) set of helpers. String manipulation, math, filesystem, networking, git, hardware, colour, terminal, time, process management, and more — all compiled into a single sourceable file. No dependencies beyond what's already on your system. No installation. Just source it and go.
 
 ```bash
-source ./compiled.sh
+source ./bash-framehead.sh
 
 string::upper "hello world"      # HELLO WORLD
 math::factorial 10               # 3628800
@@ -37,7 +36,7 @@ Clone the repo and compile the framework into a single file:
 git clone https://github.com/BashhScriptKid/bash-framehead.git
 cd bash-framehead
 ./main.sh compile
-# → compiled.sh
+# → bash-framehead.sh
 ```
 
 You can also specify an output filename:
@@ -49,7 +48,7 @@ You can also specify an output filename:
 Source it in any script:
 
 ```bash
-source /path/to/compiled.sh
+source /path/to/bash-framehead.sh
 
 # Now everything is available
 colour::fg::green "$(string::upper "it works")"
@@ -58,35 +57,37 @@ colour::fg::green "$(string::upper "it works")"
 Or drop it next to your script and source it relatively:
 
 ```bash
-source "$(dirname "$0")/compiled.sh"
+source "$(dirname "$0")/bash-framehead.sh"
 ```
 
 ---
 
 ## Modules
 
-16 modules, ~785 functions.
+18 modules, ~785 functions across 1,117 API definitions (including `::fast` variants).
 
-| Module | Functions | What it does |
-|--------|-----------|--------------|
-| [`string`](./wiki/string.md) | 115 | Case conversion, padding, splitting, encoding, validation, UUID, base64/32 |
-| [`fs`](./wiki/fs.md) | 79 | Read/write, paths, find, checksums, temp files, symlinks, permissions |
-| [`timedate`](./wiki/timedate.md) | 74 | Dates, times, durations, timezones, calendars, stopwatch |
-| [`terminal`](./wiki/terminal.md) | 74 | Cursor, screen, shopt, colour detection, input |
-| [`colour`](./wiki/colour.md) | 65 | 4-bit, 8-bit, 24-bit colour, ANSI escapes, strip, wrap |
-| [`math`](./wiki/math.md) | 107 | Integer, float, vec2/3 and matrix operations, trig, stats, unit conversion |
-| [`process`](./wiki/process.md) | 51 | Query, signal, lock, retry, timeout, jobs, services |
-| [`runtime`](./wiki/runtime.md) | 50 | OS/arch detection, shell flags, environment introspection |
-| [`array`](./wiki/array.md) | 42 | Slice, sort, filter, set ops, zip, chunk, rotate |
-| [`net`](./wiki/net.md) | 38 | IP, DNS, HTTP, interfaces, fetch, ping, port scan |
-| [`git`](./wiki/git.md) | 35 | Branch, commit, status, stash, tags, remotes |
-| [`hardware`](./wiki/hardware.md) | 34 | CPU, RAM, GPU, disk, battery, partitions |
-| [`device`](./wiki/device.md) | 25 | Block devices, loop, TTY, mount, filesystem |
-| [`hash`](./wiki/hash.md) | 23 | MD5, SHA*, HMAC, FNV, DJB2, CRC32, UUID5, slots |
-| [`random`](./wiki/random.md) | 22 | Native, LCG, xorshift, PCG32, xoshiro, ISAAC, WELL512 |
-| [`pm`](./wiki/pm.md) | 5 | Package manager abstraction (apt/pacman/brew/dnf/…) |
+| Module | Functions | Description |
+|--------|-----------|-------------|
+| `runtime` | 54 | Shell state, OS detection, terminal capabilities |
+| `string` | 204 | Inspection, case, naming conventions, trimming, encoding |
+| `math` | 150 | Integer/float arithmetic, vec2/vec3, matrices, trigonometry |
+| `fs` | 79 | Path manipulation, file checks, I/O, temp files, directory ops |
+| `array` | 42 | Construction, transformation, filtering, set ops, sorting |
+| `net` | 38 | Connectivity, DNS, HTTP, interfaces, whois |
+| `colour` | 65 | ANSI escape codes, 4/8/24-bit colour, text styling |
+| `device` | 25 | Block/character device inspection, classification |
+| `git` | 35 | Repo state, branches, commits, remotes, tags |
+| `hardware` | 36 | CPU, GPU, RAM, disk, partitions, battery |
+| `hash` | 25 | Crypto + non-crypto hashing, HMAC, UUID5 |
+| `log` | 10 | Structured logging with severity levels and routing |
+| `pfloat` | 129 | Fixed-point and IEEE 754 floating-point arithmetic |
+| `pm` | 5 | Cross-distribution package manager abstraction |
+| `process` | 51 | Process query, control, locking, services |
+| `random` | 25 | PRNG algorithms — from LCG to ISAAC |
+| `terminal` | 74 | Cursor control, screen buffer, input handling, shopt |
+| `timedate` | 76 | Timestamps, dates, times, durations, timezones |
 
-Full documentation lives in [`wiki/`](./wiki/).
+Full documentation lives in [`docs/`](./docs/). The [Getting Started guide](./docs/guides/getting-started.md) covers first use, the [examples](./docs/guides/examples/) walk through real patterns, and the [API Dictionary](./docs/api/index.md) lists every function alphabetically.
 
 ---
 
@@ -95,34 +96,39 @@ Full documentation lives in [`wiki/`](./wiki/).
 **Compile** the source modules into a single distributable file:
 
 ```bash
-./main.sh compile
-# → compiled.sh
+# Development build (fast)
+OPTIMIZE=0 MINIFY=0 ./main.sh compile bash-framehead.sh <<< ''
 
-./main.sh compile myname.sh
-# → myname.sh
+# Optimized build
+OPTIMIZE=1 MINIFY=0 ./main.sh compile bash-framehead.sh <<< ''
+
+# Full production build (minifier can be slow)
+OPTIMIZE=1 MINIFY=1 ./main.sh compile out.sh <<< ''
 ```
 
 **Print framework statistics** — load time, total functions, per-module breakdown:
 
 ```bash
-./main.sh stat ./compiled.sh
+./main.sh stat ./bash-framehead.sh
 ```
 
 **Run the test suite:**
 
 ```bash
-./main.sh test ./compiled.sh
-# === Results: 659 passed, 0 failed, 8 skipped, 1 untested ===
-# === Success rate: 100.0% (659/659) ===
+./main.sh test ./bash-framehead.sh
 ```
 
-**Generate or update the wiki:**
+**Regenerate API documentation** from source:
 
 ```bash
-./gen_wiki.sh ./compiled.sh ./wiki
+bash tools/api-gen.sh src docs/api
 ```
 
-The wiki generator sources the compiled framework and uses it to introspect itself — function pages are created once and skipped on subsequent runs so manual edits are preserved. Module index pages append new entries rather than overwrite.
+**Development mode** — source all modules directly without compiling:
+
+```bash
+source ./main.sh
+```
 
 ---
 
@@ -131,8 +137,7 @@ The wiki generator sources the compiled framework and uses it to introspect itse
 ```
 bash-framehead/
 ├── main.sh               # Entry point — compile, test, stat
-├── compiled.sh           # Compiled single-file output
-├── gen_wiki.sh           # Wiki generator
+├── README.md
 ├── src/
 │   ├── runtime.sh        # Required — everything depends on this
 │   ├── array.sh
@@ -142,22 +147,26 @@ bash-framehead/
 │   ├── git.sh
 │   ├── hardware.sh
 │   ├── hash.sh
+│   ├── log.sh
 │   ├── math.sh
 │   ├── net.sh
+│   ├── pfloat.sh
 │   ├── pm.sh
 │   ├── process.sh
 │   ├── random.sh
 │   ├── string.sh
 │   ├── terminal.sh
 │   └── timedate.sh
-└── wiki/
-    ├── README.md
-    ├── string.md
-    ├── string/
-    │   ├── upper.md
-    │   ├── lower.md
-    │   └── ...
-    └── ...
+├── tools/
+│   ├── api-gen.sh        # API reference generator
+│   └── wiki-gen.sh       # Old wiki generator (legacy, superseded by api-gen.sh)
+└── docs/
+    ├── SKILL.md          # Framework quick-reference for models
+    ├── MODEL_NOTES.md    # State journal
+    ├── guides/            # Narrative guides, examples, and tutorials
+    │   └── examples/     # Worked examples: installer, retry, integrity, colour
+    └── api/              # Generated per-function API reference
+        └── index.md      # Function dictionary (alphabetical index)
 ```
 
 ---
@@ -166,44 +175,27 @@ bash-framehead/
 
 1. Create `src/yourmodule.sh` with functions following the `yourmodule::function_name` convention
 2. Add it to the compile list in `main.sh`
-3. Recompile: `./main.sh compile`
-4. Add tests to the `tester()` function in `main.sh`
-5. Run: `./main.sh test ./compiled.sh`
-6. Generate wiki pages: `./gen_wiki.sh ./compiled.sh ./wiki`
+3. Recompile: `./main.sh compile bash-framehead.sh`
+4. Add tests to `tester.sh` following `test::yourmodule::function()` naming
+5. Run: `./main.sh test ./bash-framehead.sh`
+6. Regenerate API docs: `bash tools/api-gen.sh src docs/api`
 
-Function comments directly above a definition are picked up by the wiki generator:
+Modules submitted upstream must not depend on other modules except `runtime.sh` to avoid horizontal dependencies. If you need logic from another module, either copy it inline (for trivial usage) or extract it as a private helper under the `_module::function` naming convention. Personal forks and local builds are free to ignore this.
 
-```bash
-# Convert string to uppercase
-# Usage: yourmodule::shout str
-yourmodule::shout() {
-    string::upper "$1"
-}
-```
-
-> [!IMPORTANT]
-> Modules submitted upstream must not depend on other modules except `runtime.sh`
-> to avoid horizontal dependencies. If you need logic from another module, either
-> copy it inline (for trivial usage) or extract it as a private helper under the
-> `_module::function` naming convention.
->
-> Personal forks and local builds are free to ignore this.
 ---
 
-### Why is the said 'single-file framework' file not included in the repository tree?
+### Why isn't the compiled file in the repository?
 
-The repository tree is meant for when you actually want to do more than just 'download one file in releases and leave'
-
-Including a pre-compiled file also risks it drifting out of sync with the source in src/, so we'd rather you compile it yourself. It's one command, and you get the flexibility of the modular architecture as a bonus.
+Including a pre-compiled file risks it drifting out of sync with the source in `src/`. Compile it yourself — it's one command, and you get the flexibility of the modular architecture as a bonus.
 
 ---
 
 ## Requirements
 
-- Bash 4.3+ (associative arrays, namerefs)
-- Bash 5.0+ for a handful of functions (guarded with `runtime::is_minimum_bash 5`)
+- **Bash 4.3+** (associative arrays, namerefs)
+- **Bash 5.0+** for a handful of functions (guarded with `runtime::is_minimum_bash 5`)
 - Standard GNU coreutils (`awk`, `sed`, `find`, `sort`)
-- Optional: `bc` for floating point math, `curl`/`wget` for networking, `openssl` for crypto hashes, `git` for git repository based operation
+- Optional: `bc` for floating point math, `curl`/`wget` for networking, `openssl` for crypto hashes, `git` for git operations
 
 ---
 
