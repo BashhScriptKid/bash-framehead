@@ -1,0 +1,28 @@
+# `math::floor`
+
+**Signature:** `math::floor(arg1)`
+
+**Module:** [`math`](../math.md) — [Guide](../guide/index.md)
+
+**Return:** exit code — 0 (true) or 1 (false)
+
+## Description
+
+Floor — largest integer ≤ n
+
+## Parameters
+
+| Name | Type | Required | Description |
+|------|------|----------|-------------|
+| `arg1` | string | Yes | |
+
+## Source
+
+```bash
+math::floor() {
+  local n
+  if [[ ! -t 0 ]]; then n=$(cat); else n="$1"; fi
+    math::bc "scale=0; $n / 1"
+}
+```
+
