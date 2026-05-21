@@ -9,7 +9,7 @@ declare -f 'runtime::bash_version' &>/dev/null || {
     return 1
 }
 
-_guard_core_deps=(string::trim string::is_integer string::split)
+_guard_core_deps=(string::is_integer string::split)
 _guard_ext_deps=()
 
 for _guard_dep in "${_guard_core_deps[@]}"; do
@@ -53,6 +53,16 @@ _json::_with_errexit() {
 
 # Brace dictionary: opener → closer.  Used by the stack-based skip_value.
 declare -A _JSON_CLOSER=(["{"]="}" ["["]="]")
+
+# Advance _json_pos past a JSON number (starts at first digit or '-').
+_json::_scan_number() {
+    local ch
+    while (( _json_pos < _json_len )); do
+        ch="${_json_buf:_json_pos:1}"
+        [[ "$ch" == [-+0-9.eE] ]] || break
+        ((_json_pos++))
+    done
+}
 
 _json::_skip_ws() {
     local ch
@@ -143,38 +153,98 @@ _json::_skip_value() {
                         ((_json_pos++))
                         ;;
                     '"') _json::_skip_string ;;
-                    *) ((_json_pos++)) ;;
+                    [tfn])
+                        case "${_json_buf:_json_pos:4}" in
+                            fals) ((_json_pos += 5)) ;;
+                            true|null) ((_json_pos += 4)) ;;
+                        esac
+                        ;;
+                    [-0-9]) _json::_scan_number ;;
+                    *)  # batch-advance past whitespace/commas/colons
+                        while (( _json_pos < _json_len )); do
+                            ch="${_json_buf:_json_pos:1}"
+                            [[ "$ch" == [[:space:]] || "$ch" == ',' || "$ch" == ':' ]] || break
+                            ((_json_pos++))
+                        done
+                        ;;
                 esac
             done
             ;;
         '"') _json::_skip_string ;;
-        [0-9tfn\-])
-            while (( _json_pos < _json_len )); do
+        [tfn])
+            case "${_json_buf:_json_pos:4}" in
+                fals) ((_json_pos += 5)) ;;
+                true|null) ((_json_pos += 4)) ;;
+            esac
+            ;;
+        [-0-9]) _json::_scan_number ;;
+    esac
+}
+
+# Walk past the value at the current position.  No subshell, no recursion.
+# Skips strings, numbers, literals, and brace-matched containers inline.
+_json::_walk_past() {
+    _json::_skip_ws
+    local ch closer
+    ch="${_json_buf:_json_pos:1}"
+    case "$ch" in
+        '{'|'[')
+            closer="${_JSON_CLOSER[$ch]}"
+            local -a _st=("$closer")
+            ((_json_pos++))
+            while (( ${#_st[@]} > 0 && _json_pos < _json_len )); do
                 ch="${_json_buf:_json_pos:1}"
-                [[ "$ch" == [-+0-9.eEiItrufalsn] ]] || break
-                ((_json_pos++))
+                case "$ch" in
+                    '{'|'[') _st+=("${_JSON_CLOSER[$ch]}"); ((_json_pos++)) ;;
+                    '}'|']')
+                        [[ "$ch" == "${_st[-1]}" ]] && unset '_st[-1]'
+                        ((_json_pos++))
+                        ;;
+                    '"') _json::_skip_string ;;
+                    [-0-9]) _json::_scan_number ;;
+                    [tfn])
+                        case "${_json_buf:_json_pos:4}" in
+                            fals) ((_json_pos += 5)) ;;
+                            true|null) ((_json_pos += 4)) ;;
+                        esac
+                        ;;
+                    *)  # batch-advance past runs of whitespace/commas/colons
+                        while (( _json_pos < _json_len )); do
+                            ch="${_json_buf:_json_pos:1}"
+                            [[ "$ch" == [[:space:]] || "$ch" == ',' || "$ch" == ':' ]] || break
+                            ((_json_pos++))
+                        done
+                        ;;
+                esac
             done
+            ;;
+        '"') _json::_skip_string ;;
+        [-0-9]) _json::_scan_number ;;
+        [tfn])
+            case "${_json_buf:_json_pos:4}" in
+                fals) ((_json_pos += 5)) ;;
+                true|null) ((_json_pos += 4)) ;;
+            esac
             ;;
     esac
 }
 
 # Find the value for a given object key.
 # Assumes _json_pos is at the opening '{'.
-# On success, leaves _json_pos at the start of the matched value and returns 0.
-# On failure (key not found), returns 1.
+# On success, leaves _json_pos at the start of the matched value.
 _json::_find_key() {
     local target="$1" cur_key
     ((_json_pos++))  # opening brace
     _json::_skip_ws
     [[ "${_json_buf:_json_pos:1}" == '}' ]] && { ((_json_pos++)); return 1; }
     while (( _json_pos < _json_len )); do
-        _json::_with_errexit _json::_read_string cur_key
+        _json::_read_string cur_key
         _json::_skip_ws
         ((_json_pos++))  # colon
         if [[ "$cur_key" == "$target" ]]; then
             return 0
         fi
-        _json::_with_errexit _json::_skip_value
+        _json::_walk_past       # skip value inline
         _json::_skip_ws
         [[ "${_json_buf:_json_pos:1}" == ',' ]] && ((_json_pos++))
         _json::_skip_ws
@@ -183,23 +253,25 @@ _json::_find_key() {
     return 1
 }
 
-# Find the nth element in an array.
+# Find the nth element in an array.  Walks the array in a single pass,
+# skipping elements inline — no per-element function call overhead.
 # Assumes _json_pos is at the opening '['.
-# On success, leaves _json_pos at the start of the matched element and returns 0.
-# On failure (index out of bounds), returns 1.
+# On success, leaves _json_pos at the start of the matched element.
 _json::_find_index() {
-    local target="$1" i=0
+    local target="$1" i=0 ch
     ((_json_pos++))  # opening bracket
     _json::_skip_ws
     [[ "${_json_buf:_json_pos:1}" == ']' ]] && { ((_json_pos++)); return 1; }
     while (( _json_pos < _json_len )); do
+        _json::_skip_ws
         if (( i == target )); then
             return 0
         fi
-        _json::_with_errexit _json::_skip_value
+        _json::_walk_past
         ((i++))
         _json::_skip_ws
-        [[ "${_json_buf:_json_pos:1}" == ',' ]] && { ((_json_pos++)); _json::_skip_ws; }
+        [[ "${_json_buf:_json_pos:1}" == ',' ]] && ((_json_pos++))
+        _json::_skip_ws
         [[ "${_json_buf:_json_pos:1}" == ']' ]] && { ((_json_pos++)); return 1; }
     done
     return 1
@@ -225,7 +297,20 @@ _json::_read_raw_span() {
                         ((_json_pos++))
                         ;;
                     '"') _json::_skip_string ;;
-                    *) ((_json_pos++)) ;;
+                    [tfn])
+                        case "${_json_buf:_json_pos:4}" in
+                            fals) ((_json_pos += 5)) ;;
+                            true|null) ((_json_pos += 4)) ;;
+                        esac
+                        ;;
+                    [-0-9]) _json::_scan_number ;;
+                    *)  # batch-advance past whitespace/commas/colons
+                        while (( _json_pos < _json_len )); do
+                            ch="${_json_buf:_json_pos:1}"
+                            [[ "$ch" == [[:space:]] || "$ch" == ',' || "$ch" == ':' ]] || break
+                            ((_json_pos++))
+                        done
+                        ;;
                 esac
             done
             _json_raw_end=$(( _json_pos - 1 ))
@@ -233,13 +318,13 @@ _json::_read_raw_span() {
         '"')
             _json::_skip_string
             ;;  # _json_raw_end set below
-        [0-9tfn\-])
-            while (( _json_pos < _json_len )); do
-                ch="${_json_buf:_json_pos:1}"
-                [[ "$ch" == [-+0-9.eEiItrufalsn] ]] || break
-                ((_json_pos++))
-            done
+        [tfn])
+            case "${_json_buf:_json_pos:4}" in
+                fals) ((_json_pos += 5)) ;;
+                true|null) ((_json_pos += 4)) ;;
+            esac
             ;;
+        [-0-9]) _json::_scan_number ;;
     esac
     _json_raw_end=$(( _json_pos - 1 ))
 }
@@ -290,7 +375,7 @@ _json::_normalise_path() {
 # Output: decoded value (strings unescaped, everything else raw JSON).
 json::get() {
     local json="$1" path="$2"
-    json="$(string::trim <<< "$json")"
+    # leading/trailing ws handled by _skip_ws; no subshell needed
     _json_buf="$json"
     _json_len="${#_json_buf}"
     _json_pos=0
@@ -364,7 +449,7 @@ json::get_file() {
 # If path is omitted or empty, lists top-level keys.
 json::keys() {
     local json="$1" path="${2:-}"
-    json="$(string::trim <<< "$json")"
+    # leading/trailing ws handled by _skip_ws; no subshell needed
     _json_buf="$json"
     _json_len="${#_json_buf}"
     _json_pos=0
@@ -433,7 +518,7 @@ json::keys() {
 # Output: object | array | string | number | boolean | null
 json::type() {
     local json="$1" path="$2"
-    json="$(string::trim <<< "$json")"
+    # leading/trailing ws handled by _skip_ws; no subshell needed
     _json_buf="$json"
     _json_len="${#_json_buf}"
     _json_pos=0
@@ -477,7 +562,7 @@ json::type() {
 # Scalars: returns an error.
 json::len() {
     local json="$1" path="${2:-}"
-    json="$(string::trim <<< "$json")"
+    # leading/trailing ws handled by _skip_ws; no subshell needed
     _json_buf="$json"
     _json_len="${#_json_buf}"
     _json_pos=0
