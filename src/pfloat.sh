@@ -601,7 +601,7 @@ pfloat::fixed::sigmoid() {
   fi
 }
 
-_pfloat::_exp_approx() {
+pfloat::fixed::_exp_approx() {
   local x="$1"
   local result="1" term="$1" i
 
@@ -628,7 +628,7 @@ pfloat::fixed::softplus() {
   pfloat::fixed::_ln_approx "$one_plus_exp"
 }
 
-_pfloat::_ln_approx() {
+pfloat::fixed::_ln_approx() {
   local x="$1"
   local y="1" i iterations=20
 

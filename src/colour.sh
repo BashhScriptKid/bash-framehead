@@ -270,7 +270,7 @@ colour::bg::bright_white()   { printf '\033[107m'; }
 #        echo "text" | colour::print bit fg_bg colour
 colour::print() {
   local bit="$1" fg_bg="$2" col="$3" text
-  if [[ ! -t 0 ]]; then text=$(cat); else text="$4"; fi
+  if [[ $# -ge 4 ]]; then text="$4"; else text=$(cat); fi
   colour::esc "$bit" "$fg_bg" "$col"
   printf '%s' "$text"
   colour::reset
@@ -287,7 +287,7 @@ colour::println() {
 #        echo "text" | colour::wrap bit fg_bg colour
 colour::wrap() {
   local bit="$1" fg_bg="$2" col="$3" text
-  if [[ ! -t 0 ]]; then text=$(cat); else text="$4"; fi
+  if [[ $# -ge 4 ]]; then text="$4"; else text=$(cat); fi
   printf '%s%s%s' "$(colour::esc "$bit" "$fg_bg" "$col")" "$text" "$(colour::reset)"
 }
 
@@ -296,7 +296,7 @@ colour::wrap() {
 #        echo "text" | colour::strip
 colour::strip() {
   local input
-  if [[ ! -t 0 ]]; then input=$(cat); else input="$1"; fi
+  if [[ $# -ge 1 ]]; then input="$1"; else input=$(cat); fi
   printf '%s\n' "$input" | sed 's/\x1b\[[0-9;]*[mGKHF]//g'
 }
 
@@ -304,7 +304,7 @@ colour::strip() {
 # Useful for padding/alignment with coloured strings
 colour::visible_length() {
   local input
-  if [[ ! -t 0 ]]; then input=$(cat); else input="$1"; fi
+  if [[ $# -ge 1 ]]; then input="$1"; else input=$(cat); fi
   local stripped
   stripped=$(colour::strip "$input")
   echo "${#stripped}"
@@ -313,7 +313,7 @@ colour::visible_length() {
 # Check if a string contains any ANSI escape codes
 colour::has_colour() {
   local input
-  if [[ ! -t 0 ]]; then input=$(cat); else input="$1"; fi
+  if [[ $# -ge 1 ]]; then input="$1"; else input=$(cat); fi
   [[ "$input" =~ $'\033'\[ ]]
 }
 

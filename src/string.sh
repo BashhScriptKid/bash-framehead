@@ -53,7 +53,7 @@ string::is_not_empty() {
 #        echo "haystack" | string::contains needle
 string::contains() {
   local input
-  if [[ ! -t 0 ]]; then input=$(cat); shift 0; else input="$1"; shift; fi
+  if [[ $# -ge 2 ]]; then input="$1"; shift; else input=$(cat); fi
   [[ "$input" == *"$1"* ]]
 }
 
@@ -62,7 +62,7 @@ string::contains() {
 #        echo "str" | string::starts_with prefix
 string::starts_with() {
   local input
-  if [[ ! -t 0 ]]; then input=$(cat); else input="$1"; shift; fi
+  if [[ $# -ge 2 ]]; then input="$1"; shift; else input=$(cat); fi
   [[ "$input" == "$1"* ]]
 }
 
@@ -71,7 +71,7 @@ string::starts_with() {
 #        echo "str" | string::ends_with suffix
 string::ends_with() {
   local input
-  if [[ ! -t 0 ]]; then input=$(cat); else input="$1"; shift; fi
+  if [[ $# -ge 2 ]]; then input="$1"; shift; else input=$(cat); fi
   [[ "$input" == *"$1" ]]
 }
 
@@ -80,7 +80,7 @@ string::ends_with() {
 #        echo "str" | string::matches regex
 string::matches() {
   local input
-  if [[ ! -t 0 ]]; then input=$(cat); else input="$1"; shift; fi
+  if [[ $# -ge 2 ]]; then input="$1"; shift; else input=$(cat); fi
   [[ "$input" =~ $1 ]]
 }
 
@@ -1232,10 +1232,10 @@ string::strip_spaces::fast() {
 # Usage: string::substr str start [length]
 string::substr() {
   local input start len
-  if [[ ! -t 0 ]]; then
-    input=$(cat); start="$1"; len="${2:-}"
-  else
+  if [[ $# -ge 2 ]]; then
     input="$1"; start="$2"; len="${3:-}"
+  else
+    input=$(cat); start="$1"; len="${2:-}"
   fi
   if [[ -n "$len" ]]; then
     echo "${input:$start:$len}"
@@ -1260,10 +1260,10 @@ string::substr::fast() {
 # Usage: string::index_of haystack needle
 string::index_of() {
   local input needle
-  if [[ ! -t 0 ]]; then
-    input=$(cat); needle="$1"
-  else
+  if [[ $# -ge 2 ]]; then
     input="$1"; needle="$2"
+  else
+    input=$(cat); needle="$1"
   fi
   local before="${input%%"$needle"*}"
   if [[ "$before" == "$input" ]]; then
@@ -1277,7 +1277,7 @@ string::index_of() {
 # Usage: string::before str delimiter
 string::before() {
   local input
-  if [[ ! -t 0 ]]; then input=$(cat); else input="$1"; shift; fi
+  if [[ $# -ge 2 ]]; then input="$1"; shift; else input=$(cat); fi
   echo "${input%%"$1"*}"
 }
 
@@ -1292,7 +1292,7 @@ string::before::fast() {
 # Usage: string::after str delimiter
 string::after() {
   local input
-  if [[ ! -t 0 ]]; then input=$(cat); else input="$1"; shift; fi
+  if [[ $# -ge 2 ]]; then input="$1"; shift; else input=$(cat); fi
   echo "${input#*"$1"}"
 }
 
@@ -1307,7 +1307,7 @@ string::after::fast() {
 # Usage: string::before_last str delimiter
 string::before_last() {
   local input
-  if [[ ! -t 0 ]]; then input=$(cat); else input="$1"; shift; fi
+  if [[ $# -ge 2 ]]; then input="$1"; shift; else input=$(cat); fi
   echo "${input%"$1"*}"
 }
 
@@ -1322,7 +1322,7 @@ string::before_last::fast() {
 # Usage: string::after_last str delimiter
 string::after_last() {
   local input
-  if [[ ! -t 0 ]]; then input=$(cat); else input="$1"; shift; fi
+  if [[ $# -ge 2 ]]; then input="$1"; shift; else input=$(cat); fi
   echo "${input##*"$1"}"
 }
 
@@ -1341,7 +1341,7 @@ string::after_last::fast() {
 # Usage: string::replace str search replace
 string::replace() {
   local input
-  if [[ ! -t 0 ]]; then input=$(cat); else input="$1"; shift; fi
+  if [[ $# -ge 2 ]]; then input="$1"; shift; else input=$(cat); fi
   echo "${input/"$1"/"$2"}"
 }
 
@@ -1356,7 +1356,7 @@ string::replace::fast() {
 # Usage: string::replace_all str search replace
 string::replace_all() {
   local input
-  if [[ ! -t 0 ]]; then input=$(cat); else input="$1"; shift; fi
+  if [[ $# -ge 2 ]]; then input="$1"; shift; else input=$(cat); fi
   echo "${input//"$1"/"$2"}"
 }
 
@@ -1371,7 +1371,7 @@ string::replace_all::fast() {
 # Usage: string::remove str substring
 string::remove() {
   local input
-  if [[ ! -t 0 ]]; then input=$(cat); else input="$1"; shift; fi
+  if [[ $# -ge 2 ]]; then input="$1"; shift; else input=$(cat); fi
   echo "${input//"$1"/}"
 }
 
@@ -1386,7 +1386,7 @@ string::remove::fast() {
 # Usage: string::remove_first str substring
 string::remove_first() {
   local input
-  if [[ ! -t 0 ]]; then input=$(cat); else input="$1"; shift; fi
+  if [[ $# -ge 2 ]]; then input="$1"; shift; else input=$(cat); fi
   echo "${input/"$1"/}"
 }
 
@@ -1425,12 +1425,10 @@ string::reverse::fast() {
 #        echo "str" | string::repeat n
 string::repeat() {
   local input n
-  if [[ ! -t 0 ]]; then
-    input=$(cat)
-    n="$1"
+  if [[ $# -ge 2 ]]; then
+    input="$1"; n="$2"
   else
-    input="$1"
-    n="$2"
+    input=$(cat); n="$1"
   fi
   local result=""
   for ((i = 0; i < n; i++)); do result+="$input"; done
@@ -1450,10 +1448,10 @@ string::repeat::fast() {
 # Usage: string::pad_left str width [char]
 string::pad_left() {
   local input width char
-  if [[ ! -t 0 ]]; then
-    input=$(cat); width="$1"; char="${2:- }"
-  else
+  if [[ $# -ge 2 ]]; then
     input="$1"; width="$2"; char="${3:- }"
+  else
+    input=$(cat); width="$1"; char="${2:- }"
   fi
   local len="${#input}"
   if ((len >= width)); then echo "$input"; return; fi
@@ -1481,10 +1479,10 @@ string::pad_left::fast() {
 # Usage: string::pad_right str width [char]
 string::pad_right() {
   local input width char
-  if [[ ! -t 0 ]]; then
-    input=$(cat); width="$1"; char="${2:- }"
-  else
+  if [[ $# -ge 2 ]]; then
     input="$1"; width="$2"; char="${3:- }"
+  else
+    input=$(cat); width="$1"; char="${2:- }"
   fi
   local len="${#input}"
   if ((len >= width)); then echo "$input"; return; fi
@@ -1512,10 +1510,10 @@ string::pad_right::fast() {
 # Usage: string::pad_center str width [char]
 string::pad_center() {
   local input width char
-  if [[ ! -t 0 ]]; then
-    input=$(cat); width="$1"; char="${2:- }"
-  else
+  if [[ $# -ge 2 ]]; then
     input="$1"; width="$2"; char="${3:- }"
+  else
+    input=$(cat); width="$1"; char="${2:- }"
   fi
   local len="${#input}"
   if ((len >= width)); then echo "$input"; return; fi
@@ -1551,10 +1549,10 @@ string::pad_center::fast() {
 # Usage: string::truncate str max [suffix]
 string::truncate() {
   local input max
-  if [[ ! -t 0 ]]; then
-    input=$(cat); max="$1"
-  else
+  if [[ $# -ge 2 ]]; then
     input="$1"; max="$2"
+  else
+    input=$(cat); max="$1"
   fi
   local suffix
 
@@ -1631,10 +1629,10 @@ string::truncate::fast() {
 # Usage: string::split str delimiter
 string::split() {
   local input delim
-  if [[ ! -t 0 ]]; then
-    input=$(cat); delim="$1"
-  else
+  if [[ $# -ge 2 ]]; then
     input="$1"; delim="$2"
+  else
+    input=$(cat); delim="$1"
   fi
   local IFS="$delim"
   set -- $input

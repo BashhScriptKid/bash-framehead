@@ -182,9 +182,13 @@ _math::is_float() {
     [[ "$1" =~ ^-?[0-9]+(\.[0-9]+)?([Ee][+-]?[0-9]+)?$ ]] && [[ "$1" == *"."* || "$1" == *[Ee]* ]]
 }
 
+_math::is_int() {
+    [[ "$1" =~ ^-?[0-9]+$ ]]
+}
+
 math::is_int() {
   local n
-  if [[ ! -t 0 ]]; then n=$(cat); else n="$1"; fi
+  if [[ $# -ge 1 ]]; then n="$1"; else n=$(cat); fi
     [[ "$n" =~ ^-?[0-9]+$ ]]
 }
 
@@ -197,7 +201,7 @@ math::is_int() {
 # Usage: math::abs n
 math::abs() {
   local n
-  if [[ ! -t 0 ]]; then n=$(cat); else n="$1"; fi
+  if [[ $# -ge 1 ]]; then n="$1"; else n=$(cat); fi
     _math::is_float "$n" && { echo "math::abs: float input — use math::absf" >&2; return 1; }
     echo $(( $n < 0 ? -$n : $n ))
 }
@@ -205,8 +209,8 @@ math::abs() {
 # Absolute value (float) — Usage: math::absf n [scale]
 math::absf() {
   local n scale
-  if [[ ! -t 0 ]]; then n=$(cat); scale="${1:-$MATH_SCALE}"
-  else n="$1"; scale="${2:-$MATH_SCALE}"; fi
+  if [[ $# -ge 1 ]]; then n="$1"; scale="${2:-$MATH_SCALE}"
+  else n=$(cat); scale="${1:-$MATH_SCALE}"; fi
   math::bc "if ($n < 0) { -($n) } else { $n }" "$scale"
 }
 
@@ -304,7 +308,7 @@ math::lcm() {
 # Check if integer is even
 math::is_even() {
   local n
-  if [[ ! -t 0 ]]; then n=$(cat); else n="$1"; fi
+  if [[ $# -ge 1 ]]; then n="$1"; else n=$(cat); fi
     _math::is_float "$n" && { echo "math::is_even: float input — is_even is integer-only" >&2; return 1; }
     (( $n % 2 == 0 ))
 }
@@ -312,7 +316,7 @@ math::is_even() {
 # Check if integer is odd
 math::is_odd() {
   local n
-  if [[ ! -t 0 ]]; then n=$(cat); else n="$1"; fi
+  if [[ $# -ge 1 ]]; then n="$1"; else n=$(cat); fi
     _math::is_float "$n" && { echo "math::is_odd: float input — is_odd is integer-only" >&2; return 1; }
     (( $n % 2 != 0 ))
 }
@@ -320,8 +324,8 @@ math::is_odd() {
 # Check if integer is prime
 math::is_prime() {
   local n scale
-  if [[ ! -t 0 ]]; then n=$(cat); scale="${1:-$MATH_SCALE}"
-  else n="$1"; scale="${2:-$MATH_SCALE}"; fi
+  if [[ $# -ge 1 ]]; then n="$1"; scale="${2:-$MATH_SCALE}"
+  else n=$(cat); scale="${1:-$MATH_SCALE}"; fi
     _math::is_float "$n" && { echo "math::is_prime: float input — is_prime is integer-only" >&2; return 1; }
     (( n < 2 )) && return 1
     (( n == 2 )) && return 0
@@ -338,7 +342,7 @@ math::is_prime() {
 # Usage: math::factorial n
 math::factorial() {
   local n
-  if [[ ! -t 0 ]]; then n=$(cat); else n="$1"; fi
+  if [[ $# -ge 1 ]]; then n="$1"; else n=$(cat); fi
     local result=1
     _math::is_float "$n" && { echo "math::factorial: float input — factorial is integer-only" >&2; return 1; }
     (( n < 0 )) && { echo "math::factorial: negative input" >&2; return 1; }
@@ -351,7 +355,7 @@ math::factorial() {
 # Usage: math::fibonacci n
 math::fibonacci() {
   local n
-  if [[ ! -t 0 ]]; then n=$(cat); else n="$1"; fi
+  if [[ $# -ge 1 ]]; then n="$1"; else n=$(cat); fi
     local a=0 b=1 i
     _math::is_float "$n" && { echo "math::fibonacci: float input — fibonacci is integer-only" >&2; return 1; }
     (( n == 0 )) && echo 0 && return
@@ -367,7 +371,7 @@ math::fibonacci() {
 # Usage: math::isqrt n
 math::int_sqrt() {
   local n
-  if [[ ! -t 0 ]]; then n=$(cat); else n="$1"; fi
+  if [[ $# -ge 1 ]]; then n="$1"; else n=$(cat); fi
     local x
     _math::is_float "$n" && { echo "math::int_sqrt: float input — use math::sqrt" >&2; return 1; }
     (( n < 0 )) && { echo "math::isqrt: negative input" >&2; return 1; }
@@ -1922,14 +1926,14 @@ math::matrix::rank() {
 # Floor — largest integer ≤ n
 math::floor() {
   local n
-  if [[ ! -t 0 ]]; then n=$(cat); else n="$1"; fi
+  if [[ $# -ge 1 ]]; then n="$1"; else n=$(cat); fi
     math::bc "scale=0; $n / 1"
 }
 
 # Ceiling — smallest integer ≥ n
 math::ceil() {
   local n
-  if [[ ! -t 0 ]]; then n=$(cat); else n="$1"; fi
+  if [[ $# -ge 1 ]]; then n="$1"; else n=$(cat); fi
     math::bc "scale=0; if ($n == ($n / 1)) $n else if ($n > 0) ($n / 1) + 1 else ($n / 1)"
 }
 
@@ -1938,7 +1942,7 @@ math::ceil() {
 # Usage: math::round n [decimal_places]
 math::round() {
   local n
-  if [[ ! -t 0 ]]; then n=$(cat); else n="$1"; fi
+  if [[ $# -ge 1 ]]; then n="$1"; else n=$(cat); fi
     local d="${2:-0}"
     math::bc "scale=${d}; (${n} + 0.5 * (${n} > 0) - 0.5 * (${n} < 0)) / 1" "$d"
 }
@@ -1946,7 +1950,7 @@ math::round() {
 # Square root
 math::sqrt() {
   local n
-  if [[ ! -t 0 ]]; then n=$(cat); else n="$1"; fi
+  if [[ $# -ge 1 ]]; then n="$1"; else n=$(cat); fi
     local scale="${2:-$MATH_SCALE}"
     math::bc "sqrt($n)" "$scale"
 }
@@ -2092,14 +2096,14 @@ math::atan2() {
 # Convert degrees to radians
 math::deg_to_rad() {
   local n
-  if [[ ! -t 0 ]]; then n=$(cat); else n="$1"; fi
+  if [[ $# -ge 1 ]]; then n="$1"; else n=$(cat); fi
     math::bc "$n * $MATH_PI / 180"
 }
 
 # Convert radians to degrees
 math::rad_to_deg() {
   local n
-  if [[ ! -t 0 ]]; then n=$(cat); else n="$1"; fi
+  if [[ $# -ge 1 ]]; then n="$1"; else n=$(cat); fi
     math::bc "$n * 180 / $MATH_PI"
 }
 
