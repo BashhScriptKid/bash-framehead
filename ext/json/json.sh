@@ -29,10 +29,6 @@ done
 unset _guard_core_deps _guard_ext_deps _guard_dep
 # --- end guard ---
 
-# Force byte semantics — grep -b reports byte offsets, bash string ops
-# must match.  JSON structural characters are all single-byte ASCII.
-export LC_ALL=C
-
 # ============================================================================
 # Internal parser state
 # ============================================================================
@@ -551,8 +547,8 @@ _json::_normalise_path() {
 #
 # Output: decoded value (strings unescaped, everything else raw JSON).
 json::get() {
+    local LC_ALL=C
     local json="$1" path="$2"
-    # leading/trailing ws handled by _skip_ws; no subshell needed
     _json_buf="$json"
     _json_len="${#_json_buf}"
     _json_pos=0
@@ -625,8 +621,8 @@ json::get_file() {
 #
 # If path is omitted or empty, lists top-level keys.
 json::keys() {
+    local LC_ALL=C
     local json="$1" path="${2:-}"
-    # leading/trailing ws handled by _skip_ws; no subshell needed
     _json_buf="$json"
     _json_len="${#_json_buf}"
     _json_pos=0
@@ -723,8 +719,8 @@ json::keys() {
 #
 # Output: object | array | string | number | boolean | null
 json::type() {
+    local LC_ALL=C
     local json="$1" path="$2"
-    # leading/trailing ws handled by _skip_ws; no subshell needed
     _json_buf="$json"
     _json_len="${#_json_buf}"
     _json_pos=0
@@ -768,8 +764,8 @@ json::type() {
 # Scalars: returns an error.
 # Uses grep -ob on large containers for C-speed counting (see _grep_len).
 json::len() {
+    local LC_ALL=C
     local json="$1" path="${2:-}"
-    # leading/trailing ws handled by _skip_ws; no subshell needed
     _json_buf="$json"
     _json_len="${#_json_buf}"
     _json_pos=0
