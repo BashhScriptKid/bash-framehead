@@ -472,6 +472,90 @@ tester() {
 
     echo ""
 
+    # ── extensions ────────────────────────────────────────────────────
+    local ext_dir ext_name ext_mod ext_test
+    local -A _seen_fn
+    for fn in "${TESTER_FUNCTIONS[@]}"; do _seen_fn["$fn"]=1; done
+
+    for ext_test in ext/*/test_ext.sh; do
+        [[ -f "$ext_test" ]] || continue
+        ext_dir="$(dirname "$ext_test")"
+        ext_name="$(basename "$ext_dir")"
+        ext_mod="$ext_dir/$ext_name.sh"
+
+        [[ -f "$ext_mod" ]] || { echo "WARNING: $ext_test exists but $ext_mod not found — skipping" >&2; continue; }
+
+        source "$ext_mod"
+        source "$ext_test"
+
+        # Discover extension test functions that weren't in the core pass
+        local -a EXT_FUNCTIONS=()
+        while IFS= read -r fn; do
+            [[ -n "${_seen_fn[$fn]:-}" ]] && continue
+            [[ $fn =~ :: ]] || continue
+            EXT_FUNCTIONS+=("$fn")
+            _seen_fn["$fn"]=1
+        done < <(declare -F | awk '$3 ~ /::/ && $3 !~ /^_/ {print $3}')
+
+        (( ${#EXT_FUNCTIONS[@]} == 0 )) && continue
+
+        echo "--- ext/$ext_name ---"
+
+        for fn in "${EXT_FUNCTIONS[@]}"; do
+            [[ $fn =~ ^test:: ]] && [[ ! $fn =~ ::global$ ]] && continue
+            _tester_reset
+
+            if [[ $fn =~ ::global$ ]]; then
+                "$fn" </dev/null
+            else
+                "test::${fn}" </dev/null
+            fi
+
+            if   (( _T_IS_SUB  )); then  raw_label="SUB"
+            elif (( _T_FAIL > 0 )); then raw_label="FAIL"
+            elif (( _T_SKIP > 0 )); then raw_label="SKIP"
+            elif (( _T_PASS > 0 )); then raw_label="PASS"
+            else                         raw_label="UNTESTED"
+            fi
+
+            if $is_tty; then
+                case $raw_label in
+                    SUB)      display_label=$'\033[94mSUB\033[0m'      ;;
+                    FAIL)     display_label=$'\033[31mFAIL\033[0m'     ;;
+                    SKIP)     display_label=$'\033[33mSKIP\033[0m'     ;;
+                    PASS)     display_label=$'\033[32mPASS\033[0m'     ;;
+                    UNTESTED) display_label=$'\033[43mUNTESTED\033[0m' ;;
+                esac
+            else
+                display_label="$raw_label"
+            fi
+
+            if (( _T_IS_SUB )); then
+                printf "%s%$(( _COL - ${#raw_label} ))s%s\n" "$display_label" "" "$fn"
+            elif $is_tty; then
+                printf "%${_COL}s%s" "" "$fn"
+                local pad=$(( _COL - ${#raw_label} ))
+                printf "\r%s%${pad}s%s\n" "$display_label" "" "$fn"
+            else
+                printf "%s%$(( _COL - ${#raw_label} ))s%s\n" "$display_label" "" "$fn"
+            fi
+
+            case "$raw_label" in
+                PASS)     (( passed++   )) ;;
+                FAIL)     (( failed++   )) ;;
+                SKIP)     (( skipped++  )) ;;
+                UNTESTED) (( untested++ )); untested_fn+=("$fn") ;;
+                SUB)
+                    (( passed  += _T_PASS ))
+                    (( failed  += _T_FAIL ))
+                    (( skipped += _T_SKIP ))
+                    ;;
+            esac
+        done
+        echo ""
+    done
+    # ── end extensions ───────────────────────────────────────────────
+
     if (( untested > 0 )); then
         echo "=== UNTESTED FUNCTIONS ==="
         for fn in "${untested_fn[@]}"; do
@@ -488,6 +572,8 @@ tester() {
 
 if [[ ${1,,} == "compile" ]]; then
     compile_files "${2:-compiled.sh}"
+    exit $?
+fi
 
 if [[ ${1,,} == "obfuscate" ]]; then
     obfuscate "$2" "$3"
@@ -511,9 +597,6 @@ if [[ ${1,,} == "help" ]] || [[ -z "$1" ]]; then
     echo "  obfuscate <input> [output]     Obfuscate a compiled file (tools/obfuscate.sh)"
     echo "  wiki      <compiled> <dir>     Generate wiki documentation"
     exit 0
-fi
-    compile_files "${2:-compiled.sh}"
-    exit $?
 fi
 
 if [[ ${1,,} == "test" ]]; then
