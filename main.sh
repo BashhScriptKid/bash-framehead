@@ -401,7 +401,7 @@ tester() {
     local -a untested_fn
 
     source "$file"
-    source "$(dirname "${BASH_SOURCE[0]}")/tester.sh"
+    source "$(_tools_dir)/tester.sh"
 
     local -a TESTER_FUNCTIONS
     mapfile -t TESTER_FUNCTIONS < <(
@@ -415,12 +415,15 @@ tester() {
     [[ -t 1 ]] && is_tty=true
 
     for fn in "${TESTER_FUNCTIONS[@]}"; do
-        [[ $fn =~ ^test:: ]] && continue
+        # Skip test:: wrappers except ::global — those run inline below
+        [[ $fn =~ ^test:: ]] && [[ ! $fn =~ ::global$ ]] && continue
         _tester_reset
 
-        # Redirect stdin from /dev/null to prevent hangs on read commands when piped
-        # Stderr is NOT redirected to show error messages for debugging
-        "test::${fn}" </dev/null
+        if [[ $fn =~ ::global$ ]]; then
+            "$fn" </dev/null       # already prefixed: test::json::global
+        else
+            "test::${fn}" </dev/null
+        fi
 
         if   (( _T_IS_SUB  )); then  raw_label="SUB"
         elif (( _T_FAIL > 0 )); then raw_label="FAIL"
