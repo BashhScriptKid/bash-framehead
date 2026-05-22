@@ -9,7 +9,7 @@ declare -f 'runtime::bash_version' &>/dev/null || {
     return 1
 }
 
-_guard_core_deps=(string::is_integer string::split)
+_guard_core_deps=(string::is_integer string::split::fast)
 _guard_ext_deps=()
 
 for _guard_dep in "${_guard_core_deps[@]}"; do
@@ -32,9 +32,62 @@ unset _guard_core_deps _guard_ext_deps _guard_dep
 # ============================================================================
 # Internal parser state
 # ============================================================================
-_json_buf=""
+_json_buf=""        # original string (for raw-span extraction)
 _json_pos=0
 _json_len=0
+_json_use_array=0    # set after _json::_index builds the char array
+_json_chars=()       # indexed char array for O(1) access on large strings
+
+# Populate _json_chars from _json_buf.  Idempotent — call freely.
+# Checks array length matches buffer length to guard against stale
+# state inherited from a parent shell that indexed a different JSON.
+_json::_index() {
+    if (( _json_use_array && ${#_json_chars[@]} == _json_len )); then
+        return 0
+    fi
+    _json_use_array=0
+    _json_chars=()
+    if (( _json_len == 0 )); then
+        _json_chars=()
+    else
+        local _ch
+        while IFS= read -r -N 1 _ch; do _json_chars+=("$_ch"); done <<< "$_json_buf"
+        # <<< adds a trailing newline — drop the extra element
+        unset '_json_chars[-1]'
+    fi
+    _json_use_array=1
+}
+
+# Index only if the container at _json_pos doesn't close within 64 bytes.
+# Small objects/arrays (config, API responses) skip the 21s indexing cost.
+_json::_maybe_index() {
+    if (( _json_use_array && ${#_json_chars[@]} == _json_len )); then
+        return 0
+    fi
+    _json_use_array=0
+    local _opener="${_json_buf:_json_pos:1}"
+    local _closer="${_JSON_CLOSER[$_opener]}"
+    local _scan=$(( _json_pos + 1 )) _depth=1 _c
+    while (( _scan < _json_len && _scan < _json_pos + 64 && _depth > 0 )); do
+        _c="${_json_buf:_scan:1}"
+        case "$_c" in
+            "$_opener") ((_depth++)) ;;
+            "$_closer") ((_depth--)) ;;
+            '"')  # skip string to avoid false closer match
+                ((_scan++))
+                while (( _scan < _json_len )); do
+                    _c="${_json_buf:_scan:1}"
+                    ((_scan++))
+                    [[ "$_c" == '\' ]] && { ((_scan++)); continue; }
+                    [[ "$_c" == '"' ]] && break
+                done
+                continue ;;
+        esac
+        ((_scan++))
+    done
+    (( _depth == 0 )) && return 0  # closed within 64 bytes — too small, skip
+    _json::_index
+}
 
 # ============================================================================
 # Internal helpers
@@ -56,6 +109,15 @@ declare -A _JSON_CLOSER=(["{"]="}" ["["]="]")
 
 # Advance _json_pos past a JSON number (starts at first digit or '-').
 _json::_scan_number() {
+    if (( _json_use_array )); then
+        local ch
+        while (( _json_pos < _json_len )); do
+            ch="${_json_chars[_json_pos]}"
+            [[ "$ch" == [-+0-9.eE] ]] || break
+            ((_json_pos++))
+        done
+        return
+    fi
     local ch
     while (( _json_pos < _json_len )); do
         ch="${_json_buf:_json_pos:1}"
@@ -65,6 +127,15 @@ _json::_scan_number() {
 }
 
 _json::_skip_ws() {
+    if (( _json_use_array )); then
+        local ch
+        while (( _json_pos < _json_len )); do
+            ch="${_json_chars[_json_pos]}"
+            [[ "$ch" == [[:space:]] ]] || return 0
+            ((_json_pos++))
+        done
+        return
+    fi
     local ch
     while (( _json_pos < _json_len )); do
         ch="${_json_buf:_json_pos:1}"
@@ -76,13 +147,27 @@ _json::_skip_ws() {
 # Scan past a JSON string (assumes _json_pos is at the opening quote).
 # Leaves _json_pos one past the closing quote.
 _json::_skip_string() {
-    ((_json_pos++))  # opening quote
+    if (( _json_use_array )); then
+        ((_json_pos++))
+        local ch
+        while (( _json_pos < _json_len )); do
+            ch="${_json_chars[_json_pos]}"
+            ((_json_pos++))
+            if [[ "$ch" == '\' ]]; then
+                ((_json_pos++))
+            elif [[ "$ch" == '"' ]]; then
+                return 0
+            fi
+        done
+        return 2
+    fi
+    ((_json_pos++))
     local ch
     while (( _json_pos < _json_len )); do
         ch="${_json_buf:_json_pos:1}"
         ((_json_pos++))
         if [[ "$ch" == '\' ]]; then
-            ((_json_pos++))  # skip escaped char
+            ((_json_pos++))
         elif [[ "$ch" == '"' ]]; then
             return 0
         fi
@@ -96,8 +181,41 @@ _json::_skip_string() {
 # Usage: _json::_read_string varname   (writes decoded string to $varname)
 _json::_read_string() {
     local -n _out="$1"
-    local ch hex
     _out=""
+    if (( _json_use_array )); then
+        local ch hex
+        ((_json_pos++))
+        while (( _json_pos < _json_len )); do
+            ch="${_json_chars[_json_pos]}"
+            ((_json_pos++))
+            case "$ch" in
+                '"') return 0 ;;
+                '\')
+                    ch="${_json_chars[_json_pos]}"
+                    ((_json_pos++))
+                    case "$ch" in
+                        '"'|'\'|'/') _out+="$ch" ;;
+                        'b') _out+=$'\b' ;;
+                        'f') _out+=$'\f' ;;
+                        'n') _out+=$'\n' ;;
+                        'r') _out+=$'\r' ;;
+                        't') _out+=$'\t' ;;
+                        'u')
+                            hex="${_json_chars[_json_pos]}${_json_chars[_json_pos+1]}${_json_chars[_json_pos+2]}${_json_chars[_json_pos+3]}"
+                            ((_json_pos += 4))
+                            printf -v _json_uchr "\\u$hex" 2>/dev/null \
+                                && _out+="$_json_uchr" \
+                                || _out+="\\u$hex"
+                            ;;
+                        *) _out+="\\$ch" ;;
+                    esac
+                    ;;
+                *) _out+="$ch" ;;
+            esac
+        done
+        return 2
+    fi
+    local ch hex
     ((_json_pos++))  # opening quote
     while (( _json_pos < _json_len )); do
         ch="${_json_buf:_json_pos:1}"
@@ -138,14 +256,18 @@ _json::_read_string() {
 # no recursion.  _JSON_CLOSER dict maps opener→closer for push/pop.
 _json::_skip_value() {
     _json::_skip_ws
-    local ch="${_json_buf:_json_pos:1}" closer
+    local ch closer
+    ch="${_json_buf:_json_pos:1}"
+    case "$ch" in '{'|'[') _json::_maybe_index ;; esac
+    local _arr=$_json_use_array
+    if (( _arr )); then ch="${_json_chars[_json_pos]}"; fi
     case "$ch" in
         '{'|'[')
             closer="${_JSON_CLOSER[$ch]}"
             local -a _stack=("$closer")
             ((_json_pos++))
             while (( ${#_stack[@]} > 0 && _json_pos < _json_len )); do
-                ch="${_json_buf:_json_pos:1}"
+                if (( _arr )); then ch="${_json_chars[_json_pos]}"; else ch="${_json_buf:_json_pos:1}"; fi
                 case "$ch" in
                     '{'|'[') _stack+=("${_JSON_CLOSER[$ch]}"); ((_json_pos++)) ;;
                     '}'|']')
@@ -162,7 +284,7 @@ _json::_skip_value() {
                     [-0-9]) _json::_scan_number ;;
                     *)  # batch-advance past whitespace/commas/colons
                         while (( _json_pos < _json_len )); do
-                            ch="${_json_buf:_json_pos:1}"
+                            if (( _arr )); then ch="${_json_chars[_json_pos]}"; else ch="${_json_buf:_json_pos:1}"; fi
                             [[ "$ch" == [[:space:]] || "$ch" == ',' || "$ch" == ':' ]] || break
                             ((_json_pos++))
                         done
@@ -187,13 +309,17 @@ _json::_walk_past() {
     _json::_skip_ws
     local ch closer
     ch="${_json_buf:_json_pos:1}"
+    # Only index for containers — strings/numbers/literals are too short to justify
+    case "$ch" in '{'|'[') _json::_maybe_index ;; esac
+    local _arr=$_json_use_array
+    if (( _arr )); then ch="${_json_chars[_json_pos]}"; fi
     case "$ch" in
         '{'|'[')
             closer="${_JSON_CLOSER[$ch]}"
             local -a _st=("$closer")
             ((_json_pos++))
             while (( ${#_st[@]} > 0 && _json_pos < _json_len )); do
-                ch="${_json_buf:_json_pos:1}"
+                if (( _arr )); then ch="${_json_chars[_json_pos]}"; else ch="${_json_buf:_json_pos:1}"; fi
                 case "$ch" in
                     '{'|'[') _st+=("${_JSON_CLOSER[$ch]}"); ((_json_pos++)) ;;
                     '}'|']')
@@ -210,7 +336,7 @@ _json::_walk_past() {
                         ;;
                     *)  # batch-advance past runs of whitespace/commas/colons
                         while (( _json_pos < _json_len )); do
-                            ch="${_json_buf:_json_pos:1}"
+                            if (( _arr )); then ch="${_json_chars[_json_pos]}"; else ch="${_json_buf:_json_pos:1}"; fi
                             [[ "$ch" == [[:space:]] || "$ch" == ',' || "$ch" == ':' ]] || break
                             ((_json_pos++))
                         done
@@ -282,14 +408,18 @@ _json::_find_index() {
 _json::_read_raw_span() {
     _json::_skip_ws
     _json_raw_start=$_json_pos
-    local ch="${_json_buf:_json_pos:1}" closer
+    local ch closer
+    ch="${_json_buf:_json_pos:1}"
+    case "$ch" in '{'|'[') _json::_maybe_index ;; esac
+    local _arr=$_json_use_array
+    if (( _arr )); then ch="${_json_chars[_json_pos]}"; fi
     case "$ch" in
         '{'|'[')
             closer="${_JSON_CLOSER[$ch]}"
             local -a _stack=("$closer")
             ((_json_pos++))
             while (( ${#_stack[@]} > 0 && _json_pos < _json_len )); do
-                ch="${_json_buf:_json_pos:1}"
+                if (( _arr )); then ch="${_json_chars[_json_pos]}"; else ch="${_json_buf:_json_pos:1}"; fi
                 case "$ch" in
                     '{'|'[') _stack+=("${_JSON_CLOSER[$ch]}"); ((_json_pos++)) ;;
                     '}'|']')
@@ -306,7 +436,7 @@ _json::_read_raw_span() {
                     [-0-9]) _json::_scan_number ;;
                     *)  # batch-advance past whitespace/commas/colons
                         while (( _json_pos < _json_len )); do
-                            ch="${_json_buf:_json_pos:1}"
+                            if (( _arr )); then ch="${_json_chars[_json_pos]}"; else ch="${_json_buf:_json_pos:1}"; fi
                             [[ "$ch" == [[:space:]] || "$ch" == ',' || "$ch" == ':' ]] || break
                             ((_json_pos++))
                         done
@@ -387,7 +517,7 @@ json::get() {
 
     path="$(_json::_normalise_path "$path")"
     local segments segment
-    readarray -t segments <<< "$(string::split '.' <<< "$path")"
+    string::split::fast segments '.' "$path"
 
     local last_idx=$((${#segments[@]} - 1))
     local i
@@ -458,7 +588,7 @@ json::keys() {
 
     if [[ -n "$path" ]]; then
         path="$(_json::_normalise_path "$path")"
-        readarray -t segments <<< "$(string::split '.' <<< "$path")"
+        string::split::fast segments '.' "$path"
 
         for (( i = 0; i < ${#segments[@]}; i++ )); do
             segment="${segments[$i]}"
@@ -527,7 +657,7 @@ json::type() {
 
     if [[ -n "$path" ]]; then
         path="$(_json::_normalise_path "$path")"
-        readarray -t segments <<< "$(string::split '.' <<< "$path")"
+        string::split::fast segments '.' "$path"
 
         for (( i = 0; i < ${#segments[@]}; i++ )); do
             segment="${segments[$i]}"
@@ -560,6 +690,7 @@ json::type() {
 #
 # For objects: number of keys.  For arrays: number of elements.
 # Scalars: returns an error.
+# Uses grep -ob on large containers for C-speed counting (see _grep_len).
 json::len() {
     local json="$1" path="${2:-}"
     # leading/trailing ws handled by _skip_ws; no subshell needed
@@ -571,7 +702,7 @@ json::len() {
 
     if [[ -n "$path" ]]; then
         path="$(_json::_normalise_path "$path")"
-        readarray -t segments <<< "$(string::split '.' <<< "$path")"
+        string::split::fast segments '.' "$path"
 
         for (( i = 0; i < ${#segments[@]}; i++ )); do
             segment="${segments[$i]}"
@@ -589,46 +720,95 @@ json::len() {
 
     _json::_skip_ws
     local container="${_json_buf:_json_pos:1}"
-    local count=0
 
-    case "$container" in
-        '{')
-            ((_json_pos++))
-            _json::_skip_ws
-            if [[ "${_json_buf:_json_pos:1}" == '}' ]]; then
+    # Quick-scan: if container closes within 64 bytes, use bash walker.
+    # Otherwise delegate to grep for C-speed structure walking.
+    local _opener="$container"
+    local _closer="${_JSON_CLOSER[$_opener]}"
+    local _scan=$(( _json_pos + 1 )) _depth=1 _c _small=0
+    while (( _scan < _json_len && _scan < _json_pos + 64 && _depth > 0 )); do
+        _c="${_json_buf:_scan:1}"
+        case "$_c" in
+            "$_opener") ((_depth++)) ;;
+            "$_closer") ((_depth--)) ;;
+            '"')
+                ((_scan++))
+                while (( _scan < _json_len )); do
+                    _c="${_json_buf:_scan:1}"
+                    ((_scan++))
+                    [[ "$_c" == '\' ]] && { ((_scan++)); continue; }
+                    [[ "$_c" == '"' ]] && break
+                done
+                continue ;;
+        esac
+        ((_scan++))
+    done
+    (( _depth == 0 )) && _small=1
+
+    if (( _small )); then
+        # Small container — bash walker is fine
+        local count=0
+        case "$container" in
+            '{')
                 ((_json_pos++))
-                echo 0
-                return 0
-            fi
-            while true; do
-                _json::_skip_string
                 _json::_skip_ws
-                ((_json_pos++))  # colon
-                _json::_skip_value
-                ((count++))
-                _json::_skip_ws
-                [[ "${_json_buf:_json_pos:1}" == ',' ]] && { ((_json_pos++)); _json::_skip_ws; }
-                [[ "${_json_buf:_json_pos:1}" == '}' ]] && { ((_json_pos++)); break; }
-            done
-            echo "$count"
-            ;;
-        '[')
-            ((_json_pos++))
-            _json::_skip_ws
-            if [[ "${_json_buf:_json_pos:1}" == ']' ]]; then
+                [[ "${_json_buf:_json_pos:1}" == '}' ]] && { ((_json_pos++)); echo 0; return 0; }
+                while true; do
+                    _json::_skip_string; _json::_skip_ws
+                    ((_json_pos++))
+                    _json::_skip_value; ((count++))
+                    _json::_skip_ws
+                    [[ "${_json_buf:_json_pos:1}" == ',' ]] && { ((_json_pos++)); _json::_skip_ws; }
+                    [[ "${_json_buf:_json_pos:1}" == '}' ]] && { ((_json_pos++)); break; }
+                done
+                echo "$count"
+                ;;
+            '[')
                 ((_json_pos++))
-                echo 0
-                return 0
-            fi
-            while true; do
-                _json::_skip_value
-                ((count++))
                 _json::_skip_ws
-                [[ "${_json_buf:_json_pos:1}" == ',' ]] && { ((_json_pos++)); _json::_skip_ws; }
-                [[ "${_json_buf:_json_pos:1}" == ']' ]] && { ((_json_pos++)); break; }
-            done
-            echo "$count"
-            ;;
-        *) echo "json::len: value at path is not a container" >&2; return 1 ;;
-    esac
+                [[ "${_json_buf:_json_pos:1}" == ']' ]] && { ((_json_pos++)); echo 0; return 0; }
+                while true; do
+                    _json::_skip_value; ((count++))
+                    _json::_skip_ws
+                    [[ "${_json_buf:_json_pos:1}" == ',' ]] && { ((_json_pos++)); _json::_skip_ws; }
+                    [[ "${_json_buf:_json_pos:1}" == ']' ]] && { ((_json_pos++)); break; }
+                done
+                echo "$count"
+                ;;
+        esac
+    else
+        # Large container — use grep for C-speed structure walking
+        case "$container" in
+            '{'|'[') _json::_grep_len "$container" ;;
+            *) echo "json::len: value at path is not a container" >&2; return 1 ;;
+        esac
+    fi
+}
+
+# Count elements of a large container using grep -ob.
+# grep scans the container interior at C speed (~10 ms for 2.2 MB);
+# bash only iterates over the ~10 % of chars that are structural.
+_json::_grep_len() {
+    local _opener="$1" _closer="${_JSON_CLOSER[$1]}"
+    local _depth=0 _in_str=0 _count=0 _pos _chr
+
+    while IFS=: read -r _pos _chr; do
+        if (( _in_str )); then
+            [[ "$_chr" == '"' ]] && _in_str=0
+            continue
+        fi
+        case "$_chr" in
+            '"') _in_str=1 ;;
+            '{'|'[') ((_depth++)) ;;
+            '}'|']')
+                if (( _depth == 0 )); then
+                    [[ "$_opener" == '[' ]] && echo "$(( _count + 1 ))" || echo "$_count"
+                    return 0
+                fi
+                ((_depth--))
+                ;;
+            ',') (( _depth == 0 )) && [[ "$_opener" == '[' ]] && ((_count++)) ;;
+            ':') (( _depth == 0 )) && [[ "$_opener" == '{' ]] && ((_count++)) ;;
+        esac
+    done < <(printf '%s' "${_json_buf:_json_pos}" | grep -ob '[][{}",:]')
 }
