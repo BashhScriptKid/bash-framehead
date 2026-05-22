@@ -19,8 +19,8 @@ Extensions relax all of that:
 The core library must be loaded first. No exceptions.
 
 ```bash
-source ./bash-framehead.sh      # always first
-source ./ext/my-extension.sh    # then extensions
+source ./bash-framehead.sh          # always first
+source ./ext/json/json.sh           # then the extension you need
 ```
 
 If you forget, you'll get a clear error — extensions check that the runtime is present before doing anything.
@@ -34,17 +34,11 @@ Every extension must declare its dependencies in two places: a **header block** 
 The first non-shebang lines of the file spell out exactly what the module needs:
 
 ```bash
-# ext/docker.sh
+# ext/json/json.sh
 #
 # Dependencies:
-#   core: runtime string fs
-#   external: docker
-
-# ext/gitlab-mr.sh
-#
-# Dependencies:
-#   core: runtime net string colour
-#   external: curl jq fzf
+#   core: runtime string
+#   external: grep
 ```
 
 - **`core:`** — specific core modules this extension uses. Never just "the framework." Name each one.
@@ -55,7 +49,7 @@ The first non-shebang lines of the file spell out exactly what the module needs:
 Copy the template below into your extension. Fill in the two arrays — that's it. The guard loop doesn't change between modules.
 
 ```bash
-# ext/your-module.sh
+# ext/<name>/<name>.sh
 #
 # Dependencies:
 #   core: runtime string
@@ -113,12 +107,68 @@ Failures print the module name, the specific missing dependency, and (for core d
 ## What doesn't belong here
 
 - General-purpose functions that could be a core module — those go in `src/`
-- One-off scripts — this is still a library, not a scripts directory
+- One-off scripts — each extension is a self-contained directory with docs and tests
 - Things that modify core behaviour — extensions layer on top, they don't monkey-patch
 
 ## Conventions
 
 - Naming follows core style: `extensionname::function_name`
-- Each extension is a single `.sh` file
 - An extension checks its dependencies at source time and fails with a clear message if the core library is missing
 - Heavy init work goes in a setup function, not at source time
+
+## Directory Structure
+
+Each extension lives in its own directory under `ext/` with a fixed set of files:
+
+```
+ext/
+├── README.md              ← this file (conventions, not a specific extension)
+├── json/
+│   ├── json.sh            ← the extension module (sourced by the user)
+│   ├── docs.md            ← API reference, dependencies, limitations
+│   └── test_ext.sh        ← test functions using the tester.sh convention
+├── docker/                ← future: ext/docker/
+│   ├── docker.sh
+│   ├── docs.md
+│   └── test_ext.sh
+└── ...
+```
+
+### File purposes
+
+| File | Required | Purpose |
+|------|----------|---------|
+| `<name>.sh` | yes | The extension module. Users source this after `bash-framehead.sh`. |
+| `docs.md` | yes | API docs, dependency list, usage examples, known limitations. |
+| `test_ext.sh` | yes | Test functions named `test::<name>::function`. Sourced by `main.sh test` after the core test pass. Uses `_pass` / `_fail` / `_assert` / `_sub_done` / `_skip` from `tester.sh`. |
+
+### `test_ext.sh` contract
+
+The test runner (`main.sh test`) discovers and runs extension tests automatically. Each
+`test_ext.sh` must:
+
+1. **Define test functions** named `test::<name>::<thing>` — e.g. `test::json::get::basic`.
+2. **Use the tester.sh primitives** — `_pass`, `_fail`, `_assert`, `_assert_contains`,
+   `_assert_nonempty`, `_sub_done`, `_skip`. These are provided by the core tester and are
+   **already in scope** when `test_ext.sh` is sourced. Do not redeclare or redefine them.
+3. **Not call any test directly** — the runner enumerates `declare -F` to find test
+   functions and calls each one through `_tester_reset`.
+4. **Skip heavy/network tests** — use `_skip "reason"` for tests that download data,
+   require credentials, or take more than a few seconds. The runner can optionally
+   enable them.
+
+Example:
+```bash
+# ext/json/test_ext.sh
+
+test::json::get::basic() {
+    _assert "string" 'hello' "$(json::get '{"k":"hello"}' k)"
+    _assert "number" '42'    "$(json::get '{"k":42}'     k)"
+    _sub_done
+}
+
+test::json::stress::canada() {
+    # downloads 2.2 MB file — skip by default
+    _skip "large file download"
+}
+```
