@@ -397,6 +397,19 @@ wiki() {
 
 tester() {
     local file="$1"
+    shift
+    local -a filter_modules=("$@")
+    local filter_active=0
+    (( ${#filter_modules[@]} > 0 )) && filter_active=1
+
+    # Helper: extract module name from a namespaced function name
+    # "string::upper" → "string", "test::json::get" → "json"
+    _extract_module() {
+        local fn="$1"
+        [[ $fn =~ ^test:: ]] && fn="${fn#test::}"
+        echo "${fn%%::*}"
+    }
+
     local passed=0 failed=0 skipped=0 untested=0
     local -a untested_fn
 
@@ -407,6 +420,24 @@ tester() {
     mapfile -t TESTER_FUNCTIONS < <(
         declare -F | awk '$3 ~ /::/ && $3 !~ /^_/ {print $3}'
     )
+
+    # Save an unfiltered snapshot so the extension pass can skip already-seen
+    # core functions even when the filter excludes them from the core run.
+    local -a _ALL_FUNCTIONS=("${TESTER_FUNCTIONS[@]}")
+
+    # Filter to specified modules when ./main.sh test <file> [module ...]
+    if (( filter_active )); then
+        local -a _filtered=()
+        local _mod
+        for fn in "${TESTER_FUNCTIONS[@]}"; do
+            _mod="$(_extract_module "$fn")"
+            for _f in "${filter_modules[@]}"; do
+                [[ "$_mod" == "$_f" ]] && { _filtered+=("$fn"); break; }
+            done
+        done
+        TESTER_FUNCTIONS=("${_filtered[@]}")
+        unset _filtered _mod _f
+    fi
 
     # Result label column width — wide enough for 'UNTESTED' (8) + 4 spaces gap
     local -r _COL=12
@@ -475,12 +506,22 @@ tester() {
     # ── extensions ────────────────────────────────────────────────────
     local ext_dir ext_name ext_mod ext_test
     local -A _seen_fn
-    for fn in "${TESTER_FUNCTIONS[@]}"; do _seen_fn["$fn"]=1; done
+    for fn in "${_ALL_FUNCTIONS[@]}"; do _seen_fn["$fn"]=1; done
 
     for ext_test in ext/*/test_ext.sh; do
         [[ -f "$ext_test" ]] || continue
         ext_dir="$(dirname "$ext_test")"
         ext_name="$(basename "$ext_dir")"
+
+        # Skip extensions not in the module filter list
+        if (( filter_active )); then
+            local _match=0
+            for _f in "${filter_modules[@]}"; do
+                [[ "$ext_name" == "$_f" ]] && { _match=1; break; }
+            done
+            (( _match )) || continue
+        fi
+
         ext_mod="$ext_dir/$ext_name.sh"
 
         [[ -f "$ext_mod" ]] || { echo "WARNING: $ext_test exists but $ext_mod not found — skipping" >&2; continue; }
@@ -567,6 +608,10 @@ tester() {
     local total=$(( passed + failed + skipped + untested ))
     echo "=== Results: ${passed} passed, ${failed} failed, ${skipped} skipped, ${untested} untested / ${total} total ==="
 
+    if (( total == 0 )); then
+        echo "WARNING: No tests seem to be run. Make sure your module is written correctly, including cases."
+    fi
+
     (( failed == 0 ))
 }
 
@@ -600,7 +645,7 @@ if [[ ${1,,} == "help" ]] || [[ -z "$1" ]]; then
 fi
 
 if [[ ${1,,} == "test" ]]; then
-    tester "$2"
+    tester "${@:2}"
     exit 0
 fi
 
