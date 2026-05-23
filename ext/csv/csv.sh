@@ -87,7 +87,12 @@ _csv_parse_field() {
                 ((_csv_pos++))
                 return 1
             elif [[ "$_ch" == $'\r' ]]; then
-                :  # skip CR in CRLF
+                # Skip CR only when followed by LF (CRLF); preserve bare CR
+                if (( _csv_pos + 1 < _csv_len )) && [[ "${_csv_buf:$((_csv_pos + 1)):1}" == $'\n' ]]; then
+                    :
+                else
+                    _csv_field+="$_ch"
+                fi
             else
                 _csv_field+="$_ch"
             fi
@@ -171,13 +176,13 @@ _csv_build_index() {
             case "$_ch" in
                 '"') _in_quote=1 ;;
                 "$_delim") ;;
-                $'\001')  # originally a newline (remapped by tr)
+                $'\x7F')  # originally a newline (remapped by tr)
                     ((_row++))
                     _csv_row_starts[_row]=$(( _pos + 1 ))
                     ;;
             esac
         fi
-    done < <(printf '%s' "$_csv_buf" | tr '\n' $'\001' | grep -azob $'[\001",'"$_delim"$']')
+    done < <(printf '%s' "$_csv_buf" | tr '\n' $'\x7F' | grep -azob $'[\x7F",'"$_delim"$']')
 
     _csv_pos=$_saved_pos
 }
@@ -375,4 +380,77 @@ csv::numcols() {
         (( _rc != 0 )) && break
     done
     echo "$_count"
+}
+
+# ============================================================================
+# csv::to_json <csv>
+#
+# Convert CSV to JSON.  With headers (default): array of objects.
+# With CSV_NOHEADER=1: array of arrays.
+# ============================================================================
+csv::to_json() {
+    local _csv="$1"
+    local _has_hdr=$(( CSV_NOHEADER ? 0 : 1 ))
+    local _json="[" _first_row=1 _first_field _rc _val _escaped _i _ch
+
+    _csv_reset "$_csv"
+
+    # Collect headers
+    local -a _headers=()
+    if (( _has_hdr )); then
+        while true; do
+            _csv_parse_field; _rc=$?
+            _headers+=("$_csv_field")
+            (( _rc != 0 )) && break
+        done
+    fi
+
+    # Emit data rows
+    while (( _csv_pos < _csv_len )); do
+        (( _first_row )) && _first_row=0 || _json+=","
+        if (( _has_hdr )); then
+            _json+="{"
+        else
+            _json+="["
+        fi
+        _first_field=1
+        local _col=0
+        while true; do
+            _csv_parse_field; _rc=$?
+            _val="$_csv_field"
+
+            # JSON-escape
+            _escaped=""
+            for (( _i = 0; _i < ${#_val}; _i++ )); do
+                _ch="${_val:_i:1}"
+                case "$_ch" in
+                    '"')  _escaped+='\"' ;;
+                    '\')  _escaped+='\\' ;;
+                    $'\n') _escaped+='\n' ;;
+                    $'\r') _escaped+='\r' ;;
+                    $'\t') _escaped+='\t' ;;
+                    *)    _escaped+="$_ch" ;;
+                esac
+            done
+
+            (( _first_field )) && _first_field=0 || _json+=","
+            if (( _has_hdr )); then
+                _json+="\"${_headers[_col]}\":\"$_escaped\""
+            else
+                _json+="\"$_escaped\""
+            fi
+            ((_col++))
+            (( _rc != 0 )) && break
+        done
+        if (( _has_hdr )); then
+            _json+="}"
+        else
+            _json+="]"
+        fi
+        # If the last row had no trailing newline, _csv_pos == _csv_len and we stop
+        (( _rc != 0 && _csv_pos >= _csv_len )) && break
+    done
+
+    _json+="]"
+    echo "$_json"
 }
