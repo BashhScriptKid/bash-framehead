@@ -593,15 +593,15 @@ pfloat::fixed::sigmoid() {
 
   if pfloat::fixed::is_negative "$x"; then
     neg_x=$(pfloat::fixed::neg "$x")
-    exp_val=$(pfloat::fixed::_exp_approx "$neg_x")
+    exp_val=$(_pfloat::fixed::exp_approx "$neg_x")
     pfloat::fixed::div "1" $(pfloat::fixed::add "1" "$exp_val")
   else
-    exp_val=$(pfloat::fixed::_exp_approx "$x")
+    exp_val=$(_pfloat::fixed::exp_approx "$x")
     pfloat::fixed::div "$exp_val" $(pfloat::fixed::add "1" "$exp_val")
   fi
 }
 
-pfloat::fixed::_exp_approx() {
+_pfloat::fixed::exp_approx() {
   local x="$1"
   local result="1" term="$1" i
 
@@ -622,13 +622,13 @@ pfloat::fixed::softplus() {
     return
   fi
 
-  exp_val=$(pfloat::fixed::_exp_approx "$x")
+  exp_val=$(_pfloat::fixed::exp_approx "$x")
   one_plus_exp=$(pfloat::fixed::add "1" "$exp_val")
 
-  pfloat::fixed::_ln_approx "$one_plus_exp"
+  _pfloat::fixed::ln_approx "$one_plus_exp"
 }
 
-pfloat::fixed::_ln_approx() {
+_pfloat::fixed::ln_approx() {
   local x="$1"
   local y="1" i iterations=20
 
@@ -639,7 +639,7 @@ pfloat::fixed::_ln_approx() {
 
   for ((i = 0; i < iterations; i++)); do
     local ey num den delta
-    ey=$(pfloat::fixed::_exp_approx "$y")
+    ey=$(_pfloat::fixed::exp_approx "$y")
     num=$(pfloat::fixed::mul "2" $(pfloat::fixed::sub "$x" "$ey"))
     den=$(pfloat::fixed::add "$x" "$ey")
     delta=$(pfloat::fixed::div "$num" "$den")
