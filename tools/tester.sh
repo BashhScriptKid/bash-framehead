@@ -866,6 +866,83 @@ test::pfloat::ieee754::sqrt() {
   if [[ "$(pfloat::ieee754::to_string "$result")" == "2" ]]; then _pass; else _fail; fi
 }
 
+# pfloat::fixed namespace — direct tests (not through pfloat:: wrappers)
+test::pfloat::fixed::add()      { if [[ "$(pfloat::fixed::add 1.5 2.5)" == "4" ]]; then _pass; else _fail; fi; }
+test::pfloat::fixed::sub()      { if [[ "$(pfloat::fixed::sub 5.0 2.5)" == "2.5" ]]; then _pass; else _fail; fi; }
+test::pfloat::fixed::mul()      { if [[ "$(pfloat::fixed::mul 2.0 3.0)" == "6" ]]; then _pass; else _fail; fi; }
+test::pfloat::fixed::div()      { if [[ "$(pfloat::fixed::div 6.0 2.0)" == "3" ]]; then _pass; else _fail; fi; }
+test::pfloat::fixed::mod()      { if [[ "$(pfloat::fixed::mod 7.5 2.0)" == "1.5" ]]; then _pass; else _fail; fi; }
+test::pfloat::fixed::eq()       { if pfloat::fixed::eq 1.5 1.5; then _pass; else _fail; fi; }
+test::pfloat::fixed::ne()       { if pfloat::fixed::ne 1.5 2.5; then _pass; else _fail; fi; }
+test::pfloat::fixed::lt()       { if pfloat::fixed::lt 1.0 2.0; then _pass; else _fail; fi; }
+test::pfloat::fixed::le()       { if pfloat::fixed::le 1.0 1.0; then _pass; else _fail; fi; }
+test::pfloat::fixed::gt()       { if pfloat::fixed::gt 2.0 1.0; then _pass; else _fail; fi; }
+test::pfloat::fixed::ge()       { if pfloat::fixed::ge 2.0 2.0; then _pass; else _fail; fi; }
+test::pfloat::fixed::abs()      { if [[ "$(pfloat::fixed::abs -3.5)" == "3.5" ]]; then _pass; else _fail; fi; }
+test::pfloat::fixed::neg()      { if [[ "$(pfloat::fixed::neg 3.5)" == "-3.5" ]]; then _pass; else _fail; fi; }
+test::pfloat::fixed::sign()     { if [[ "$(pfloat::fixed::sign -3.5)" == "-1" ]]; then _pass; else _fail; fi; }
+test::pfloat::fixed::is_positive() { if pfloat::fixed::is_positive 3.5; then _pass; else _fail; fi; }
+test::pfloat::fixed::is_negative() { if pfloat::fixed::is_negative -3.5; then _pass; else _fail; fi; }
+test::pfloat::fixed::is_zero()  { if pfloat::fixed::is_zero 0; then _pass; else _fail; fi; }
+test::pfloat::fixed::floor()    { if [[ "$(pfloat::fixed::floor 3.7)" == "3" ]]; then _pass; else _fail; fi; }
+test::pfloat::fixed::ceil()     { if [[ "$(pfloat::fixed::ceil 3.2)" == "4" ]]; then _pass; else _fail; fi; }
+test::pfloat::fixed::round()    { if [[ "$(pfloat::fixed::round 3.6)" == "4" ]]; then _pass; else _fail; fi; }
+test::pfloat::fixed::trunc()    { if [[ "$(pfloat::fixed::trunc 3.9)" == "3" ]]; then _pass; else _fail; fi; }
+test::pfloat::fixed::sqr()      { if [[ "$(pfloat::fixed::sqr 3.0)" == "9" ]]; then _pass; else _fail; fi; }
+test::pfloat::fixed::sqrt()     { if [[ "$(pfloat::fixed::sqrt 4.0)" == "2" ]]; then _pass; else _fail; fi; }
+test::pfloat::fixed::pow()      { if [[ "$(pfloat::fixed::pow 2 3)" == "8" ]]; then _pass; else _fail; fi; }
+test::pfloat::fixed::recip()    { if [[ "$(pfloat::fixed::recip 2.0)" == "0.5" ]]; then _pass; else _fail; fi; }
+test::pfloat::fixed::sum()      { if [[ "$(pfloat::fixed::sum 1.0 2.0 3.0)" == "6" ]]; then _pass; else _fail; fi; }
+test::pfloat::fixed::avg()      { if [[ "$(pfloat::fixed::avg 1.0 2.0 3.0)" == "2" ]]; then _pass; else _fail; fi; }
+test::pfloat::fixed::min()      { if [[ "$(pfloat::fixed::min 3.0 1.0 2.0)" == "1" ]]; then _pass; else _fail; fi; }
+test::pfloat::fixed::max()      { if [[ "$(pfloat::fixed::max 1.0 3.0 2.0)" == "3" ]]; then _pass; else _fail; fi; }
+test::pfloat::fixed::mean()     { if [[ -n "$(pfloat::fixed::mean 1.0 2.0 3.0)" ]]; then _pass; else _fail; fi; }
+test::pfloat::fixed::factorial(){ if [[ "$(pfloat::fixed::factorial 5)" == "120" ]]; then _pass; else _fail; fi; }
+test::pfloat::fixed::clamp()    { if [[ "$(pfloat::fixed::clamp 5.0 1.0 10.0)" == "5" ]]; then _pass; else _fail; fi; }
+test::pfloat::fixed::lerp()     { if [[ "$(pfloat::fixed::lerp 0.5 1.0 3.0)" == "2" ]]; then _pass; else _fail; fi; }
+test::pfloat::fixed::inv_lerp() { if [[ "$(pfloat::fixed::inv_lerp 2.0 1.0 3.0)" == "0.5" ]]; then _pass; else _fail; fi; }
+test::pfloat::fixed::map()      { if [[ "$(pfloat::fixed::map 5.0 0.0 10.0 0.0 100.0)" == "50" ]]; then _pass; else _fail; fi; }
+test::pfloat::fixed::percent()  { if [[ "$(pfloat::fixed::percent 25.0 100.0)" == "25" ]]; then _pass; else _fail; fi; }
+test::pfloat::fixed::percent_of() { if [[ "$(pfloat::fixed::percent_of 0.25 100.0)" == "0.25" ]]; then _pass; else _fail; fi; }
+test::pfloat::fixed::percent_change() { if [[ "$(pfloat::fixed::percent_change 100.0 125.0)" == "25" ]]; then _pass; else _fail; fi; }
+test::pfloat::fixed::dist2()    { if [[ "$(pfloat::fixed::dist2 0.0 0.0 3.0 4.0)" == "5" ]]; then _pass; else _fail; fi; }
+test::pfloat::fixed::dist3()    { if [[ -n "$(pfloat::fixed::dist3 0.0 0.0 0.0 1.0 2.0 2.0)" ]]; then _pass; else _fail; fi; }
+test::pfloat::fixed::geomean()  { if [[ "$(pfloat::fixed::geomean 4.0 9.0)" == "6" ]]; then _pass; else _fail; fi; }
+test::pfloat::fixed::harmean()  { if [[ -n "$(pfloat::fixed::harmean 2.0 4.0)" ]]; then _pass; else _fail; fi; }
+test::pfloat::fixed::normalize(){ if [[ "$(pfloat::fixed::normalize 5.0 0.0 10.0)" == "0.5" ]]; then _pass; else _fail; fi; }
+test::pfloat::fixed::sigmoid()  { if [[ "$(pfloat::fixed::sigmoid 0)" == "0.5" ]]; then _pass; else _fail; fi; }
+test::pfloat::fixed::softplus() { if [[ -n "$(pfloat::fixed::softplus 1.0)" ]]; then _pass; else _fail; fi; }
+test::pfloat::fixed::cbrt()     { if [[ "$(pfloat::fixed::cbrt 8.0)" == "2" ]]; then _pass; else _fail; fi; }
+
+# IEEE 754 missing tests
+test::pfloat::ieee754::dump() {
+  local bits; bits=$(pfloat::ieee754::from_string "1.5")
+  if [[ -n "$(pfloat::ieee754::dump "$bits")" ]]; then _pass; else _fail; fi
+}
+test::pfloat::ieee754::from_int() {
+  local val; val=$(pfloat::ieee754::from_int 4609434218613702656)
+  if [[ "$val" == "4609434218613702656" ]]; then _pass; else _fail; fi
+}
+test::pfloat::ieee754::to_int() {
+  local val; val=$(pfloat::ieee754::to_int 4609434218613702656)
+  if [[ "$val" == "4609434218613702656" ]]; then _pass; else _fail; fi
+}
+test::pfloat::ieee754::from_binary() {
+  local bits; bits=$(pfloat::ieee754::from_binary "0" "01111111111" "1000000000000000000000000000000000000000000000000000")
+  if [[ "$bits" == "4609434218613702656" ]]; then _pass; else _fail; fi
+}
+test::pfloat::ieee754::to_binary() {
+  local out; out=$(pfloat::ieee754::to_binary 4609434218613702656)
+  if [[ -n "$out" ]]; then _pass; else _fail; fi
+}
+
+# string::split::fast — nameref-based split
+test::string::split::fast() {
+  local -a result
+  string::split::fast result "," "a,b,c"
+  if [[ "${result[0]}" == "a" && "${result[1]}" == "b" && "${result[2]}" == "c" ]]; then _pass; else _fail; fi
+}
+
 # ==============================================================================
 # Tests — hash
 # ==============================================================================
@@ -1158,7 +1235,8 @@ test::fs::watch::timeout() {
     _fs_setup
     local _triggered=0
     _watch_cb() { _triggered=1; }
-    # modify file after short delay in background, watch for 3s
+    # Backdate mtime so the append always lands in a newer epoch second
+    touch -d "@$(($(date +%s) - 2))" "$_FS_FILE"
     ( sleep 0.5; echo "change" >> "$_FS_FILE" ) >/dev/null 2>&1 &
     fs::watch::timeout "$_FS_FILE" _watch_cb 3 1 2>/dev/null
     if [[ $_triggered -eq 1 ]]; then _pass; else _fail; fi
