@@ -475,14 +475,15 @@ fs::watch::timeout() {
     last_modified=$(fs::modified "$path")
 
     while (( elapsed < timeout )); do
-        sleep "$interval"
-        (( elapsed += interval ))
         local current
         current=$(fs::modified "$path")
         if [[ "$current" != "$last_modified" ]]; then
             last_modified="$current"
             "$callback" "$path"
         fi
+        (( elapsed += interval ))
+        (( elapsed < timeout )) || break
+        sleep "$interval"
     done
 }
 
