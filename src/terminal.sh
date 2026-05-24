@@ -253,6 +253,83 @@ terminal::read_key::timeout() {
     printf -v "$_var" '%s' "$_key"
 }
 
+# Read a keypress including multi-byte escape sequences.
+# Handles arrow keys, function keys, navigation keys.
+# Usage: terminal::read_key::decode [varname] [timeout]
+# Default varname: _TERMINAL_KEY, default timeout: block
+terminal::read_key::decode() {
+    local _var="${1:-_TERMINAL_KEY}" _timeout="${2:-}"
+    local _key _seq _rest
+
+    IFS= read -r -s -n1 _key
+    [[ -z $_key ]] && { printf -v "$_var" ''; return 0; }
+
+    # Named single-byte keys
+    case "$_key" in
+        $'\n') printf -v "$_var" 'ENTER';   return 0;;
+        $'\t') printf -v "$_var" 'TAB';     return 0;;
+        $'\x7f'|$'\x08') printf -v "$_var" 'BACKSPACE'; return 0;;
+        $'\x1b') ;; # ESC — check for sequence
+        *) printf -v "$_var" '%s' "$_key"; return 0;;
+    esac
+
+    # ESC received — peek at next byte with a short timeout
+    local _t="${_timeout:-0.01}"
+    IFS= read -r -s -n1 -t "$_t" _seq || { printf -v "$_var" 'ESC'; return 0; }
+
+    case "$_seq" in
+        '[') # CSI sequence
+            _rest=''
+            # Read CSI parameter bytes (digits, semicolons) until terminal byte
+            local _b
+            while IFS= read -r -s -n1 -t "$_t" _b; do
+                case "$_b" in
+                    [0-9]|\;) _rest+="$_b";;
+                    *) _seq+="$_rest$_b"; break;;
+                esac
+            done
+            # _seq now holds the full CSI suffix, e.g. "A", "5~", "1;2A"
+            case "${_seq#[}" in
+                A) printf -v "$_var" 'UP';;
+                B) printf -v "$_var" 'DOWN';;
+                C) printf -v "$_var" 'RIGHT';;
+                D) printf -v "$_var" 'LEFT';;
+                H) printf -v "$_var" 'HOME';;
+                F) printf -v "$_var" 'END';;
+                2~) printf -v "$_var" 'INSERT';;
+                3~) printf -v "$_var" 'DELETE';;
+                5~) printf -v "$_var" 'PAGEUP';;
+                6~) printf -v "$_var" 'PAGEDOWN';;
+                11~|15~) printf -v "$_var" 'F5';;
+                12~|17~) printf -v "$_var" 'F6';;
+                13~|18~) printf -v "$_var" 'F7';;
+                14~|19~) printf -v "$_var" 'F8';;
+                20~) printf -v "$_var" 'F9';;
+                21~) printf -v "$_var" 'F10';;
+                23~) printf -v "$_var" 'F11';;
+                24~) printf -v "$_var" 'F12';;
+                *) printf -v "$_var" '%s' "ESC[${_seq#[}";;
+            esac
+            ;;
+        'O') # SS3 sequence (xterm function keys, alternate home/end)
+            IFS= read -r -s -n1 -t "$_t" _rest || { printf -v "$_var" 'ESC'; return 0; }
+            case "$_rest" in
+                P) printf -v "$_var" 'F1';;
+                Q) printf -v "$_var" 'F2';;
+                R) printf -v "$_var" 'F3';;
+                S) printf -v "$_var" 'F4';;
+                H) printf -v "$_var" 'HOME';;
+                F) printf -v "$_var" 'END';;
+                *) printf -v "$_var" '%s' "ESC-O-$_rest";;
+            esac
+            ;;
+        *) # Unknown escape — return ESC + the following byte(s)
+            printf -v "$_var" '%s' "ESC-$_seq"
+            ;;
+    esac
+    return 0
+}
+
 # Prompt user for y/n, returns 0 for yes, 1 for no
 # Usage: terminal::confirm "Are you sure?"
 # Note: Will return 1 on non-'y' input (defaults to no)
@@ -375,3 +452,42 @@ terminal::shopt::cdspell::enable()       { shopt -s cdspell      2>/dev/null; } 
 terminal::shopt::cdspell::disable()      { shopt -u cdspell      2>/dev/null; }
 terminal::shopt::nocasematch::enable()   { shopt -s nocasematch  2>/dev/null; }  # case-insensitive [[ =~
 terminal::shopt::nocasematch::disable()  { shopt -u nocasematch  2>/dev/null; }
+
+terminal::shopt::lastpipe::enable()       { shopt -s lastpipe       2>/dev/null; }  # last pipe in current shell
+terminal::shopt::lastpipe::disable()      { shopt -u lastpipe       2>/dev/null; }
+terminal::shopt::failglob::enable()       { shopt -s failglob       2>/dev/null; }  # glob w/ no match → error
+terminal::shopt::failglob::disable()      { shopt -u failglob       2>/dev/null; }
+terminal::shopt::inherit_errexit::enable()  { shopt -s inherit_errexit 2>/dev/null; }  # subshells inherit -e
+terminal::shopt::inherit_errexit::disable() { shopt -u inherit_errexit 2>/dev/null; }
+terminal::shopt::globasciiranges::enable()  { shopt -s globasciiranges 2>/dev/null; }  # [a-z] = ASCII only
+terminal::shopt::globasciiranges::disable() { shopt -u globasciiranges 2>/dev/null; }
+terminal::shopt::globskipdots::enable()     { shopt -s globskipdots    2>/dev/null; }  # * never returns . or ..
+terminal::shopt::globskipdots::disable()    { shopt -u globskipdots    2>/dev/null; }
+terminal::shopt::varredir_close::enable()   { shopt -s varredir_close  2>/dev/null; }  # auto-close {fd} FDs on scope exit
+terminal::shopt::varredir_close::disable()  { shopt -u varredir_close  2>/dev/null; }
+terminal::shopt::patsub_replacement::enable()  { shopt -s patsub_replacement 2>/dev/null; }  # & in ${var/pat/repl} = match
+terminal::shopt::patsub_replacement::disable() { shopt -u patsub_replacement 2>/dev/null; }
+terminal::shopt::dirspell::enable()         { shopt -s dirspell       2>/dev/null; }  # autocorrect dir typos on tab
+terminal::shopt::dirspell::disable()        { shopt -u dirspell       2>/dev/null; }
+
+# ==============================================================================
+# GLOBSORT
+#
+# Bash 5.3+ GLOBSORT variable — controls order of pathname expansion results.
+# Values: name (default), size, blocks, mtime, atime, ctime, numeric, none.
+# Prefix with '-' for descending (e.g. -size).
+# ==============================================================================
+
+terminal::globsort::set() {
+    [[ -n "${1:-}" ]] || { echo "terminal::globsort::set: value required" >&2; return 1; }
+    _runtime::min_bash 5.3 || return 1
+    GLOBSORT="$1"
+}
+
+terminal::globsort::get() {
+    echo "${GLOBSORT:-name}"
+}
+
+terminal::globsort::reset() {
+    GLOBSORT=name
+}

@@ -215,6 +215,92 @@ string::title::fast() {
 }
 
 # ==============================================================================
+# PARAMETER TRANSFORMATIONS
+#
+# Wrappers around Bash 4.4+ ${var@operator} parameter expansions.
+# These are among the most underused features in modern Bash.
+# ==============================================================================
+
+# Shell-quote a value for safe reuse in eval/command construction.
+# Usage: string::quote str
+#        echo "str" | string::quote
+string::quote() {
+  local input; _string::read_input input "$@"
+  printf '%s\n' "${input@Q}"
+}
+
+# Fast variant using nameref
+# Usage: string::quote::fast result_var str
+string::quote::fast() {
+  local -n _string_quote_result="$1"
+  printf -v _string_quote_result '%s' "${2@Q}"
+}
+
+# Expand escape sequences: \n → newline, \t → tab, \\ → \, etc.
+# Usage: string::expand_escapes str
+#        echo "str" | string::expand_escapes
+string::expand_escapes() {
+  local input; _string::read_input input "$@"
+  printf '%s\n' "${input@E}"
+}
+
+# Fast variant using nameref
+# Usage: string::expand_escapes::fast result_var str
+string::expand_escapes::fast() {
+  local -n _string_expand_escapes_result="$1"
+  printf -v _string_expand_escapes_result '%s' "${2@E}"
+}
+
+# Expand prompt sequences: \u → user, \h → host, \w → cwd (like PS1).
+# Usage: string::expand_prompt str
+#        echo "str" | string::expand_prompt
+string::expand_prompt() {
+  local input; _string::read_input input "$@"
+  printf '%s\n' "${input@P}"
+}
+
+# Fast variant using nameref
+# Usage: string::expand_prompt::fast result_var str
+string::expand_prompt::fast() {
+  local -n _string_expand_prompt_result="$1"
+  printf -v _string_expand_prompt_result '%s' "${2@P}"
+}
+
+# Print attribute flags of a variable: r=readonly, a=array, A=assoc,
+# i=integer, l=lowercase, u=uppercase, x=exported, n=nameref.
+# Prints "unset" if the variable does not exist.
+# Usage: string::var_attrs varname
+string::var_attrs() {
+  [[ -v "$1" ]] || { echo "unset"; return 1; }
+  echo "${!1@a}"
+}
+
+# Print a variable's definition in re-eval'able declare form.
+# Usage: string::var_def varname
+string::var_def() {
+  [[ -v "$1" ]] || return 1
+  echo "${!1@A}"
+}
+
+# Serialize an associative array to reconstructable key=value form.
+# Requires: Bash 5.1+
+# Usage: string::assoc_dump varname
+string::assoc_dump() {
+  _runtime::min_bash 5.1 || return 1
+  local -n _string_assoc_dump_ref="$1" 2>/dev/null || return 1
+  echo "${_string_assoc_dump_ref[@]@K}"
+}
+
+# Print keys and values of an associative array as alternating words.
+# Requires: Bash 5.2+
+# Usage: string::assoc_kv varname
+string::assoc_kv() {
+  _runtime::min_bash 5.2 || return 1
+  local -n _string_assoc_kv_ref="$1" 2>/dev/null || return 1
+  echo "${_string_assoc_kv_ref[@]@k}"
+}
+
+# ==============================================================================
 # NAMING CONVENTION CONVERSION
 #
 # Naming matrix — all pairwise conversions:
@@ -1990,4 +2076,172 @@ string::uuid() {
       "$(((16#${b:16:1} & 3) | 8))${b:17:3}" \
       "${b:20:4}" "${b:24:12}"
   fi
+}
+
+# ==============================================================================
+# COLON-SEPARATED VARIABLES
+# Manage $PATH-style colon-delimited lists
+# ==============================================================================
+
+# Add a directory to a colon-separated value
+# Usage: string::colon::add value dir [after|before]
+# Default position: after (append)
+string::colon::add() {
+  local _value="$1" _dir="$2" _pos="${3:-after}"
+
+  if [[ -z $_dir || $_dir == *:* ]]; then
+    echo "string::colon::add: invalid argument: '$_dir'" >&2
+    return 1
+  fi
+
+  local -a _arr
+  IFS=: read -ra _arr <<< "$_value"
+
+  # Skip if already present
+  local _e
+  for _e in "${_arr[@]}"; do
+    [[ $_e == "$_dir" ]] && { echo "$_value"; return 0; }
+  done
+
+  case "$_pos" in
+    after) _arr+=("$_dir");;
+    *) local -a _tmp=("$_dir"); _tmp+=("${_arr[@]}"); _arr=("${_tmp[@]}");;
+  esac
+
+  (IFS=:; echo "${_arr[*]}")
+}
+
+# Add a directory to a colon-separated variable in-place via nameref
+# Usage: string::colon::add::fast var_ref dir [after|before]
+string::colon::add::fast() {
+  local -n _string_colon_add_result="$1"
+  local _dir="$2" _pos="${3:-after}"
+
+  if [[ -z $_dir || $_dir == *:* ]]; then
+    echo "string::colon::add::fast: invalid argument: '$_dir'" >&2
+    return 1
+  fi
+
+  local -a _arr
+  IFS=: read -ra _arr <<< "$_string_colon_add_result"
+
+  local _e
+  for _e in "${_arr[@]}"; do
+    [[ $_e == "$_dir" ]] && return 0
+  done
+
+  case "$_pos" in
+    after) _arr+=("$_dir");;
+    *) local -a _tmp=("$_dir"); _tmp+=("${_arr[@]}"); _arr=("${_tmp[@]}");;
+  esac
+
+  local IFS=:
+  _string_colon_add_result="${_arr[*]}"
+}
+
+# Remove every instance of a directory from a colon-separated value
+# Usage: string::colon::remove value dir
+string::colon::remove() {
+  local _value="$1" _dir="$2"
+
+  if [[ -z $_dir || $_dir == *:* ]]; then
+    echo "string::colon::remove: invalid argument: '$_dir'" >&2
+    return 1
+  fi
+
+  local -a _arr _out
+  IFS=: read -ra _arr <<< "$_value"
+
+  local _e
+  for _e in "${_arr[@]}"; do
+    [[ $_e == "$_dir" ]] && continue
+    _out+=("$_e")
+  done
+
+  (IFS=:; echo "${_out[*]}")
+}
+
+# Remove every instance of a directory from a colon-separated variable in-place
+# Usage: string::colon::remove::fast var_ref dir
+string::colon::remove::fast() {
+  local -n _string_colon_remove_result="$1"
+  local _dir="$2"
+
+  if [[ -z $_dir || $_dir == *:* ]]; then
+    echo "string::colon::remove::fast: invalid argument: '$_dir'" >&2
+    return 1
+  fi
+
+  local -a _arr _out
+  IFS=: read -ra _arr <<< "$_string_colon_remove_result"
+
+  local _e
+  for _e in "${_arr[@]}"; do
+    [[ $_e == "$_dir" ]] && continue
+    _out+=("$_e")
+  done
+
+  local IFS=:
+  _string_colon_remove_result="${_out[*]}"
+}
+
+# Clean a colon-separated value:
+#   - Remove empty entries
+#   - Remove relative paths (entries not starting with /)
+#   - Remove duplicates (keep first occurrence)
+#   - Remove entries whose directory does not exist
+# Usage: string::colon::clean value
+string::colon::clean() {
+  local _value="$1"
+  local -a _arr _out _seen
+
+  IFS=: read -ra _arr <<< "$_value"
+
+  local _e _s
+  for _e in "${_arr[@]}"; do
+    # Skip empty entries
+    [[ -z $_e ]] && continue
+
+    # Skip relative paths
+    [[ ${_e:0:1} != '/' ]] && continue
+
+    # Skip if directory does not exist
+    [[ -d $_e ]] || continue
+
+    # Skip duplicates
+    for _s in "${_seen[@]}"; do
+      [[ $_s == "$_e" ]] && continue 2
+    done
+    _seen+=("$_e")
+
+    _out+=("$_e")
+  done
+
+  (IFS=:; echo "${_out[*]}")
+}
+
+# Clean a colon-separated variable in-place via nameref
+# Usage: string::colon::clean::fast var_ref
+string::colon::clean::fast() {
+  local -n _string_colon_clean_result="$1"
+  local -a _arr _out _seen
+
+  IFS=: read -ra _arr <<< "$_string_colon_clean_result"
+
+  local _e _s
+  for _e in "${_arr[@]}"; do
+    [[ -z $_e ]] && continue
+    [[ ${_e:0:1} != '/' ]] && continue
+    [[ -d $_e ]] || continue
+
+    for _s in "${_seen[@]}"; do
+      [[ $_s == "$_e" ]] && continue 2
+    done
+    _seen+=("$_e")
+
+    _out+=("$_e")
+  done
+
+  local IFS=:
+  _string_colon_clean_result="${_out[*]}"
 }

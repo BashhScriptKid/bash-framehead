@@ -64,6 +64,32 @@ random::native::range() {
 }
 
 # ==============================================================================
+# SECURE
+# Quality: cryptographic. Use: security-sensitive.
+# Bash 5.1+ $SRANDOM — 32-bit CSRNG via getrandom()/getentropy().
+# Unlike $RANDOM (15-bit LCG), this is suitable for tokens, keys, and nonces.
+# ==============================================================================
+
+# Echo a 32-bit cryptographically secure random integer.
+# Usage: random::secure
+random::secure() {
+    if [[ -z "${SRANDOM:-}" ]]; then
+        echo "random::secure: requires Bash 5.1+ (SRANDOM not available)" >&2; return 1
+    fi
+    echo "$SRANDOM"
+}
+
+# Secure random in [min, max] inclusive.
+# Usage: random::secure::range min max
+random::secure::range() {
+    if [[ -z "${SRANDOM:-}" ]]; then
+        echo "random::secure::range: requires Bash 5.1+" >&2; return 1
+    fi
+    local min="$1" max="$2"
+    echo $(( (SRANDOM % (max - min + 1)) + min ))
+}
+
+# ==============================================================================
 # MIDDLE SQUARE
 # Period: variable, often very short. Quality: very poor. Use: historical demo.
 # John von Neumann, 1946. The original PRNG. Notorious for degenerating to

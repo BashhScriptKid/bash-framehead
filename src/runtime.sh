@@ -106,6 +106,13 @@ runtime::has_command() {
   command -v "$1" >/dev/null 2>&1
 }
 
+# Degrade-gracefully sleep wrapper. Silently ignores errors when the
+# system sleep lacks sub-second support or is interrupted.
+# Usage: runtime::sleep seconds
+runtime::sleep() {
+  sleep "$1" 2>/dev/null || true
+}
+
 runtime::is_root() {
   [[ $EUID -eq 0 ]]
 }
@@ -304,6 +311,12 @@ runtime::bash_version::major() {
 # Default to 3, assuming that's what's at least needed for this framework (not final)
 runtime::is_minimum_bash() {
   ((BASH_VERSINFO[0] >= ${1:-3}))
+}
+
+# Internal: compare against Bash major.minor version (handles 5.1, 5.2, etc.)
+_runtime::min_bash() {
+    local maj=${1%.*} min=${1#*.}
+    (( BASH_VERSINFO[0] > maj || (BASH_VERSINFO[0] == maj && BASH_VERSINFO[1] >= min) ))
 }
 
 runtime::is_container() {
@@ -637,4 +650,236 @@ runtime::process::info() {
     for field in pid comm state ppid threads rss vsize utime stime uptime; do
         printf '%s=%s\n' "$field" "${_RUNTIME_PROC_CACHE[$pid:$field]:-}"
     done
+}
+
+# ==============================================================================
+# JOB CONTROL
+#
+# Wrappers around wait -n (Bash 4.3) and wait -p (Bash 5.1).
+# ==============================================================================
+
+# Wait for the next background job, return its exit code.
+# Usage: runtime::wait::next
+runtime::wait::next() {
+    wait -n "$@"
+}
+
+# Wait for next job, echo its PID, return its exit code.
+# Requires: Bash 5.1 for -p. Falls back to wait -n on older versions.
+# Usage: runtime::wait::next::pid
+runtime::wait::next::pid() {
+    local _pid
+    if _runtime::min_bash 5.1; then
+        wait -n -p _pid "$@"
+    else
+        wait -n "$@"
+        _pid=$!
+    fi
+    local _ret=$?
+    echo "$_pid"
+    return $_ret
+}
+
+# Wait for any of the listed jobspecs, return exit code of first to finish.
+# Usage: runtime::wait::any jobspec...
+runtime::wait::any() {
+    wait -n "$@"
+}
+
+# Wait for any of the listed jobspecs, echo PID, return exit code.
+# Requires: Bash 5.1+ for -p.
+# Usage: runtime::wait::any::pid jobspec...
+runtime::wait::any::pid() {
+    local _pid
+    if _runtime::min_bash 5.1; then
+        wait -n -p _pid "$@"
+    else
+        wait -n "$@"
+        _pid=$!
+    fi
+    local _ret=$?
+    echo "$_pid"
+    return $_ret
+}
+
+# ==============================================================================
+# AUTO-ALLOCATED FILE DESCRIPTORS
+#
+# Wrappers around exec {var}<>file (Bash 4.1+). Bash picks a free fd number
+# and stores it in the named variable — no risk of collision with fds 3–9.
+# ==============================================================================
+
+# Open a file and get back a free fd number.
+# Usage: runtime::fd::open /path/to/file [r|rw]
+runtime::fd::open() {
+    local _path=$1 _mode=${2:-r}
+    [[ -n "$_path" ]] || { echo "runtime::fd::open: path required" >&2; return 1; }
+    local _fd
+    case "$_mode" in
+        rw) eval "exec {_fd}<>'$_path'" || return 1 ;;
+        *)  eval "exec {_fd}<'$_path'"  || return 1 ;;
+    esac
+    echo "$_fd"
+}
+
+# Close an auto-allocated fd (both read and write ends).
+# Safe to call on already-closed fds.
+# Usage: runtime::fd::close fd
+runtime::fd::close() {
+    eval "exec $1<&-" 2>/dev/null || true
+    eval "exec $1>&-" 2>/dev/null || true
+}
+
+# Open fd, run command with FD= exported, close fd, return command's exit code.
+# Usage: runtime::fd::with /path/to/log rw mycmd arg1 arg2
+runtime::fd::with() {
+    local _path=$1 _mode=${2:-r}; shift 2
+    local _fd; _fd=$(runtime::fd::open "$_path" "$_mode") || return 1
+    FD=$_fd "$@"
+    local _ret=$?
+    runtime::fd::close "$_fd"
+    return $_ret
+}
+
+# ==============================================================================
+# CLOCKS
+#
+# High-precision clock sources and timing utilities.
+# ==============================================================================
+
+# Monotonic clock — never goes backward, immune to NTP/leap seconds.
+# Requires: Bash 5.3+
+# Usage: t0=$(runtime::clocks::mono)
+runtime::clocks::mono() {
+    _runtime::min_bash 5.3 || return 1
+    echo "${BASH_MONOSECONDS:-0}"
+}
+
+# Wall clock — seconds since epoch with microsecond precision.
+# Requires: Bash 5.0+
+# Usage: ts=$(runtime::clocks::wall)
+runtime::clocks::wall() {
+    _runtime::min_bash 5.0 || return 1
+    echo "${EPOCHREALTIME:-0}"
+}
+
+# Elapsed seconds since a saved monotonic tick.
+# Uses bc for float math (primary) or awk (fallback).
+# Usage: runtime::clocks::elapsed "$t0"
+runtime::clocks::elapsed() {
+    local _start=${1:-}
+    [[ -n "$_start" ]] || { echo "0"; return 1; }
+    local _now="${BASH_MONOSECONDS:-0}"
+    if runtime::has_command bc; then
+        echo "$_now - $_start" | bc
+    else
+        awk -v now="$_now" -v start="$_start" 'BEGIN { printf "%.6f", now - start }'
+    fi
+}
+
+# Time a command, print elapsed seconds, preserve exit code.
+# Requires: Bash 5.3+ (for monotonic clock)
+# Usage: runtime::bench sleep 1
+runtime::bench() {
+    local _t0; _t0=$(runtime::clocks::mono) || return 1
+    "$@"
+    local _ret=$?
+    printf '%.6fs\n' "$(runtime::clocks::elapsed "$_t0")"
+    return $_ret
+}
+
+# Time a command, store elapsed in a nameref, preserve exit code.
+# Usage: runtime::bench::capture result_var sleep 1
+runtime::bench::capture() {
+    local -n _bench_result="$1"; shift
+    local _t0; _t0=$(runtime::clocks::mono) || return 1
+    "$@"
+    local _ret=$?
+    printf -v _bench_result '%s' "$(runtime::clocks::elapsed "$_t0")"
+    return $_ret
+}
+
+# ISO-8601 timestamp with microseconds.
+# Requires: Bash 5.0+ (for EPOCHREALTIME)
+# Usage: runtime::timestamp
+runtime::timestamp() {
+    local _ts; _ts=$(runtime::clocks::wall) || return 1
+    local _sec="${_ts%.*}" _us="${_ts#*.}"
+    printf "%(%Y-%m-%dT%H:%M:%S)T.%s" "$_sec" "$_us"
+}
+
+# ==============================================================================
+# SHELL PROCESS
+#
+# Wrappers around shell special variables for process introspection.
+# ==============================================================================
+
+# Current subshell PID — unlike $$ which is frozen to the parent shell.
+# Usage: runtime::pid_current
+runtime::pid_current() {
+    echo "${BASHPID:-$$}"
+}
+
+# Get $0 (script name). Uses BASH_ARGV0 when available (Bash 5.0+).
+# Usage: runtime::argv0::get
+runtime::argv0::get() {
+    echo "${BASH_ARGV0:-$0}"
+}
+
+# Set $0 to a new value.
+# Requires: Bash 5.0+
+# Usage: runtime::argv0::set "my-script"
+runtime::argv0::set() {
+    [[ -n "${1:-}" ]] || { echo "runtime::argv0::set: name required" >&2; return 1; }
+    if [[ -z "${BASH_ARGV0+set}" ]]; then
+        echo "runtime::argv0::set: requires Bash 5.0+" >&2; return 1
+    fi
+    BASH_ARGV0="$1"
+}
+
+# Get current recursion limit (FUNCNEST). 0 = unlimited.
+# Usage: runtime::recurselimit::get
+runtime::recurselimit::get() {
+    echo "${FUNCNEST:-0}"
+}
+
+# Set recursion limit to guard against infinite recursion.
+# Set to 0 to disable the limit. Bash 4.2+.
+# Usage: runtime::recurselimit::set 50
+runtime::recurselimit::set() {
+    [[ -n "${1:-}" ]] || { echo "runtime::recurselimit::set: limit required" >&2; return 1; }
+    FUNCNEST="$1"
+}
+
+# ==============================================================================
+# PATH CONTROL
+#
+# EXECIGNORE (Bash 5.0+) — colon-separated glob patterns. Executables matching
+# any pattern are skipped during PATH command lookup.
+# ==============================================================================
+
+# Add a pattern to EXECIGNORE.
+# Usage: runtime::execignore::add '*.py'
+runtime::execignore::add() {
+    local _pat=$1
+    [[ -n "$_pat" ]] || { echo "runtime::execignore::add: pattern required" >&2; return 1; }
+    if [[ -z "${EXECIGNORE:-}" ]]; then
+        EXECIGNORE="$_pat"
+    else
+        EXECIGNORE="$EXECIGNORE:$_pat"
+    fi
+}
+
+# List current EXECIGNORE patterns, one per line.
+# Usage: runtime::execignore::list
+runtime::execignore::list() {
+    if [[ -n "${EXECIGNORE:-}" ]]; then
+        echo "${EXECIGNORE}" | tr ':' '\n'
+    fi
+}
+
+# Clear all EXECIGNORE patterns.
+# Usage: runtime::execignore::clear
+runtime::execignore::clear() {
+    EXECIGNORE=""
 }
