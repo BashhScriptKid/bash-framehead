@@ -408,3 +408,233 @@ runtime::pm() {
     echo "unknown"
   fi
 }
+
+# ==============================================================================
+# COPROC
+# ==============================================================================
+
+# Active coproc tracking array.
+declare -a _RUNTIME_COPROCS=()
+
+# Start a named coprocess. Stores name for tracking.
+# Usage: runtime::coproc::start <name> <command...>
+runtime::coproc::start() {
+    local name=$1; shift
+    if [[ -z "$name" ]]; then
+        echo "runtime::coproc::start: name required" >&2
+        return 1
+    fi
+    if [[ " ${_RUNTIME_COPROCS[*]} " == *" $name "* ]]; then
+        echo "runtime::coproc::start: coproc '$name' already exists" >&2
+        return 1
+    fi
+    coproc "$name" { "$@" 2>&1; }
+    _RUNTIME_COPROCS+=("$name")
+}
+
+# Send data to a coproc's stdin.
+# Usage: runtime::coproc::send <name> <data>
+runtime::coproc::send() {
+    local name=$1 data=$2
+    local -n _cs_fd="${name}[1]"
+    printf '%s\n' "$data" >&${_cs_fd}
+}
+
+# Read one line from a coproc's stdout (blocks until data available).
+# Usage: runtime::coproc::read <name>
+runtime::coproc::read() {
+    local name=$1 line
+    local -n _cr_fd="${name}[0]"
+    IFS= read -r -t 5 line <&${_cr_fd} || true
+    echo "$line"
+}
+
+# Read all available output from a coproc (non-blocking).
+# Usage: runtime::coproc::read_all <name>
+runtime::coproc::read_all() {
+    local name=$1 line
+    local -n _cra_fd="${name}[0]"
+    while IFS= read -r -t 0.1 line <&${_cra_fd} 2>/dev/null; do
+        echo "$line"
+    done
+}
+
+# Return 0 if the named coproc is alive.
+# Usage: runtime::coproc::alive <name>
+runtime::coproc::alive() {
+    local pid; pid=$(runtime::coproc::pid "$1" 2>/dev/null) || return 1
+    kill -0 "$pid" 2>/dev/null
+}
+
+# Echo the PID of a named coproc.
+# Usage: runtime::coproc::pid <name>
+runtime::coproc::pid() {
+    local -n _cp_var="${1}_PID"
+    echo "${_cp_var:-}"
+}
+
+# Stop a named coproc (kill process, close fds).
+# Usage: runtime::coproc::stop <name>
+runtime::coproc::stop() {
+    local name=$1
+    local pid; pid=$(runtime::coproc::pid "$name" 2>/dev/null) || return 1
+
+    local -n _cs_fd="${name}[0]" 2>/dev/null && eval "exec ${_cs_fd}<&-" 2>/dev/null
+    local -n _cs_fd1="${name}[1]" 2>/dev/null && eval "exec ${_cs_fd1}>&-" 2>/dev/null
+
+    kill "$pid" 2>/dev/null || true
+    wait "$pid" 2>/dev/null || true
+
+    local i new_arr=()
+    for i in "${_RUNTIME_COPROCS[@]}"; do
+        [[ "$i" != "$name" ]] && new_arr+=("$i")
+    done
+    _RUNTIME_COPROCS=("${new_arr[@]}")
+}
+
+# List active tracked coprocs.
+# Usage: runtime::coproc::list
+runtime::coproc::list() {
+    local name
+    for name in "${_RUNTIME_COPROCS[@]}"; do
+        local pid; pid=$(runtime::coproc::pid "$name" 2>/dev/null)
+        local alive="dead"
+        runtime::coproc::alive "$name" 2>/dev/null && alive="alive"
+        echo "$name pid=$pid $alive"
+    done
+}
+
+# ==============================================================================
+# PROCESS
+# ==============================================================================
+
+# Cache for /proc/<pid>/stat parsing: _RUNTIME_PROC_CACHE[<pid>:<field>]
+declare -A _RUNTIME_PROC_CACHE
+
+# Internal: parse /proc/<pid>/stat and cache all fields.
+_runtime::parse_stat() {
+    local pid=$1
+    local cache_key="${pid}:parsed"
+    [[ -n "${_RUNTIME_PROC_CACHE[$cache_key]:-}" ]] && return 0
+
+    [[ "$(runtime::os)" != "linux" ]] && return 1
+
+    local stat_file="/proc/$pid/stat"
+    [[ -f "$stat_file" ]] || return 1
+
+    local raw; raw=$(cat "$stat_file" 2>/dev/null)
+    [[ -z "$raw" ]] && return 1
+
+    # Split: "1234 (comm) S 5678 ..." → extract comm between parens
+    local comm_start comm_end rest
+    comm_start="${raw#*(}"
+    comm_end="${comm_start%)*}"
+    rest="${comm_start#*) }"
+
+    local -a fields
+    read -ra fields <<< "$rest"
+
+    _RUNTIME_PROC_CACHE["$pid:pid"]="$pid"
+    _RUNTIME_PROC_CACHE["$pid:comm"]="$comm_end"
+    _RUNTIME_PROC_CACHE["$pid:state"]="${fields[0]}"
+    _RUNTIME_PROC_CACHE["$pid:ppid"]="${fields[1]}"
+    _RUNTIME_PROC_CACHE["$pid:threads"]="${fields[17]}"
+    _RUNTIME_PROC_CACHE["$pid:rss"]="$(( ${fields[21]} * 4 ))"
+    _RUNTIME_PROC_CACHE["$pid:vsize"]="${fields[20]}"
+    _RUNTIME_PROC_CACHE["$pid:utime"]="${fields[12]}"
+    _RUNTIME_PROC_CACHE["$pid:stime"]="${fields[13]}"
+    _RUNTIME_PROC_CACHE["$pid:starttime"]="${fields[19]}"
+
+    local clk_tck=100 uptime boot_ticks
+    uptime=$(awk '{printf "%.0f", $1}' /proc/uptime 2>/dev/null)
+    boot_ticks=$(( ${_RUNTIME_PROC_CACHE["$pid:starttime"]} / clk_tck ))
+    _RUNTIME_PROC_CACHE["$pid:uptime"]=$(( uptime - boot_ticks ))
+
+    _RUNTIME_PROC_CACHE[$cache_key]=1
+}
+
+# Check if a PID exists.
+# Usage: runtime::process::exists <pid>
+runtime::process::exists() {
+    kill -0 "$1" 2>/dev/null
+}
+
+# Echo the parent PID.
+# Usage: runtime::process::ppid <pid>
+runtime::process::ppid() {
+    _runtime::parse_stat "$1" || { echo "0"; return 1; }
+    echo "${_RUNTIME_PROC_CACHE[$1:ppid]}"
+}
+
+# Echo the process state: R/S/D/Z/T.
+# Usage: runtime::process::state <pid>
+runtime::process::state() {
+    _runtime::parse_stat "$1" || return 1
+    echo "${_RUNTIME_PROC_CACHE[$1:state]}"
+}
+
+# Echo resident memory in KB.
+# Usage: runtime::process::rss <pid>
+runtime::process::rss() {
+    _runtime::parse_stat "$1" || { echo "0"; return 1; }
+    echo "${_RUNTIME_PROC_CACHE[$1:rss]}"
+}
+
+# Echo virtual memory in KB.
+# Usage: runtime::process::vsize <pid>
+runtime::process::vsize() {
+    _runtime::parse_stat "$1" || { echo "0"; return 1; }
+    echo "${_RUNTIME_PROC_CACHE[$1:vsize]}"
+}
+
+# Echo the full command line (null-separated args joined with spaces).
+# Usage: runtime::process::cmdline <pid>
+runtime::process::cmdline() {
+    [[ "$(runtime::os)" == "linux" && -f "/proc/$1/cmdline" ]] || return 1
+    tr '\0' ' ' < "/proc/$1/cmdline"
+}
+
+# Echo the short command name (comm).
+# Usage: runtime::process::comm <pid>
+runtime::process::comm() {
+    _runtime::parse_stat "$1" || return 1
+    echo "${_RUNTIME_PROC_CACHE[$1:comm]}"
+}
+
+# Echo the thread count.
+# Usage: runtime::process::threads <pid>
+runtime::process::threads() {
+    _runtime::parse_stat "$1" || { echo "0"; return 1; }
+    echo "${_RUNTIME_PROC_CACHE[$1:threads]}"
+}
+
+# Echo seconds since process start.
+# Usage: runtime::process::uptime <pid>
+runtime::process::uptime() {
+    _runtime::parse_stat "$1" || { echo "0"; return 1; }
+    echo "${_RUNTIME_PROC_CACHE[$1:uptime]}"
+}
+
+# List child PIDs (space-separated).
+# Usage: runtime::process::children <pid>
+runtime::process::children() {
+    [[ "$(runtime::os)" == "linux" ]] || return 1
+    local children; children=$(pgrep -P "$1" 2>/dev/null | tr '\n' ' ')
+    echo "${children% }"
+}
+
+# Parse full /proc/<pid>/stat and output all fields or a specific one.
+# Usage: runtime::process::info <pid> [field]
+runtime::process::info() {
+    local pid=$1 field=$2
+    _runtime::parse_stat "$pid" || return 1
+
+    if [[ -n "$field" ]]; then
+        echo "${_RUNTIME_PROC_CACHE[$pid:$field]:-}"
+        return
+    fi
+
+    for field in pid comm state ppid threads rss vsize utime stime uptime; do
+        printf '%s=%s\n' "$field" "${_RUNTIME_PROC_CACHE[$pid:$field]:-}"
+    done
+}
