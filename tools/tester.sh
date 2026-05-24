@@ -942,6 +942,55 @@ test::string::split::fast() {
   if [[ "${result[0]}" == "a" && "${result[1]}" == "b" && "${result[2]}" == "c" ]]; then _pass; else _fail; fi
 }
 
+# Tests — string::colon
+test::string::colon::add() {
+  _assert "append"        "/a:/b:/c"    "$(string::colon::add "/a:/b"       "/c" after)"
+  _assert "prepend"       "/c:/a:/b"    "$(string::colon::add "/a:/b"       "/c" before)"
+  _assert "default after" "/a:/b:/c"    "$(string::colon::add "/a:/b"       "/c")"
+  _assert "skip existing" "/a:/b"       "$(string::colon::add "/a:/b"       "/a")"
+  _assert "empty value"   "/c"          "$(string::colon::add ""             "/c")"
+  _sub_done
+}
+test::string::colon::add::fast() {
+  local v="/a:/b"
+  string::colon::add::fast v /c after
+  _assert "add::fast after"  "/a:/b:/c" "$v"
+  v="/a:/b"
+  string::colon::add::fast v /c before
+  _assert "add::fast before" "/c:/a:/b" "$v"
+  _sub_done
+}
+test::string::colon::remove() {
+  _assert "remove middle"   "/a:/c"   "$(string::colon::remove "/a:/b:/c"     "/b")"
+  _assert "remove multiple" "/b:/c"   "$(string::colon::remove "/a:/b:/a:/c" "/a")"
+  _assert "remove missing"  "/a:/b"   "$(string::colon::remove "/a:/b"       "/x")"
+  _sub_done
+}
+test::string::colon::remove::fast() {
+  local v="/a:/b:/a:/c"
+  string::colon::remove::fast v /a
+  _assert "remove::fast" "/b:/c" "$v"
+  _sub_done
+}
+test::string::colon::clean() {
+  local dirty="::/usr/bin:/usr/bin:./relative:"
+  local result; result=$(string::colon::clean "$dirty")
+  # No empty entries
+  [[ "$result" == *::* ]] && { _fail "clean: empty entries remain: $result"; return; }
+  # No duplicates
+  local count; count=$(echo "$result" | tr ':' '\n' | grep -c '/usr/bin')
+  [[ "$count" == "1" ]] || { _fail "clean: duplicates remain: $result"; return; }
+  # No relative paths
+  [[ "$result" == *./* ]] && { _fail "clean: relative paths remain: $result"; return; }
+  _pass
+}
+test::string::colon::clean::fast() {
+  local v="::/usr/bin:/usr/bin"
+  string::colon::clean::fast v
+  [[ "$v" == *::* ]] && { _fail "clean::fast: empty entries remain: $v"; return; }
+  _pass
+}
+
 # ==============================================================================
 # Tests — hash
 # ==============================================================================
@@ -1175,6 +1224,10 @@ test::runtime::process::vsize()     {
 test::runtime::process::uptime()    {
     [[ "$(runtime::os)" == "linux" ]] || { _skip "not linux"; return; }
     if (( $(runtime::process::uptime $$ 2>/dev/null) >= 0 )); then _pass; else _fail; fi
+}
+
+test::runtime::sleep() {
+    if runtime::sleep 0.1; then _pass; else _fail; fi
 }
 
 # ==============================================================================
@@ -1748,6 +1801,80 @@ test::colour::print()              { if [[ -n "$(colour::print 4 fg red "hi")" ]
 test::colour::println()            { if [[ -n "$(colour::println 4 fg red "hi")" ]]; then _pass; else _fail; fi; }
 
 # ==============================================================================
+# Tests — debug
+# ==============================================================================
+
+test::debug::vardump::scalar() {
+    local _out
+    _out=$(debug::vardump myvar mono)
+    _assert_contains "scalar value" "'hello'" "$_out"
+    _sub_done
+}
+
+test::debug::vardump::scalar_verbose() {
+    local _out
+    _out=$(debug::vardump myvar mono verbose)
+    _assert_contains "vardump header" "debug::vardump" "$_out"
+    _assert_contains "vardump value" "'hello'" "$_out"
+    _sub_done
+}
+
+test::debug::vardump::indexed_array() {
+    local -a arr=("foo" "bar" "baz")
+    local _out
+    _out=$(debug::vardump arr mono)
+    _assert_contains "array element" "[0]=" "$_out"
+    _assert_contains "array value" "'foo'" "$_out"
+    _sub_done
+}
+
+test::debug::vardump::assoc_array() {
+    local -A map=([foo]=1 [bar]=2)
+    local _out
+    _out=$(debug::vardump map mono)
+    _assert_contains "assoc key" "'foo'" "$_out"
+    _assert_contains "assoc value" "'1'" "$_out"
+    _sub_done
+}
+
+test::debug::vardump::integer() {
+    local -i num=42
+    local _out
+    _out=$(debug::vardump num mono)
+    _assert_contains "integer value" "42" "$_out"
+    _sub_done
+}
+
+test::debug::vardump::undefined() {
+    if debug::vardump nonexistentvarXYZ mono 2>/dev/null; then
+        _fail "should have failed on undefined var"
+    else
+        _pass
+    fi
+}
+
+test::debug::vardump::empty_name() {
+    if debug::vardump "" mono 2>/dev/null; then
+        _fail "should have failed on empty name"
+    else
+        _pass
+    fi
+}
+
+test::debug::stacktrace::basic() {
+    local _out
+    _out=$(debug::stacktrace mono)
+    _assert_contains "stack trace header" "Stack trace" "$_out"
+    _sub_done
+}
+
+test::debug::stacktrace::colour() {
+    local _out
+    _out=$(debug::stacktrace colour)
+    [[ -n "$_out" ]] && _pass || _fail "no output"
+}
+
+# ==============================================================================
 # Tests — terminal (escape code behaviour only — interactive functions skipped)
 # ==============================================================================
 
@@ -1843,6 +1970,7 @@ test::terminal::confirm()            { _skip "requires interactive input"; }
 test::terminal::confirm::default()   { _skip "requires interactive input"; }
 test::terminal::read_key()           { _skip "requires interactive input"; }
 test::terminal::read_key::timeout()  { _skip "requires interactive input"; }
+test::terminal::read_key::decode()   { _skip "requires interactive input"; }
 test::terminal::read_password()      { _skip "requires interactive input"; }
 
 # ==============================================================================
