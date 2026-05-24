@@ -56,6 +56,17 @@ Same as `toml::get` but reads TOML from a file.
 toml::get_file Cargo.toml package.version
 ```
 
+### `toml::keys <toml> [path]`
+
+List keys (object) or indices (array) from a TOML container. Converts to JSON
+internally then delegates to `json::keys` — the JSON extension must be sourced
+first.
+
+```bash
+toml::keys "$toml"              # → name\ndb
+toml::keys "$toml" db           # → host\nport
+```
+
 ## Supported TOML Features
 
 | Feature | Supported | Notes |

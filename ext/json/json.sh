@@ -1484,3 +1484,41 @@ json::kv::keys::rename() {
     _json_buf="$_json_kv_root"
     _json_len="${#_json_buf}"
 }
+
+# ============================================================================
+# json::validate <json> — return 0 if valid JSON, 1 with position info if not
+# ============================================================================
+json::validate() {
+    local LC_ALL=C json="$1"
+    _json_buf="$json"
+    _json_len="${#_json_buf}"
+    _json_pos=0
+    _json_use_array=0
+    _json_chars=()
+
+    _json::_skip_ws
+    [[ $_json_pos -ge $_json_len ]] && { echo "json::validate: empty input" >&2; return 1; }
+
+    local _ch="${_json_buf:_json_pos:1}"
+    case "$_ch" in
+        '{'|'[') _json::_skip_value ;;
+        '"') _json::_skip_string ;;
+        [0-9\-]) _json::_read_raw_span || return 1 ;;
+        t|f|n)
+            case "${_json_buf:_json_pos:4}" in
+                true|fals|null) ;;
+                *) echo "json::validate: unexpected literal at $_json_pos" >&2; return 1 ;;
+            esac
+            _json_pos=$(( _json_pos + 4 ))
+            [[ "$_ch" == 'f' ]] && ((_json_pos++))
+            ;;
+        *) echo "json::validate: unexpected character '$_ch' at $_json_pos" >&2; return 1 ;;
+    esac
+
+    _json::_skip_ws
+    if (( _json_pos < _json_len )); then
+        echo "json::validate: trailing content at byte $_json_pos" >&2
+        return 1
+    fi
+    return 0
+}

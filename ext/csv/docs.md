@@ -98,6 +98,16 @@ Count columns from the first row.
 csv::numcols "$data"   # → 3
 ```
 
+### `csv::col <csv> <col>`
+
+Extract a single column, one value per line. `<col>` is either a header name
+or a 0-based index. Respects `CSV_NOHEADER` and `CSV_DELIMITER`.
+
+```bash
+csv::col "$data" email           # → values of the "email" column
+csv::col "$data" 0               # → values of the first column
+```
+
 ## RFC 4180 Support
 
 - Fields containing commas, double-quotes, or newlines must be quoted

@@ -736,3 +736,20 @@ yaml::get_file() {
     }
     yaml::get "$_yaml" "$2"
 }
+
+# ============================================================================
+# yaml::keys <yaml> [path]
+#
+# List keys (object) or indices (array) from a YAML container.  Converts to
+# JSON internally then delegates to json::keys — the JSON extension must be
+# sourced first.  Named identically to json::keys for drop-in substitution.
+# ============================================================================
+yaml::keys() {
+    declare -f 'json::keys' &>/dev/null || {
+        echo "yaml::keys: json extension required — source ext/json/json.sh first" >&2
+        return 1
+    }
+    local _json
+    _json="$(yaml::to_json "$1")" || return 1
+    json::keys "$_json" "${2:-}"
+}

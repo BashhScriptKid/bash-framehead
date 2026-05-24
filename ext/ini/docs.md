@@ -65,6 +65,27 @@ ini::keys "$ini" database # → user\npass
 Convert the INI document to JSON. Global keys become top-level entries;
 sections become nested objects.
 
+### `ini::set <ini> <key> <value> [section]`
+
+Insert or update a key-value pair. Returns the modified INI on stdout.
+If `<section>` is given and doesn't exist, it is created at the end.
+
+```bash
+ini::set "$ini" host 10.0.0.1           # update global key
+ini::set "$ini" pass secret database    # set key in [database]
+ini::set "$ini" type redis cache        # create [cache] section with key
+```
+
+### `ini::remove <ini> <key> [section]`
+
+Delete a key-value pair. Returns the modified INI on stdout. Fails if the
+key is not found.
+
+```bash
+ini::remove "$ini" pass                 # remove global key
+ini::remove "$ini" user database        # remove key from [database]
+```
+
 ## Parsing Rules
 
 - **Comments**: `;` and `#` begin inline comments. Whole-line comments also

@@ -197,6 +197,18 @@ Rename a key, preserving its value. Objects only. Fails if the old key is not fo
 json::kv::keys::rename c d         # → {"a":99,"d":3}
 ```
 
+### `json::validate <json>`
+
+Return 0 if the input is parseable JSON, 1 otherwise. Errors include the byte
+position. Does not modify kv context. Lenient about trailing commas and
+non-standard number formatting — validates parseability, not strict spec
+compliance.
+
+```bash
+json::validate '{"a":1}' && echo "valid"    # → valid
+json::validate '{bad}' && echo "valid"      # → json::validate: unexpected character 'b' at 1
+```
+
 ## Path Syntax
 
 | Input | Normalised | Meaning |

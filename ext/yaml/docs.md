@@ -48,6 +48,17 @@ yaml::get "$yaml" server.host  # → localhost
 
 Same as `yaml::get` but reads YAML from a file.
 
+### `yaml::keys <yaml> [path]`
+
+List keys (object) or indices (array) from a YAML container. Converts to JSON
+internally then delegates to `json::keys` — the JSON extension must be sourced
+first. Named identically to `json::keys` for drop-in substitution.
+
+```bash
+yaml::keys "$yaml"                    # → top-level keys
+yaml::keys "$yaml" server.features    # → keys inside a nested container
+```
+
 ## Supported YAML Features
 
 | Feature | Supported | Notes |

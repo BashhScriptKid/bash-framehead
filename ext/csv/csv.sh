@@ -454,3 +454,46 @@ csv::to_json() {
     _json+="]"
     echo "$_json"
 }
+
+# ============================================================================
+# csv::col <csv> <col>
+#
+# Extract a single column, one value per line.  <col> is either a header name
+# or a 0-based index.  Respects CSV_NOHEADER / CSV_DELIMITER.
+# ============================================================================
+csv::col() {
+    local _csv="$1" _col="$2"
+    local _has_hdr=$(( CSV_NOHEADER ? 0 : 1 ))
+    local _col_idx _rc
+
+    _csv_reset "$_csv"
+
+    # Resolve header name → index, or use numeric directly
+    if (( _has_hdr )) && ! [[ "$_col" =~ ^[0-9]+$ ]]; then
+        local _c=0
+        while true; do
+            _csv_parse_field; _rc=$?
+            [[ "$_csv_field" == "$_col" ]] && { _col_idx=$_c; break; }
+            ((_c++))
+            (( _rc != 0 )) && { echo "csv::col: unknown column '$_col'" >&2; return 1; }
+        done
+        _csv_reset "$_csv"
+        # Skip header row
+        _csv_skip_row
+    else
+        _col_idx=$_col
+        (( _has_hdr )) && _csv_skip_row  # skip header
+    fi
+
+    while (( _csv_pos < _csv_len )); do
+        local _c=0
+        while true; do
+            _csv_parse_field; _rc=$?
+            if (( _c == _col_idx )); then
+                printf '%s\n' "$_csv_field"
+            fi
+            ((_c++))
+            (( _rc != 0 )) && break
+        done
+    done
+}
