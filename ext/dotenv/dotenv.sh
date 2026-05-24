@@ -1,3 +1,4 @@
+# shellcheck shell=bash
 # ext/dotenv/dotenv.sh — Pure Bash dotenv parser
 #
 # Parses KEY=value files (.env).  Handles quoting, comments, blank lines,

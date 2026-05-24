@@ -1,3 +1,4 @@
+# shellcheck shell=bash
 # ext/csv/csv.sh — Pure Bash CSV parser (RFC 4180)
 #
 # Dependencies:

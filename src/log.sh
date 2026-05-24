@@ -79,6 +79,7 @@ log::init() {
 # Strip ANSI escape codes from a string
 # Usage: _log::strip_colour string
 _log::strip_colour() {
+    # shellcheck disable=SC2001
     sed 's/\x1b\[[0-9;]*m//g' <<< "$1"
 }
 

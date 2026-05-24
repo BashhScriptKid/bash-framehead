@@ -287,10 +287,10 @@ hash::murmur2() {
     local i=0 k
 
     while (( i + 4 <= len )); do
-        local c0=$(printf '%d' "'${s:$i:1}")
-        local c1=$(printf '%d' "'${s:$((i+1)):1}")
-        local c2=$(printf '%d' "'${s:$((i+2)):1}")
-        local c3=$(printf '%d' "'${s:$((i+3)):1}")
+        local c0; c0=$(printf '%d' "'${s:$i:1}")
+        local c1; c1=$(printf '%d' "'${s:$((i+1)):1}")
+        local c2; c2=$(printf '%d' "'${s:$((i+2)):1}")
+        local c3; c3=$(printf '%d' "'${s:$((i+3)):1}")
         k=$(( c0 | (c1 << 8) | (c2 << 16) | (c3 << 24) ))
         k=$(( (k * m) & 0xFFFFFFFF ))
         k=$(( k ^ (k >> r) ))

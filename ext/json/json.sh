@@ -1,3 +1,5 @@
+# shellcheck shell=bash
+# shellcheck disable=SC2154
 # ext/json.sh — Pure Bash JSON parser
 #
 # Dependencies:
@@ -503,7 +505,8 @@ _json::_check_trailing_comma() {
     if [[ "${_json_buf:_json_pos:1}" == ',' ]]; then
         ((_json_pos++))
         _json::_skip_ws
-        [[ "${_json_buf:_json_pos:1}" == [}\]] ]] && { echo "json::get: trailing comma" >&2; return 1; }
+        local _c="${_json_buf:_json_pos:1}"
+        [[ "$_c" == "}" || "$_c" == "]" ]] && { echo "json::get: trailing comma" >&2; return 1; }
     fi
     _json_pos=$_saved
     return 0

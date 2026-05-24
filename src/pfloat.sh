@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # needs runtime.sh
 # i actually dont want to kms anymore i think
+# shellcheck disable=SC2034,SC2046,SC2155
 # numbers are scaled by 10^pfloat_SCALE
 # pfloat_SCALE defaults to 5 (balance between precision and overflow prevention)
 # For more precision, set pfloat_SCALE before sourcing (max recommended: 8 for 64-bit safety)
@@ -340,7 +341,7 @@ pfloat::fixed::max() {
 }
 
 pfloat::fixed::clamp() {
-  local val lo hi val_s lo_s hi_s
+  local val_s lo_s hi_s
   val_s=$(_pfloat::_to_scaled "$1")
   lo_s=$(_pfloat::_to_scaled "$2")
   hi_s=$(_pfloat::_to_scaled "$3")
@@ -934,7 +935,7 @@ _ieee754::to_string() {
   fi
 
   if _ieee754::is_inf "$bits"; then
-    if [[ $((_ieee754::get_sign "$bits")) -eq 1 ]]; then
+    if [[ $( _ieee754::get_sign "$bits" ) -eq 1 ]]; then
       echo "-Inf"
     else
       echo "Inf"

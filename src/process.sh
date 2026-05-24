@@ -338,6 +338,7 @@ process::job::status() {
 process::lock::acquire() {
     local lockfile="/tmp/fsbshf_${1}.lock"
     if ( set -o noclobber; echo "$$" > "$lockfile" ) 2>/dev/null; then
+        # shellcheck disable=SC2064
         trap "process::lock::release '${1}'" EXIT
         return 0
     fi
@@ -347,6 +348,7 @@ process::lock::acquire() {
     if [[ -n "$locked_pid" ]] && ! process::is_running "$locked_pid"; then
         rm -f "$lockfile"
         ( set -o noclobber; echo "$$" > "$lockfile" ) 2>/dev/null
+        # shellcheck disable=SC2064
         trap "process::lock::release '${1}'" EXIT
         return 0
     fi

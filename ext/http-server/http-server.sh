@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 # ext/http-server/http-server.sh -- Bash HTTP server
+# shellcheck disable=SC2034
 #
 # Dependencies:
 #   core: runtime string fs log
@@ -366,7 +367,7 @@ http::route::dispatch() {
     fi
 
     # 2. Dynamic match — [param] patterns
-    local req_parts pat_parts key pat val
+    local key pat val
     local -a req_parts_arr pat_parts_arr
     IFS='/' read -ra req_parts_arr <<< "$path"
 
@@ -525,7 +526,7 @@ http::session::save() {
     local session_dir="${HTTP_SESSION_DIR:-/tmp/fsbshf-http-sessions}"
     local session_file="$session_dir/${_HTTP_SESSION_ID}.session"
     local k
-    > "$session_file"
+    : > "$session_file"
     for k in "${!_HTTP_SESSION[@]}"; do
         printf '%s\t%s\n' "$k" "${_HTTP_SESSION[$k]}" >> "$session_file"
     done

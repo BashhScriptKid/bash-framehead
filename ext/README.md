@@ -1,6 +1,6 @@
 # ext/ — Optional Extensions
 
-Extensions that don't fit cleanly into framehead's constrained module architecture. Unlike core modules, extensions are free to depend on any number of core modules (not just `runtime`) and can pull in external tools without the usual "pure Bash where possible" constraint. They are not compiled into the main distribution — source them separately after the core library.
+Extensions that don't fit cleanly into framehead's constrained module architecture. Unlike core modules, extensions are free to depend on any number of core modules (not just `runtime`) and can pull in external tools without the usual "pure Bash where possible" constraint. They are not compiled into the main distribution by `./main.sh compile` — but `./main.sh compile_extended` compiles core + all extensions into a single distributable file with full dependency validation.
 
 ## How this differs from core modules
 
@@ -12,7 +12,7 @@ Core modules follow strict rules:
 Extensions relax all of that:
 - **Any dependency** — need `string`, `fs`, `net`, and `git`? Go ahead
 - **External tools welcome** — `jq`, `yq`, `fzf`, `docker`, whatever gets the job done
-- **Sourced separately** — `source ext/something.sh` after the core library
+- **Sourced separately** — `source ext/something.sh` after the core library, or use `./main.sh compile_extended` to bundle everything into one file
 
 ## Usage
 
@@ -24,6 +24,34 @@ source ./ext/json/json.sh           # then the extension you need
 ```
 
 If you forget, you'll get a clear error — extensions check that the runtime is present before doing anything.
+
+### Single-file distribution
+
+`./main.sh compile_extended [output.sh]` compiles the core library plus all
+extensions into one distributable file. At compile time it validates every
+extension's dependencies so you catch missing modules or tools before the file
+leaves your machine:
+
+- **Header parsing** — reads the `# Dependencies:` comment block for declared
+  `core:` and `external:` dependencies
+- **Guard parsing** — extracts `_guard_core_deps` and `_guard_ext_deps` arrays
+  from the source-time guard block
+- **Cross-check** — warns if the header and guard disagree (e.g. a dependency
+  declared in the header but handled with a custom guard check)
+- **Core function check** — verifies every listed core function symbol exists
+  in the compiled core (`declare -f`)
+- **External tool check** — verifies every listed binary is on `PATH`
+  (`command -v`)
+- **Alternative deps** — the header `external:` line may use `|` to declare
+  alternatives (e.g. `nc|socat|tcpserver`); any one must be present
+- **ShellCheck** — every extension file is linted with the same rules as core
+  modules
+
+If any check fails, compilation stops with a specific error — no silent
+degradation, no runtime surprises. The guard blocks and header comments are
+stripped from the final output (they're source-time concerns, not runtime code).
+
+Supports the same `OPTIMIZE` and `MINIFY` flags as `compile`.
 
 ## Dependency declaration
 

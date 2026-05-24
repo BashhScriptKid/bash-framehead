@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # math.sh — bash-frameheader math lib
 # Requires: runtime.sh (runtime::has_command)
+# shellcheck disable=SC2034,SC2178
 #
 # Pure bash integer arithmetic where possible.
 # Floating point operations require bc — math::bc() checks availability.

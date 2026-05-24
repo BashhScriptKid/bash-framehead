@@ -1,3 +1,4 @@
+# shellcheck shell=bash
 # ext/yaml/yaml.sh — Pure Bash YAML parser (pragmatic subset)
 #
 # Converts YAML to JSON using indentation tracking.  Supports maps, sequences,
@@ -643,7 +644,7 @@ _yaml_inline_flow() {
                     _k="$(_yaml_unquote "$_k")"
                     _v="${_v# }"
                     if [[ "$_v" =~ ^\{ ]] || [[ "$_v" =~ ^\[ ]]; then
-                        local _flow_val="$(_yaml_inline_flow "$_v")"
+                        local _flow_val; _flow_val="$(_yaml_inline_flow "$_v")"
                         (( _first )) && _first=0 || _result+=","
                         _result+="\"$(_yaml_json_escape "$_k")\":$_flow_val"
                     else

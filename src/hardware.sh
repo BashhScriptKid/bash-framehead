@@ -374,7 +374,7 @@ hardware::disk::devices() {
 hardware::disk::count::total() {
     case "$(runtime::os)" in
     linux|wsl)
-        lsblk -dno NAME 2>/dev/null | grep -v '^loop' | wc -l | xargs
+        lsblk -dno NAME 2>/dev/null | grep -cv '^loop' | xargs
         ;;
     darwin)
         diskutil list 2>/dev/null | grep -c '^/dev/disk'
@@ -447,7 +447,7 @@ _hardware::df_flags() {
 hardware::partition::count() {
     case "$(runtime::os)" in
     linux|wsl)
-        lsblk -no NAME 2>/dev/null | grep -v '^loop' | wc -l | xargs
+        lsblk -no NAME 2>/dev/null | grep -cv '^loop' | xargs
         ;;
     darwin)
         diskutil list 2>/dev/null | grep -c '^\s*[0-9]'

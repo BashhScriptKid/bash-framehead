@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # array.sh — bash-frameheader array lib
 # Requires: runtime.sh (runtime::is_minimum_bash)
+# shellcheck disable=SC2206
 #
 # ==============================================================================
 # USAGE PATTERNS

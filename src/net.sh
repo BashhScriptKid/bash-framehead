@@ -129,6 +129,7 @@ net::ip::is_valid_v4() {
     local ip="$1"
     [[ "$ip" =~ ^([0-9]{1,3}\.){3}[0-9]{1,3}$ ]] || return 1
     local IFS='.'
+# shellcheck disable=SC2206
     local -a octets=($ip)
     for o in "${octets[@]}"; do
         (( o >= 0 && o <= 255 )) || return 1
@@ -368,7 +369,7 @@ net::fetch() {
 
 # Fetch with progress bar
 net::fetch::progress() {
-    local url="$1" out="${2:-$(basename "$url")}"
+    local url="$1"; local out="${2:-$(basename "$url")}"
     if runtime::has_command curl; then
         curl -L --progress-bar -o "$out" "$url"
     elif runtime::has_command wget; then

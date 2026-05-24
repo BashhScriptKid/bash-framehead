@@ -1,3 +1,4 @@
+# shellcheck shell=bash
 # ext/ini/ini.sh — Pure Bash INI parser
 #
 # Dependencies:

@@ -459,6 +459,7 @@ timedate::duration::format_ms() {
 # Usage: timedate::duration::parse "1d 2h 3m 4s"
 timedate::duration::parse() {
     local input="$1" total=0
+    # shellcheck disable=SC2206
     local -a tokens=($input)
     for token in "${tokens[@]}"; do
         local val unit

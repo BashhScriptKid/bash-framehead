@@ -74,7 +74,7 @@ fs::path::relative() {
     local target="$1" base="$2"
     # Strip common prefix
     while [[ "$target" == "$base"* && "$base" != "/" ]]; do
-        target="${target#$base}"
+        target="${target#"$base"}"
         target="${target#/}"
         break
     done
@@ -277,6 +277,7 @@ fs::temp::dir() {
 fs::temp::file::auto() {
     local tmp
     tmp=$(fs::temp::file "$1")
+    # shellcheck disable=SC2064
     trap "rm -f '$tmp'" EXIT
     echo "$tmp"
 }
@@ -285,6 +286,7 @@ fs::temp::file::auto() {
 fs::temp::dir::auto() {
     local tmp
     tmp=$(fs::temp::dir "$1")
+    # shellcheck disable=SC2064
     trap "rm -rf '$tmp'" EXIT
     echo "$tmp"
 }
@@ -387,12 +389,14 @@ fs::ls::all() {
 
 # List only files
 fs::ls::files() {
+    # shellcheck disable=SC2010
     find "${1:-.}" -maxdepth 1 -type f -printf '%f\n' 2>/dev/null || \
     ls -1p "${1:-.}" | grep -v '/$'
 }
 
 # List only directories
 fs::ls::dirs() {
+    # shellcheck disable=SC2010
     find "${1:-.}" -maxdepth 1 -type d -not -path "${1:-.}" -printf '%f\n' 2>/dev/null || \
     ls -1p "${1:-.}" | grep '/$' | tr -d '/'
 }
