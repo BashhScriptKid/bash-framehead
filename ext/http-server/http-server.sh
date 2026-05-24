@@ -374,6 +374,8 @@ http::route::dispatch() {
     for route_key in "${!_HTTP_ROUTES[@]}"; do
         [[ "$route_key" == "$method:"* ]] || continue
         local pattern="${route_key#$method:}"
+        # Catch-all patterns (containing [...]) are handled in step 3
+        [[ "$pattern" == *"[...]"* ]] && continue
         IFS='/' read -ra pat_parts_arr <<< "$pattern"
 
         if (( ${#req_parts_arr[@]} != ${#pat_parts_arr[@]} )); then
@@ -413,7 +415,7 @@ http::route::dispatch() {
         [[ "$pattern" == *"[...]"* ]] || continue
 
         IFS='/' read -ra pat_parts_arr <<< "$pattern"
-        if (( ${#req_parts_arr} < ${#pat_parts_arr[@]} - 1 )); then
+        if (( ${#req_parts_arr[@]} < ${#pat_parts_arr[@]} - 1 )); then
             continue
         fi
 
@@ -574,14 +576,43 @@ http::serve_file() {
 
     local mime size
     mime=$(fs::mime_type "$path")
+    # Fall back to extension-based MIME when `file` returns text/plain
+    if [[ "$mime" == "text/plain" ]]; then
+        mime=$(_http::mime_from_ext "$path")
+    fi
     size=$(fs::size "$path")
 
     _http::emit_status_line "200"
     _http::emit_header "Server" "bash-framehead"
-    _http::emit_header "Content-Type" "$mime"
+    _http::emit_header "Content-Type" "$mime; charset=utf-8"
     _http::emit_header "Content-Length" "$size"
     printf '\r\n'
     cat "$path"
+}
+
+# Map file extension to MIME type. Used as fallback when `file --mime-type`
+# returns text/plain for known types.
+_http::mime_from_ext() {
+    local ext="${1##*.}"
+    case "${ext,,}" in
+        css)          echo "text/css" ;;
+        js|mjs)       echo "text/javascript" ;;
+        html|htm)     echo "text/html" ;;
+        json)         echo "application/json" ;;
+        svg)          echo "image/svg+xml" ;;
+        png)          echo "image/png" ;;
+        jpg|jpeg)     echo "image/jpeg" ;;
+        gif)          echo "image/gif" ;;
+        webp)         echo "image/webp" ;;
+        ico)          echo "image/x-icon" ;;
+        woff2)        echo "font/woff2" ;;
+        woff)         echo "font/woff" ;;
+        ttf|otf)      echo "font/otf" ;;
+        xml)          echo "application/xml" ;;
+        pdf)          echo "application/pdf" ;;
+        wasm)         echo "application/wasm" ;;
+        *)            echo "text/plain" ;;
+    esac
 }
 
 # ==============================================================================
@@ -611,10 +642,12 @@ http::sse::event() {
 # Usage: http::sse::heartbeat [interval_seconds]
 http::sse::heartbeat() {
     local interval="${1:-15}"
-    ( while true; do
+    ( trap '' PIPE
+      while true; do
         sleep "$interval"
-        printf ': heartbeat\n\n'
+        printf ': heartbeat\n\n' 2>/dev/null || break
     done ) &
+    _HTTP_HEARTBEAT_PID=$!
 }
 
 # ==============================================================================
@@ -639,71 +672,114 @@ http::upload::parse() {
 
     local body="$_HTTP_BODY"
     local delim=$'\r\n'"--$boundary"
-    local end_delim=$'\r\n'"--$boundary--"
 
-    local part part_headers part_body fieldname filename part_ct
-    local line key val
+    # Strip leading boundary line and trailing end boundary (one-shot, O(N))
+    body="${body#*--$boundary$'\r\n'}"
+    body="${body%"$delim--"}"
+    body="${body%"$delim--"$'\r\n'}"
+    body="${body%"$delim"}"
+    body="${body%"$delim"$'\r\n'}"
 
-    # Split on boundary + CRLF (not the end boundary)
-    local remaining="$body"
-    # Strip leading boundary line (with or without leading \r\n)
-    remaining="${remaining#*--$boundary$'\r\n'}"
-    # Strip trailing end boundary (with optional -- and optional trailing \r\n)
-    remaining="${remaining%"$end_delim"}"
-    remaining="${remaining%"$end_delim"$'\r\n'}"
-    remaining="${remaining%$'\r\n'--$boundary}"
-    remaining="${remaining%$'\r\n'--$boundary$'\r\n'}"
+    # Split on internal boundary lines using csplit (single pass over the file).
+    # Falls back to bash pattern matching if csplit is unavailable.
+    if command -v csplit &>/dev/null; then
+        _http::upload::_split_csplit "$body" "$boundary"
+    else
+        _http::upload::_split_bash "$body" "$delim"
+    fi
+}
+
+# Internal: split body on boundaries using csplit (GNU coreutils).
+# Leading boundary is already stripped, so every csplit output file is a part.
+# csplit splits on lines matching --boundary and omits them from output.
+_http::upload::_split_csplit() {
+    local body="$1" boundary="$2"
+    local tmpfile part_file part_content
+
+    tmpfile=$(mktemp "/tmp/fsbshf-upload.XXXXXX")
+    printf '%s' "$body" > "$tmpfile"
+
+    local prefix="${tmpfile}.p."
+    csplit -s -f "$prefix" "$tmpfile" "/--${boundary}/" "{*}" 2>/dev/null || true
+
+    # If csplit produced no files (no boundary match), parse the whole body
+    if ! compgen -G "${prefix}*" >/dev/null 2>&1; then
+        _http::upload::_parse_part "$body"
+        rm -f "$tmpfile"
+        return 0
+    fi
+
+    for part_file in "${prefix}"*; do
+        [[ -f "$part_file" ]] || continue
+
+        part_content=$(<"$part_file")
+        # Trim trailing \r and \n left by the boundary delimiter
+        part_content="${part_content%$'\r'}"
+        part_content="${part_content%$'\n'}"
+        _http::upload::_parse_part "$part_content"
+    done
+
+    rm -f "$tmpfile" "${prefix}"* 2>/dev/null || true
+}
+
+# Internal: fallback split using bash pattern matching (no external tools).
+_http::upload::_split_bash() {
+    local remaining="$1" delim="$2" part
 
     while [[ -n "$remaining" ]]; do
-        # Extract next part
         if [[ "$remaining" == *"$delim"* ]]; then
-            part="${remaining%%"$delim"}"
+            part="${remaining%%"$delim"*}"
             remaining="${remaining#*"$delim"}"
             remaining="${remaining#$'\r\n'}"
         else
             part="$remaining"
             remaining=""
         fi
-
-        [[ -z "$part" ]] && continue
-
-        # Split part into headers and body
-        if [[ "$part" == *$'\r\n\r\n'* ]]; then
-            part_headers="${part%%$'\r\n\r\n'*}"
-            part_body="${part#*$'\r\n\r\n'}"
-        elif [[ "$part" == *$'\n\n'* ]]; then
-            part_headers="${part%%$'\n\n'*}"
-            part_body="${part#*$'\n\n'}"
-        else
-            continue
-        fi
-
-        # Parse Content-Disposition
-        fieldname=""
-        filename=""
-        if [[ "$part_headers" =~ Content-Disposition:[[:space:]]*form-data[^$'\r\n']* ]]; then
-            local disp="${BASH_REMATCH[0]}"
-            if [[ "$disp" =~ name=\"([^\"]+)\" ]]; then
-                fieldname="${BASH_REMATCH[1]}"
-            fi
-            if [[ "$disp" =~ filename=\"([^\"]+)\" ]]; then
-                filename="${BASH_REMATCH[1]}"
-            fi
-        fi
-
-        [[ -z "$fieldname" ]] && continue
-
-        # Parse Content-Type for this part
-        part_ct=""
-        if [[ "$part_headers" =~ Content-Type:[[:space:]]*([^$'\r\n']+) ]]; then
-            part_ct="${BASH_REMATCH[1]}"
-            part_ct="${part_ct%%$'\r'}"
-        fi
-
-        _HTTP_FILE_UPLOADS["$fieldname"]="$part_body"
-        _HTTP_FILE_UPLOAD_NAMES["$fieldname"]="$filename"
-        _HTTP_FILE_UPLOAD_TYPES["$fieldname"]="$part_ct"
+        [[ -n "$part" ]] && _http::upload::_parse_part "$part"
     done
+}
+
+# Internal: parse a single multipart part (headers + body).
+_http::upload::_parse_part() {
+    local part="$1" part_headers part_body fieldname filename part_ct
+    [[ -z "$part" ]] && return
+
+    # Split headers and body on first blank line
+    if [[ "$part" == *$'\r\n\r\n'* ]]; then
+        part_headers="${part%%$'\r\n\r\n'*}"
+        part_body="${part#*$'\r\n\r\n'}"
+    elif [[ "$part" == *$'\n\n'* ]]; then
+        part_headers="${part%%$'\n\n'*}"
+        part_body="${part#*$'\n\n'}"
+    else
+        return
+    fi
+
+    # Parse Content-Disposition for fieldname and filename
+    fieldname=""
+    filename=""
+    if [[ "$part_headers" =~ Content-Disposition:[[:space:]]*form-data[^$'\r\n']* ]]; then
+        local disp="${BASH_REMATCH[0]}"
+        if [[ "$disp" =~ name=\"([^\"]+)\" ]]; then
+            fieldname="${BASH_REMATCH[1]}"
+        fi
+        if [[ "$disp" =~ filename=\"([^\"]+)\" ]]; then
+            filename="${BASH_REMATCH[1]}"
+        fi
+    fi
+
+    [[ -z "$fieldname" ]] && return
+
+    # Parse Content-Type for this part
+    part_ct=""
+    if [[ "$part_headers" =~ Content-Type:[[:space:]]*([^$'\r\n']+) ]]; then
+        part_ct="${BASH_REMATCH[1]}"
+        part_ct="${part_ct%%$'\r'}"
+    fi
+
+    _HTTP_FILE_UPLOADS["$fieldname"]="$part_body"
+    _HTTP_FILE_UPLOAD_NAMES["$fieldname"]="$filename"
+    _HTTP_FILE_UPLOAD_TYPES["$fieldname"]="$part_ct"
 }
 
 # ==============================================================================
