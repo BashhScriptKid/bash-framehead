@@ -2706,3 +2706,242 @@ math::unitconvert() {
 
     math::bc "$expr" "$scale"
 }
+
+# ==============================================================================
+# TENSOR
+# ==============================================================================
+# Format: "shape N M K: v1 v2 v3 ..."  (row-major, space-separated)
+# Generalizes math::matrix ("NxM" "a b c d") to N dimensions.
+
+_math::tensor_shape() { local t=$1; echo "${t%%:*}"; }
+_math::tensor_shape_dims() { local s; s=$(_math::tensor_shape "$1"); echo "${s#shape }"; }
+_math::tensor_data() { local t=$1 d; d="${t#*: }"; [[ "$d" == "$t" ]] && echo "" || echo "$d"; }
+
+# N-D coords (comma-sep) + dims → flat offset
+_math::tensor_offset() {
+    local dims=$1 indices=$2
+    local -a d i
+    read -ra d <<< "$dims"
+    IFS=',' read -ra i <<< "$indices"
+    local off=0 j
+    for ((j = 0; j < ${#i[@]}; j++)); do
+        (( off = off * d[j] + i[j] ))
+    done
+    echo "$off"
+}
+
+math::tensor::new() {
+    local shape=$1 data=${2:-}
+    local -a dims; read -ra dims <<< "$shape"
+    local size=1 d
+    for d in "${dims[@]}"; do (( size *= d )); done
+    if [[ -n "$data" ]]; then
+        echo "shape $shape: $data"
+    else
+        local z; z=$(printf '0 %.0s' $(seq 1 $size))
+        echo "shape $shape: ${z% }"
+    fi
+}
+
+math::tensor::shape()  { _math::tensor_shape_dims "$1"; }
+math::tensor::rank()   { local d; d=$(_math::tensor_shape_dims "$1"); local -a a; read -ra a <<< "$d"; echo "${#a[@]}"; }
+math::tensor::size()   { local d; d=$(_math::tensor_data "$1"); local -a a; read -ra a <<< "$d"; echo "${#a[@]}"; }
+
+math::tensor::get() {
+    local t=$1 idx=$2
+    local dims data off
+    dims=$(_math::tensor_shape_dims "$t")
+    data=$(_math::tensor_data "$t")
+    off=$(_math::tensor_offset "$dims" "$idx")
+    local -a v; read -ra v <<< "$data"
+    echo "${v[$off]}"
+}
+
+math::tensor::set() {
+    local t=$1 idx=$2 val=$3
+    local dims data off
+    dims=$(_math::tensor_shape_dims "$t")
+    data=$(_math::tensor_data "$t")
+    off=$(_math::tensor_offset "$dims" "$idx")
+    local -a v; read -ra v <<< "$data"
+    v[$off]=$val
+    echo "shape $dims: ${v[*]}"
+}
+
+math::tensor::add() {
+    local da db
+    da=$(_math::tensor_data "$1"); db=$(_math::tensor_data "$2")
+    local -a va vb r
+    read -ra va <<< "$da"; read -ra vb <<< "$db"
+    local i
+    for ((i = 0; i < ${#va[@]}; i++)); do
+        r+=($(echo "${va[$i]} + ${vb[$i]}" | bc -l 2>/dev/null || pfloat::fixed::add "${va[$i]}" "${vb[$i]}"))
+    done
+    echo "shape $(_math::tensor_shape_dims "$1"): ${r[*]}"
+}
+
+math::tensor::sub() {
+    local da db
+    da=$(_math::tensor_data "$1"); db=$(_math::tensor_data "$2")
+    local -a va vb r; read -ra va <<< "$da"; read -ra vb <<< "$db"
+    local i
+    for ((i = 0; i < ${#va[@]}; i++)); do
+        r+=($(echo "${va[$i]} - ${vb[$i]}" | bc -l 2>/dev/null || pfloat::fixed::sub "${va[$i]}" "${vb[$i]}"))
+    done
+    echo "shape $(_math::tensor_shape_dims "$1"): ${r[*]}"
+}
+
+math::tensor::mul() {
+    local da db
+    da=$(_math::tensor_data "$1"); db=$(_math::tensor_data "$2")
+    local -a va vb r; read -ra va <<< "$da"; read -ra vb <<< "$db"
+    local i
+    for ((i = 0; i < ${#va[@]}; i++)); do
+        r+=($(echo "${va[$i]} * ${vb[$i]}" | bc -l 2>/dev/null || pfloat::fixed::mul "${va[$i]}" "${vb[$i]}"))
+    done
+    echo "shape $(_math::tensor_shape_dims "$1"): ${r[*]}"
+}
+
+math::tensor::scale() {
+    local d f=$2; d=$(_math::tensor_data "$1")
+    local -a v r; read -ra v <<< "$d"
+    local i
+    for ((i = 0; i < ${#v[@]}; i++)); do
+        r+=($(echo "${v[$i]} * $f" | bc -l 2>/dev/null || pfloat::fixed::mul "${v[$i]}" "$f"))
+    done
+    echo "shape $(_math::tensor_shape_dims "$1"): ${r[*]}"
+}
+
+math::tensor::dot() {
+    local da db; da=$(_math::tensor_data "$1"); db=$(_math::tensor_data "$2")
+    local -a va vb; read -ra va <<< "$da"; read -ra vb <<< "$db"
+    local i sum=0
+    for ((i = 0; i < ${#va[@]}; i++)); do
+        sum=$(echo "$sum + ${va[$i]} * ${vb[$i]}" | bc -l 2>/dev/null || { local p; p=$(pfloat::fixed::mul "${va[$i]}" "${vb[$i]}"); pfloat::fixed::add "$sum" "$p"; })
+    done
+    echo "$sum"
+}
+
+math::tensor::matmul() {
+    local sa sb da db
+    sa=$(_math::tensor_shape_dims "$1"); sb=$(_math::tensor_shape_dims "$2")
+    da=$(_math::tensor_data "$1"); db=$(_math::tensor_data "$2")
+    local -a ad bd av bv
+    read -ra ad <<< "$sa"; read -ra bd <<< "$sb"
+    read -ra av <<< "$da"; read -ra bv <<< "$db"
+    local M=${ad[0]} K=${ad[-1]} N=${bd[-1]}
+    local bc_scr; bc_scr=$(mktemp "/tmp/fsbshf-tmm.XXXXXX")
+    echo "scale=10" > "$bc_scr"
+    local i j k
+    for ((i = 0; i < M; i++)); do
+        for ((j = 0; j < N; j++)); do
+            printf "0" >> "$bc_scr"
+            for ((k = 0; k < K; k++)); do
+                printf " + %s * %s" "${av[$((i * K + k))]}" "${bv[$((k * N + j))]}" >> "$bc_scr"
+            done
+            printf "\n" >> "$bc_scr"
+        done
+    done
+    local -a r
+    while IFS= read -r val; do r+=("$val"); done < <(bc -l "$bc_scr" 2>/dev/null)
+    rm -f "$bc_scr"
+    echo "shape $M $N: ${r[*]}"
+}
+
+math::tensor::transpose() {
+    local t=$1 perm=$2
+    local dims data; dims=$(_math::tensor_shape_dims "$t"); data=$(_math::tensor_data "$t")
+    local -a d v pa nd; read -ra d <<< "$dims"; read -ra v <<< "$data"
+    IFS=',' read -ra pa <<< "$perm"
+    local r=${#d[@]} i total=1
+    for ((i = 0; i < r; i++)); do nd+=("${d[${pa[$i]}]}"); (( total *= d[i] )); done
+
+    # Compute old and new strides (row-major, last dim stride=1)
+    local -a old_str new_str
+    local s=1
+    for ((i = r - 1; i >= 0; i--)); do old_str[$i]=$s; (( s *= d[i] )); done
+    s=1
+    for ((i = r - 1; i >= 0; i--)); do new_str[$i]=$s; (( s *= nd[i] )); done
+
+    # Inverse permutation: perm[i] = old axis → new axis position
+    local -a inv_pa
+    for ((i = 0; i < r; i++)); do inv_pa[${pa[$i]}]=$i; done
+
+    local -a res new_coords
+    local n
+    for ((n = 0; n < total; n++)); do
+        local rem=$n old_off=0 c
+        for ((c = 0; c < r; c++)); do
+            new_coords[$c]=$((rem / new_str[c]))
+            (( rem %= new_str[c] ))
+        done
+        # Map new coords → old coords: new axis c came from old axis pa[c]
+        for ((c = 0; c < r; c++)); do
+            (( old_off += new_coords[c] * old_str[${pa[$c]}] ))
+        done
+        res+=("${v[$old_off]}")
+    done
+    echo "shape ${nd[*]}: ${res[*]}"
+}
+
+math::tensor::reshape()  { echo "shape $2: $(_math::tensor_data "$1")"; }
+math::tensor::flatten()  { local s; s=$(math::tensor::size "$1"); echo "shape $s: $(_math::tensor_data "$1")"; }
+
+math::tensor::reduce::sum() {
+    local t=$1 axis=${2:--1}
+    local dims data; dims=$(_math::tensor_shape_dims "$t"); data=$(_math::tensor_data "$t")
+    local -a d v; read -ra d <<< "$dims"; read -ra v <<< "$data"
+    local r=${#d[@]}
+    if (( axis == -1 )); then
+        local s=0 x; for x in "${v[@]}"; do s=$(echo "$s + $x" | bc -l 2>/dev/null || pfloat::fixed::add "$s" "$x"); done
+        echo "shape 1: $s"; return
+    fi
+    local -a nd=(); local i
+    for ((i = 0; i < r; i++)); do (( i != axis )) && nd+=("${d[$i]}"); done
+    [[ ${#nd[@]} -eq 0 ]] && nd=(1)
+    local rsz=${d[$axis]} osz=1 isz=1
+    for ((i = 0; i < axis; i++)); do (( osz *= d[i] )); done
+    for ((i = axis + 1; i < r; i++)); do (( isz *= d[i] )); done
+    local -a res; local o rr k
+    for ((o = 0; o < osz; o++)); do
+        for ((rr = 0; rr < isz; rr++)); do
+            local sum=0
+            for ((k = 0; k < rsz; k++)); do
+                local off=$((o * rsz * isz + k * isz + rr))
+                sum=$(echo "$sum + ${v[$off]}" | bc -l 2>/dev/null || pfloat::fixed::add "$sum" "${v[$off]}")
+            done
+            res+=("$sum")
+        done
+    done
+    echo "shape ${nd[*]}: ${res[*]}"
+}
+
+math::tensor::reduce::max() {
+    local t=$1 axis=${2:--1}
+    local dims data; dims=$(_math::tensor_shape_dims "$t"); data=$(_math::tensor_data "$t")
+    local -a d v; read -ra d <<< "$dims"; read -ra v <<< "$data"
+    local r=${#d[@]}
+    if (( axis == -1 )); then
+        local mx=-999999999999999 x
+        for x in "${v[@]}"; do (( $(echo "$x > $mx" | bc -l 2>/dev/null) )) && mx=$x; done
+        echo "shape 1: $mx"; return
+    fi
+    local -a nd=(); local i
+    for ((i = 0; i < r; i++)); do (( i != axis )) && nd+=("${d[$i]}"); done
+    [[ ${#nd[@]} -eq 0 ]] && nd=(1)
+    local rsz=${d[$axis]} osz=1 isz=1
+    for ((i = 0; i < axis; i++)); do (( osz *= d[i] )); done
+    for ((i = axis + 1; i < r; i++)); do (( isz *= d[i] )); done
+    local -a res; local o rr k
+    for ((o = 0; o < osz; o++)); do
+        for ((rr = 0; rr < isz; rr++)); do
+            local mx=-999999999999999
+            for ((k = 0; k < rsz; k++)); do
+                local off=$((o * rsz * isz + k * isz + rr))
+                (( $(echo "${v[$off]} > $mx" | bc -l 2>/dev/null) )) && mx=${v[$off]}
+            done
+            res+=("$mx")
+        done
+    done
+    echo "shape ${nd[*]}: ${res[*]}"
+}
