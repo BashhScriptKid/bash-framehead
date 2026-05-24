@@ -178,11 +178,13 @@ compile_files() {
     echo " ok"
 
     # Step 5: Add version and move to final location
-    local VERSION
-    read -r -t 0.1 -n 10000 _drain 2>/dev/null || true
-    read -r -p "Input a version for this file: " VERSION
-    VERSION=${VERSION:-"$(git describe --tags --abbrev=0 2>/dev/null || echo "0.0.0")-dev+$(date +%d%m%y).$(date +%S)"}
-    sed -i "s/## Version:/## Version: ${VERSION}/" "$temp_file"
+    if (( ! ${_COMPILE_SKIP_VERSION:-0} )); then
+        local VERSION
+        read -r -t 0.1 -n 10000 _drain 2>/dev/null || true
+        read -r -p "Input a version for this file: " VERSION
+        VERSION=${VERSION:-"$(git describe --tags --abbrev=0 2>/dev/null || echo "0.0.0")-dev+$(date +%d%m%y).$(date +%S)"}
+        sed -i "s/## Version:/## Version: ${VERSION}/" "$temp_file"
+    fi
 
     chmod +x "$temp_file" 2>/dev/null
 
@@ -196,6 +198,363 @@ compile_files() {
     fi
 
     echo "Compiled $i file(s) to $output_file${final_issue_str}"
+}
+
+# ==============================================================================
+# compile_extended — compile core + extensions into a single file
+#
+# Runs the standard core compilation first, then processes each extension in
+# ext/ with compile-time dependency validation before appending.
+#
+# Dependency checks (per extension):
+#   1. Parses the header block for declared core: and external: dependencies
+#   2. Parses the guard block for _guard_core_deps / _guard_ext_deps arrays
+#   3. Cross-checks header vs guard — warns on mismatch
+#   4. Verifies every listed core function exists (declare -f)
+#   5. Verifies every listed external tool exists (command -v)
+#      Supports | -separated alternatives from the header (e.g. nc|socat|tcpserver)
+#   6. ShellCheck is run on every extension file (same as core)
+#
+# Usage:
+#   ./main.sh compile_extended [output.sh]
+#   OPTIMIZE=1 MINIFY=0 ./main.sh compile_extended out.sh
+# ==============================================================================
+compile_extended() {
+    local output_file="${1:-bash-framehead-extended.sh}"
+    local ext_base
+    ext_base="$(dirname "${BASH_SOURCE[0]}")/ext"
+
+    if [[ ! -d "$ext_base" ]]; then
+        echo "Error: ext/ directory not found: $ext_base" >&2
+        return 1
+    fi
+
+    # -- collect extension directories -----------------------------------------
+    local -a ext_names=()
+    local ext_dir ext_name ext_file
+    for ext_dir in "$ext_base"/*/; do
+        [[ -d "$ext_dir" ]] || continue
+        ext_name="$(basename "$ext_dir")"
+        ext_file="$ext_dir/$ext_name.sh"
+        [[ -f "$ext_file" ]] || continue
+        ext_names+=("$ext_name")
+    done
+
+    if (( ${#ext_names[@]} == 0 )); then
+        echo "Error: No extensions found in $ext_base" >&2
+        return 1
+    fi
+
+    # -- Step 1: compile core to a temp file ----------------------------------
+    local core_temp
+    core_temp=$(mktemp)
+    _COMPILE_SKIP_VERSION=1 compile_files "$core_temp" <<< ""
+
+    # -- Step 2: source core so declare -f works for dep checking -------------
+    source "$core_temp"
+
+    # -- Step 3: extract core content (strip shebang + license) ---------------
+    local buffer
+    local license_lines
+    license_lines=$(printf '%s\n' "$LICENSE" | wc -l)
+    buffer=$(sed "1,$((1 + license_lines))d" "$core_temp")
+    rm -f "$core_temp"
+
+    # -- Step 4: process each extension ---------------------------------------
+    local is_strict_mode=false
+    [[ "${OPTIMIZE:-0}" == "1" || "${MINIFY:-0}" == "1" ]] && is_strict_mode=true
+    local has_shellcheck=false
+    command -v shellcheck >/dev/null 2>&1 && has_shellcheck=true
+
+    local total_err=0 total_warn=0 total_info=0
+    local ext_count=0
+
+    for ext_name in "${ext_names[@]}"; do
+        ext_dir="$ext_base/$ext_name"
+        ext_file="$ext_dir/$ext_name.sh"
+
+        echo -n "Processing ext/$ext_name..."
+
+        # ---- ShellCheck ------------------------------------------------------
+        local err_file=0 warn_file=0 info_file=0 issue_str_file=""
+        if $has_shellcheck; then
+            local sc_out
+            sc_out=$(shellcheck --format=gcc "$ext_file" 2>/dev/null)
+            err_file=$(echo "$sc_out"  | grep -c ': error:')
+            warn_file=$(echo "$sc_out" | grep -c ': warning:')
+            info_file=$(echo "$sc_out" | grep -c ': note:')
+
+            shellcheck --color=auto --format=tty "$ext_file" 2>/dev/null || true
+            echo
+
+            local file_issues=$(( err_file + warn_file + info_file ))
+            if (( file_issues > 0 )); then
+                issue_str_file=" — $file_issues issues ($err_file errors, $warn_file warnings, $info_file info)"
+                (( total_err  += err_file  ))
+                (( total_warn += warn_file ))
+                (( total_info += info_file ))
+            fi
+
+            if $is_strict_mode && (( err_file > 0 )); then
+                echo "" >&2
+                echo "ERROR: ShellCheck found $err_file error(s) in ext/$ext_name" >&2
+                echo "Compilation aborted due to syntax errors in strict mode." >&2
+                return 1
+            fi
+        fi
+
+        # ---- Parse header dependencies --------------------------------------
+        local hdr_core="" hdr_ext=""
+        local line
+        while IFS= read -r line; do
+            if [[ "$line" =~ ^#[[:space:]]*core:[[:space:]]+(.*) ]]; then
+                hdr_core="${BASH_REMATCH[1]}"
+            elif [[ "$line" =~ ^#[[:space:]]*external:[[:space:]]+(.*) ]]; then
+                hdr_ext="${BASH_REMATCH[1]}"
+            fi
+            [[ "$line" == "# --- guard ---" ]] && break
+            [[ "$line" =~ ^[^#] && -n "$line" ]] && break
+        done < "$ext_file"
+
+        # Normalise no-dependency sentinels to empty
+        [[ "$hdr_core" == "none" || "$hdr_core" == "-" ]] && hdr_core=""
+        [[ "$hdr_ext" == "none" || "$hdr_ext" == "-" ]] && hdr_ext=""
+
+        # ---- Parse guard arrays ---------------------------------------------
+        local guard_core="" guard_ext=""
+        while IFS= read -r line; do
+            if [[ "$line" =~ _guard_core_deps=\((.*)\) ]]; then
+                guard_core="${BASH_REMATCH[1]}"
+            elif [[ "$line" =~ _guard_ext_deps=\((.*)\) ]]; then
+                guard_ext="${BASH_REMATCH[1]}"
+            fi
+        done < "$ext_file"
+
+        # ---- Cross-check header vs guard (external deps) --------------------
+        # Build a normalised set from header external (split on | and space)
+        local -A _hdr_ext_set=()
+        local _tok
+        for _tok in ${hdr_ext//|/ }; do
+            [[ -n "$_tok" ]] && _hdr_ext_set["$_tok"]=1
+        done
+        for _tok in $guard_ext; do
+            [[ -n "$_tok" ]] && unset '_hdr_ext_set[$_tok]'
+        done
+        # Anything left in _hdr_ext_set is in the header but not the guard
+        local _hdr_only=()
+        for _tok in "${!_hdr_ext_set[@]}"; do
+            _hdr_only+=("$_tok")
+        done
+        if (( ${#_hdr_only[@]} > 0 )); then
+            echo ""
+            echo "  Warning: header lists external deps not in guard: ${_hdr_only[*]}" >&2
+            echo "  These will be checked as alternatives (any one must be present)." >&2
+        fi
+        unset _hdr_ext_set _tok _hdr_only
+
+        # ---- Dependency verification ----------------------------------------
+        local dep_fail=0
+        local dep
+
+        # Core deps from guard (function-level)
+        for dep in $guard_core; do
+            if ! declare -f "$dep" &>/dev/null; then
+                echo ""
+                echo "  ERROR: missing core function '$dep'" >&2
+                dep_fail=1
+            fi
+        done
+
+        # External deps from guard
+        for dep in $guard_ext; do
+            if ! command -v "$dep" &>/dev/null; then
+                echo ""
+                echo "  ERROR: missing external tool '$dep'" >&2
+                dep_fail=1
+            fi
+        done
+
+        # External deps from header (handles | alternatives)
+        for dep in $hdr_ext; do
+            if [[ "$dep" == *"|"* ]]; then
+                local _alt _found=0
+                local -a _alts
+                IFS='|' read -ra _alts <<< "$dep"
+                for _alt in "${_alts[@]}"; do
+                    command -v "$_alt" &>/dev/null && { _found=1; break; }
+                done
+                if (( ! _found )); then
+                    echo ""
+                    echo "  ERROR: requires at least one of: ${dep//|/, }" >&2
+                    dep_fail=1
+                fi
+            else
+                if ! command -v "$dep" &>/dev/null; then
+                    echo ""
+                    echo "  ERROR: missing external tool '$dep'" >&2
+                    dep_fail=1
+                fi
+            fi
+        done
+
+        if (( dep_fail )); then
+            echo "  Compilation aborted due to missing dependencies." >&2
+            return 1
+        fi
+
+        # ---- Strip shebang, header, and guard -------------------------------
+        local ext_content
+        ext_content=$(cat "$ext_file")
+
+        # Strip shebang if present
+        if [[ "$ext_content" =~ ^#! ]]; then
+            ext_content="${ext_content#*$'\n'}"
+        fi
+
+        # Strip from line 1 through "# --- end guard ---"
+        ext_content=$(sed '1,/^# --- end guard ---$/d' <<< "$ext_content")
+
+        # ---- Optimize (if enabled) ------------------------------------------
+        if [[ "${OPTIMIZE:-0}" == "1" ]]; then
+            local optimized
+            optimized=$(optimize - <<< "$ext_content")
+            if bash -n <<< "$optimized" 2>/dev/null; then
+                ext_content="$optimized"
+            else
+                echo "  Warning: Optimization produced invalid syntax for ext/$ext_name, using original" >&2
+            fi
+        fi
+
+        # ---- Append ---------------------------------------------------------
+        buffer+=$'\n'$'\n'"$ext_content"
+
+        echo " ok${issue_str_file}"
+        (( ext_count++ ))
+    done
+
+    # -- Step 5: Minify entire buffer (if enabled) ----------------------------
+    if [[ "${MINIFY:-0}" == "1" ]]; then
+        echo -n "Minifying entire buffer..."
+        local minified
+        minified=$(minify - <<< "$buffer")
+        if bash -n <<< "$minified" 2>/dev/null; then
+            buffer="$minified"
+            echo " ok"
+        else
+            echo "  Warning: Minification produced invalid syntax, using pre-minified version" >&2
+        fi
+    fi
+
+    # -- Step 6: Wrap with shebang + license, validate, version, write --------
+    local final_content="#!/usr/bin/env bash"$'\n'"$LICENSE"$'\n'"$buffer"
+
+    local temp_file="${output_file}.tmp"
+    printf '%s\n' "$final_content" > "$temp_file"
+
+    echo -n "Validating final output..."
+    if ! bash -n "$temp_file" 2>/dev/null; then
+        echo " FAILED" >&2
+        echo "Error: Compiled output failed syntax check" >&2
+        bash -n "$temp_file" 2>&1 | head -5 >&2
+        rm -f "$temp_file"
+        return 1
+    fi
+    echo " ok"
+
+    # Version
+    local VERSION
+    read -r -t 0.1 -n 10000 _drain 2>/dev/null || true
+    read -r -p "Input a version for this file: " VERSION
+    VERSION=${VERSION:-"$(git describe --tags --abbrev=0 2>/dev/null || echo "0.0.0")-dev+$(date +%d%m%y).$(date +%S)"}
+    sed -i "s/## Version:/## Version: ${VERSION}/" "$temp_file"
+
+    chmod +x "$temp_file" 2>/dev/null
+    mv "$temp_file" "$output_file"
+
+    local total_issues=$(( total_err + total_warn + total_info ))
+    local final_issue_str=""
+    if (( total_issues > 0 )); then
+        final_issue_str=" — $total_issues total issues ($total_err errors, $total_warn warnings, $total_info info)"
+    fi
+
+    echo "Compiled core + ${ext_count} extension(s) to $output_file${final_issue_str}"
+}
+
+# ==============================================================================
+# dry_compile — ShellCheck all core modules and extensions without compiling
+#
+# Passes additional arguments through to shellcheck (e.g. --include, --exclude).
+#
+# Usage:
+#   ./main.sh dry_compile
+#   ./main.sh dry_compile --include=SC2034
+# ==============================================================================
+dry_compile() {
+    local shellcheck_args=("$@")
+    local src_dir="$(dirname "${BASH_SOURCE[0]}")/src"
+    local ext_base="$(dirname "${BASH_SOURCE[0]}")/ext"
+
+    if ! command -v shellcheck >/dev/null 2>&1; then
+        echo "Error: shellcheck not found on PATH" >&2
+        return 1
+    fi
+
+    local -a files=()
+    local f
+    for f in "$src_dir"/*.sh; do
+        [[ -f "$f" ]] && files+=("$f")
+    done
+
+    local ext_dir ext_name ext_file
+    for ext_dir in "$ext_base"/*/; do
+        [[ -d "$ext_dir" ]] || continue
+        ext_name="$(basename "$ext_dir")"
+        ext_file="$ext_dir/$ext_name.sh"
+        [[ -f "$ext_file" ]] && files+=("$ext_file")
+    done
+
+    if (( ${#files[@]} == 0 )); then
+        echo "Error: No files found" >&2
+        return 1
+    fi
+
+    echo "=== ShellCheck: ${#files[@]} files ==="
+    echo ""
+
+    local total_err=0 total_warn=0 total_info=0
+    local failed=0
+
+    for f in "${files[@]}"; do
+        local fname="$(basename "$f")"
+        local dir_label
+        [[ "$f" == "$src_dir"/* ]] && dir_label="src" || dir_label="ext"
+
+        local sc_out
+        sc_out=$(shellcheck "${shellcheck_args[@]}" --format=gcc "$f" 2>/dev/null)
+        local err_file warn_file info_file
+        err_file=$(echo "$sc_out"  | grep -c ': error:')
+        warn_file=$(echo "$sc_out" | grep -c ': warning:')
+        info_file=$(echo "$sc_out" | grep -c ': note:')
+
+        local issues=$(( err_file + warn_file + info_file ))
+        if (( issues > 0 )); then
+            printf '%s\n' "$sc_out"
+            printf "  %-25s %s  %d issues (%d errors, %d warnings, %d info)\n" \
+                "$fname" "$dir_label" "$issues" "$err_file" "$warn_file" "$info_file"
+            (( total_err  += err_file  ))
+            (( total_warn += warn_file ))
+            (( total_info += info_file ))
+            (( err_file > 0 )) && (( failed++ ))
+        else
+            printf "  %-25s %s  clean\n" "$fname" "$dir_label"
+        fi
+        echo
+    done
+
+    local total_issues=$(( total_err + total_warn + total_info ))
+    echo "=== $total_issues total issues ($total_err errors, $total_warn warnings, $total_info info) across ${#files[@]} files ==="
+
+    (( failed == 0 ))
 }
 
 statistics() {
@@ -620,6 +979,16 @@ if [[ ${1,,} == "compile" ]]; then
     exit $?
 fi
 
+if [[ ${1,,} == "compile_extended" ]]; then
+    compile_extended "${2:-bash-framehead-extended.sh}"
+    exit $?
+fi
+
+if [[ ${1,,} == "dry_compile" ]]; then
+    dry_compile "${@:2}"
+    exit $?
+fi
+
 if [[ ${1,,} == "obfuscate" ]]; then
     obfuscate "$2" "$3"
     exit $?
@@ -633,14 +1002,16 @@ fi
 if [[ ${1,,} == "help" ]] || [[ -z "$1" ]]; then
     echo "Usage: ./main.sh <command> [args]"
     echo ""
-    echo "  compile   [output.sh]         Compile src/ modules into a single file"
-    echo "  test      <compiled.sh>        Run the test suite"
-    echo "  stat      <compiled.sh>        Show diagnostics and function counts"
-    echo "  profile   <compiled.sh>        Profile per-function load times"
-    echo "  optimize  <input> [output]     Optimize a compiled file  (tools/optimize.sh)"
-    echo "  minify    <input> [output]     Minify a compiled file    (tools/obfuscate.sh)"
-    echo "  obfuscate <input> [output]     Obfuscate a compiled file (tools/obfuscate.sh)"
-    echo "  wiki      <compiled> <dir>     Generate wiki documentation"
+    echo "  compile          [output.sh]         Compile src/ modules into a single file"
+    echo "  compile_extended [output.sh]         Compile src/ + all ext/ with dep checks"
+    echo "  dry_compile      [shellcheck-args]    ShellCheck all modules and extensions"
+    echo "  test             <compiled.sh>        Run the test suite"
+    echo "  stat             <compiled.sh>        Show diagnostics and function counts"
+    echo "  profile          <compiled.sh>        Profile per-function load times"
+    echo "  optimize         <input> [output]     Optimize a compiled file  (tools/optimize.sh)"
+    echo "  minify           <input> [output]     Minify a compiled file    (tools/obfuscate.sh)"
+    echo "  obfuscate        <input> [output]     Obfuscate a compiled file (tools/obfuscate.sh)"
+    echo "  wiki             <compiled> <dir>     Generate wiki documentation"
     exit 0
 fi
 
