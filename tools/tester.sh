@@ -576,8 +576,7 @@ test::math::is_palindrome() {
 }
 test::math::bc() {
     math::has_bc || { _skip "bc not available"; return; }
-    _assert_contains "bc (22/7)" "3.14" "$(math::bc "22/7" 2)"
-    _sub_done
+    if [[ "$(math::bc "22/7" 2)" == *"3.14"* ]]; then _pass; else _fail; fi
 }
 test::math::clampf() {
     math::has_bc || { _skip "bc not available"; return; }
@@ -2161,12 +2160,10 @@ test::math::matrix::diagonal() {
     if [[ "$(math::matrix::diagonal "$_M2" $_MA)" == "1 4" ]]; then _pass; else _fail; fi
 }
 test::math::matrix::flatten() {
-    _assert_nonempty "flatten" "$(math::matrix::flatten "$_M2" $_MA)"
-    _sub_done
+    if [[ -n "$(math::matrix::flatten "$_M2" $_MA)" ]]; then _pass; else _fail; fi
 }
 test::math::matrix::print() {
-    _assert_nonempty "print" "$(math::matrix::print "$_M2" $_MA)"
-    _sub_done
+    if [[ -n "$(math::matrix::print "$_M2" $_MA)" ]]; then _pass; else _fail; fi
 }
 test::math::matrix::minor() {
     # minor of 3x3 removing row 0 col 0
@@ -2176,9 +2173,7 @@ test::math::matrix::minor() {
 
 test::math::matrix::determinant() {
     math::has_bc || _skip "bc not available"
-    # det([[1,2],[3,4]]) = -2
-    _assert_contains "det 2x2" "-2" "$(math::matrix::determinant 2 "$_M2" $_MA)"
-    _sub_done
+    if [[ "$(math::matrix::determinant 2 "$_M2" $_MA)" == *"-2"* ]]; then _pass; else _fail; fi
 }
 test::math::matrix::lu() {
     math::has_bc || _skip "bc not available"
@@ -2188,23 +2183,19 @@ test::math::matrix::lu() {
 }
 test::math::matrix::cofactor() {
     math::has_bc || _skip "bc not available"
-    _assert_nonempty "cofactor" "$(math::matrix::cofactor 4 "$_M2" $_MA)"
-    _sub_done
+    if [[ -n "$(math::matrix::cofactor 4 "$_M2" $_MA)" ]]; then _pass; else _fail; fi
 }
 test::math::matrix::adjugate() {
     math::has_bc || _skip "bc not available"
-    _assert_nonempty "adjugate" "$(math::matrix::adjugate 4 "$_M2" $_MA)"
-    _sub_done
+    if [[ -n "$(math::matrix::adjugate 4 "$_M2" $_MA)" ]]; then _pass; else _fail; fi
 }
 test::math::matrix::inverse() {
     math::has_bc || _skip "bc not available"
-    _assert_nonempty "inverse" "$(math::matrix::inverse 4 "$_M2" $_MA)"
-    _sub_done
+    if [[ -n "$(math::matrix::inverse 4 "$_M2" $_MA)" ]]; then _pass; else _fail; fi
 }
 test::math::matrix::rank() {
     math::has_bc || _skip "bc not available"
-    _assert "rank (full)" "2" "$(math::matrix::rank 4 "$_M2" $_MA)"
-    _sub_done
+    if [[ "$(math::matrix::rank 4 "$_M2" $_MA)" == "2" ]]; then _pass; else _fail; fi
 }
 test::math::matrix::pow() {
     # M^1 = M
@@ -2213,38 +2204,31 @@ test::math::matrix::pow() {
 
 test::math::matrix::addf() {
     math::has_bc || _skip "bc not available"
-    _assert_nonempty "addf" "$(math::matrix::addf 2 "$_M2" $_MA $_MB)"
-    _sub_done
+    if [[ -n "$(math::matrix::addf 2 "$_M2" $_MA $_MB)" ]]; then _pass; else _fail; fi
 }
 test::math::matrix::subf() {
     math::has_bc || _skip "bc not available"
-    _assert_nonempty "subf" "$(math::matrix::subf 2 "$_M2" $_MA $_MB)"
-    _sub_done
+    if [[ -n "$(math::matrix::subf 2 "$_M2" $_MA $_MB)" ]]; then _pass; else _fail; fi
 }
 test::math::matrix::scalef() {
     math::has_bc || _skip "bc not available"
-    _assert_nonempty "scalef" "$(math::matrix::scalef 2 "$_M2" 2 $_MA)"
-    _sub_done
+    if [[ -n "$(math::matrix::scalef 2 "$_M2" 2 $_MA)" ]]; then _pass; else _fail; fi
 }
 test::math::matrix::mulf() {
     math::has_bc || _skip "bc not available"
-    _assert_nonempty "mulf" "$(math::matrix::mulf 2 "$_M2" "$_M2" $_MA $_MI)"
-    _sub_done
+    if [[ -n "$(math::matrix::mulf 2 "$_M2" "$_M2" $_MA $_MI)" ]]; then _pass; else _fail; fi
 }
 test::math::matrix::hadamardf() {
     math::has_bc || _skip "bc not available"
-    _assert_nonempty "hadamardf" "$(math::matrix::hadamardf 2 "$_M2" $_MA $_MB)"
-    _sub_done
+    if [[ -n "$(math::matrix::hadamardf 2 "$_M2" $_MA $_MB)" ]]; then _pass; else _fail; fi
 }
 test::math::matrix::tracef() {
     math::has_bc || _skip "bc not available"
-    _assert_nonempty "tracef" "$(math::matrix::tracef 2 "$_M2" $_MA)"
-    _sub_done
+    if [[ -n "$(math::matrix::tracef 2 "$_M2" $_MA)" ]]; then _pass; else _fail; fi
 }
 test::math::matrix::powf() {
     math::has_bc || _skip "bc not available"
-    _assert_nonempty "powf" "$(math::matrix::powf 2 "$_M2" 2 $_MA)"
-    _sub_done
+    if [[ -n "$(math::matrix::powf 2 "$_M2" 2 $_MA)" ]]; then _pass; else _fail; fi
 }
 
 # ::fast variants — write into nameref, check nonempty
@@ -2323,3 +2307,14 @@ test::random::isaac::init() {
     read -r a b c rest <<< "$(random::isaac::init 12345)"
     if [[ "$a" == "0" && "$b" == "0" && "$c" == "0" && -n "$rest" ]]; then _pass; else _fail; fi
 }
+
+# ==============================================================================
+# Tests — binary
+# ==============================================================================
+
+test::binary::u16le() { if [[ "$(binary::u16le 0x0102 | od -An -tx1 | tr -d ' ')" == "0201" ]]; then _pass; else _fail; fi; }
+test::binary::u32le() { if [[ "$(binary::u32le 0x12345678 | od -An -tx1 | tr -d ' ')" == "78563412" ]]; then _pass; else _fail; fi; }
+test::binary::u64le() { if [[ "$(binary::u64le 0x0102030405060708 | od -An -tx1 | tr -d ' ')" == "0807060504030201" ]]; then _pass; else _fail; fi; }
+test::binary::u16be() { if [[ "$(binary::u16be 0x0102 | od -An -tx1 | tr -d ' ')" == "0102" ]]; then _pass; else _fail; fi; }
+test::binary::u32be() { if [[ "$(binary::u32be 0x12345678 | od -An -tx1 | tr -d ' ')" == "12345678" ]]; then _pass; else _fail; fi; }
+test::binary::u64be() { if [[ "$(binary::u64be 0x0102030405060708 | od -An -tx1 | tr -d ' ')" == "0102030405060708" ]]; then _pass; else _fail; fi; }
