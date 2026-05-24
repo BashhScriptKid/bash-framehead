@@ -2318,3 +2318,19 @@ test::binary::u64le() { if [[ "$(binary::u64le 0x0102030405060708 | od -An -tx1 
 test::binary::u16be() { if [[ "$(binary::u16be 0x0102 | od -An -tx1 | tr -d ' ')" == "0102" ]]; then _pass; else _fail; fi; }
 test::binary::u32be() { if [[ "$(binary::u32be 0x12345678 | od -An -tx1 | tr -d ' ')" == "12345678" ]]; then _pass; else _fail; fi; }
 test::binary::u64be() { if [[ "$(binary::u64be 0x0102030405060708 | od -An -tx1 | tr -d ' ')" == "0102030405060708" ]]; then _pass; else _fail; fi; }
+test::binary::from_hex()      { if [[ "$(binary::from_hex "deadbeef" | od -An -tx1 | tr -d ' ')" == "deadbeef" ]]; then _pass; else _fail; fi; }
+test::binary::from_hex::odd() { if [[ "$(binary::from_hex "a" | od -An -tx1 | tr -d ' ')" == "0a" ]]; then _pass; else _fail; fi; }
+test::binary::from_oct()      { if [[ "$(binary::from_oct "377" | od -An -tx1 | tr -d ' ')" == "ff" ]]; then _pass; else _fail; fi; }
+test::binary::from_uint() {
+    _assert "uint 256"  "0001" "$(binary::from_uint 256 | od -An -tx1 | tr -d ' ')"
+    _assert "uint 0"    "00"   "$(binary::from_uint 0 | od -An -tx1 | tr -d ' ')"
+    _sub_done
+}
+test::binary::from_int() {
+    _assert "positive"      "7f"   "$(binary::from_int 127 | od -An -tx1 | tr -d ' ')"
+    _assert "negative"      "ff"   "$(binary::from_int -1 | od -An -tx1 | tr -d ' ')"
+    _assert "neg 128"       "80"   "$(binary::from_int -128 | od -An -tx1 | tr -d ' ')"
+    _assert "neg 129"       "7fff" "$(binary::from_int -129 | od -An -tx1 | tr -d ' ')"
+    _assert "needs sign"    "8000" "$(binary::from_int 128 | od -An -tx1 | tr -d ' ')"
+    _sub_done
+}
