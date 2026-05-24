@@ -985,3 +985,502 @@ _json::_grep_keys() {
         esac
     done < <(printf '%s' "${_json_buf:_json_pos}" | grep -ob '[][{}",:]')
 }
+
+# ============================================================================
+# json::kv — Stateful container context (read + write)
+# ============================================================================
+
+# Context state
+_json_kv_root=""
+_json_kv_path=""
+_json_kv_cstart=0
+_json_kv_cend=0
+_json_kv_ctype=""    # object | array
+
+# Error guard: bail if no kv context is active.
+_json::_kv_require() {
+    [[ -n "$_json_kv_root" ]] && return 0
+    echo "json::kv: no context — call json::kv <json> [path] first" >&2
+    return 1
+}
+
+# Load kv context into the main parser state (_json_buf, _json_pos, _json_len)
+# and navigate to the container.  Called by json::kv and ::at / ::parent / ::root.
+_json::_kv_enter() {
+    _json_buf="$_json_kv_root"
+    _json_len="${#_json_buf}"
+    _json_pos=0
+    _json_use_array=0
+    _json_chars=()
+
+    if [[ -n "$_json_kv_path" ]]; then
+        local norm_path segments segment i
+        norm_path="$(_json::_normalise_path "$_json_kv_path")"
+        string::split::fast segments '.' "$norm_path"
+
+        for (( i = 0; i < ${#segments[@]}; i++ )); do
+            segment="${segments[$i]}"
+            _json::_skip_ws
+            local type_ch="${_json_buf:_json_pos:1}"
+
+            case "$type_ch" in
+                '{')
+                    _json::_find_key "$segment" || {
+                        echo "json::kv: key '$segment' not found" >&2; return 1; }
+                    ;;
+                '[')
+                    string::is_integer "$segment" || {
+                        echo "json::kv: array index '$segment' must be an integer" >&2; return 1; }
+                    _json::_find_index "$segment" || {
+                        echo "json::kv: index $segment out of bounds" >&2; return 1; }
+                    ;;
+                *)
+                    echo "json::kv: cannot navigate into scalar at '$segment'" >&2; return 1 ;;
+            esac
+        done
+    fi
+
+    # Set container start position and type
+    _json::_skip_ws
+    _json_kv_cstart=$_json_pos
+    _json_kv_ctype="object"
+    [[ "${_json_buf:_json_pos:1}" == '[' ]] && _json_kv_ctype="array"
+
+    local _opener="${_json_buf:_json_pos:1}"
+    [[ "$_opener" == '{' || "$_opener" == '[' ]] || return 1
+
+    # Scan to find the matching close brace
+    _json::_maybe_index
+    if (( _json_use_array && ${#_json_chars[@]} == _json_len )); then
+        local _d=0 _closer="${_JSON_CLOSER[$_opener]}" _c
+        while (( _json_pos < _json_len )); do
+            _c="${_json_chars[_json_pos]}"
+            case "$_c" in
+                '{'|'[') ((_d++)) ;;
+                '}'|']')
+                    if (( _d == 0 )); then _json_kv_cend=$_json_pos; return 0; fi
+                    ((_d--))
+                    ;;
+                '"') _json::_skip_string; continue ;;
+            esac
+            ((_json_pos++))
+        done
+    else
+        local _d=0 _closer="${_JSON_CLOSER[$_opener]}" _c
+        ((_json_pos++))
+        while (( _json_pos < _json_len )); do
+            _c="${_json_buf:_json_pos:1}"
+            case "$_c" in
+                "$_opener") ((_d++)) ;;
+                "$_closer")
+                    if (( _d == 0 )); then _json_kv_cend=$_json_pos; return 0; fi
+                    ((_d--))
+                    ;;
+                '"') _json::_skip_string; continue ;;
+            esac
+            ((_json_pos++))
+        done
+    fi
+    return 1
+}
+
+# ============================================================================
+# json::kv <json> [path] — initialise kv context
+# ============================================================================
+json::kv() {
+    _json_kv_root="$1"
+    _json_kv_path="${2:-}"
+    _json_kv_cstart=0
+    _json_kv_cend=0
+    _json_kv_ctype=""
+
+    _json::_kv_enter || { _json_kv_root=""; return 1; }
+
+    if [[ "$_json_kv_ctype" != "object" && "$_json_kv_ctype" != "array" ]]; then
+        echo "json::kv: path does not point to a container (object or array)" >&2
+        _json_kv_root=""
+        return 1
+    fi
+}
+
+# ============================================================================
+# ::keys — list keys (object) or indices (array), newline-separated
+# ============================================================================
+json::kv::keys() {
+    _json::_kv_require || return 1
+    _json::_kv_enter || return 1
+
+    local _opener="${_json_buf:_json_kv_cstart:1}"
+    _json_pos=$(( _json_kv_cstart + 1 ))
+
+    if [[ "$_opener" == '{' ]]; then
+        _json::_skip_ws
+        [[ "${_json_buf:_json_pos:1}" == '}' ]] && return 0
+        while true; do
+            local _key
+            _json::_read_string _key
+            printf '%s\n' "$_key"
+            _json::_skip_ws
+            ((_json_pos++))       # colon
+            _json::_skip_value
+            _json::_skip_ws
+            [[ "${_json_buf:_json_pos:1}" == ',' ]] && { ((_json_pos++)); _json::_skip_ws; }
+            [[ "${_json_buf:_json_pos:1}" == '}' ]] && break
+        done
+    else
+        local _idx=0
+        _json::_skip_ws
+        [[ "${_json_buf:_json_pos:1}" == ']' ]] && return 0
+        while true; do
+            printf '%d\n' "$_idx"
+            ((_idx++))
+            _json::_skip_value
+            _json::_skip_ws
+            [[ "${_json_buf:_json_pos:1}" == ',' ]] && { ((_json_pos++)); _json::_skip_ws; }
+            [[ "${_json_buf:_json_pos:1}" == ']' ]] && break
+        done
+    fi
+}
+
+# ============================================================================
+# ::keys::exists <key> — return 0 if key/index exists in container
+# ============================================================================
+json::kv::keys::exists() {
+    _json::_kv_require || return 1
+    [[ "$_json_kv_ctype" != "object" ]] && {
+        echo "json::kv::keys::exists: container is not an object" >&2; return 1; }
+    _json::_kv_enter || return 1
+    _json_pos=$_json_kv_cstart
+    _json::_find_key "$1"
+}
+
+# ============================================================================
+# ::value::get <key> — decoded value from container
+# ============================================================================
+json::kv::value::get() {
+    _json::_kv_require || return 1
+    _json::_kv_enter || return 1
+    _json_pos=$_json_kv_cstart
+    if [[ "$_json_kv_ctype" == "object" ]]; then
+        _json::_find_key "$1" || { echo "json::kv::value::get: key '$1' not found" >&2; return 1; }
+    else
+        string::is_integer "$1" || { echo "json::kv::value::get: array index '$1' must be an integer" >&2; return 1; }
+        _json::_find_index "$1" || { echo "json::kv::value::get: index $1 out of bounds" >&2; return 1; }
+    fi
+    _json::_read_value
+}
+
+# ============================================================================
+# ::value::type <key> — type of a value in the container
+# ============================================================================
+json::kv::value::type() {
+    _json::_kv_require || return 1
+    _json::_kv_enter || return 1
+    _json_pos=$_json_kv_cstart
+    if [[ "$_json_kv_ctype" == "object" ]]; then
+        _json::_find_key "$1" || { echo "json::kv::value::type: key '$1' not found" >&2; return 1; }
+    else
+        string::is_integer "$1" || { echo "json::kv::value::type: array index '$1' must be an integer" >&2; return 1; }
+        _json::_find_index "$1" || { echo "json::kv::value::type: index $1 out of bounds" >&2; return 1; }
+    fi
+    _json::_skip_ws
+    case "${_json_buf:_json_pos:1}" in
+        '{') echo "object" ;;
+        '[') echo "array" ;;
+        '"') echo "string" ;;
+        [0-9\-]) echo "number" ;;
+        t|f) echo "boolean" ;;
+        n) echo "null" ;;
+    esac
+}
+
+# ============================================================================
+# ::list [format] — dump entries
+#   (no arg) tab-separated key\tvalue
+#   json     JSON object string
+#   csv      CSV row (comma-separated values, keys as headers)
+# ============================================================================
+json::kv::list() {
+    _json::_kv_require || return 1
+    local _fmt="${1:-}"
+    _json::_kv_enter || return 1
+
+    local _opener="${_json_buf:_json_kv_cstart:1}"
+    _json_pos=$(( _json_kv_cstart + 1 ))
+
+    # --- json format: raw container slice ---
+    if [[ "$_fmt" == "json" ]]; then
+        printf '%s\n' "${_json_buf:_json_kv_cstart:$(( _json_kv_cend - _json_kv_cstart + 1 ))}"
+        return
+    fi
+
+    # --- csv format: comma-separated values ---
+    if [[ "$_fmt" == "csv" ]]; then
+        local _first=1
+        if [[ "$_opener" == '{' ]]; then
+            _json::_skip_ws
+            [[ "${_json_buf:_json_pos:1}" == '}' ]] && { echo; return; }
+            while true; do
+                _json::_skip_string     # skip key
+                _json::_skip_ws
+                ((_json_pos++))          # colon
+                _json::_read_raw_span    # value span
+                ((_first)) && _first=0 || printf ','
+                printf '%s' "${_json_buf:_json_raw_start:$((_json_raw_end - _json_raw_start + 1))}"
+                _json_pos=$(( _json_raw_end + 1 ))
+                _json::_skip_ws
+                [[ "${_json_buf:_json_pos:1}" == ',' ]] && { ((_json_pos++)); _json::_skip_ws; }
+                [[ "${_json_buf:_json_pos:1}" == '}' ]] && break
+            done
+        else
+            _json::_skip_ws
+            [[ "${_json_buf:_json_pos:1}" == ']' ]] && { echo; return; }
+            while true; do
+                _json::_read_raw_span
+                ((_first)) && _first=0 || printf ','
+                printf '%s' "${_json_buf:_json_raw_start:$((_json_raw_end - _json_raw_start + 1))}"
+                _json_pos=$(( _json_raw_end + 1 ))
+                _json::_skip_ws
+                [[ "${_json_buf:_json_pos:1}" == ',' ]] && { ((_json_pos++)); _json::_skip_ws; }
+                [[ "${_json_buf:_json_pos:1}" == ']' ]] && break
+            done
+        fi
+        echo
+        return
+    fi
+
+    # --- Default: tab-separated key\tvalue\n ---
+    if [[ "$_opener" == '{' ]]; then
+        _json::_skip_ws
+        [[ "${_json_buf:_json_pos:1}" == '}' ]] && return
+        while true; do
+            local _key
+            _json::_read_string _key
+            _json::_skip_ws
+            ((_json_pos++))       # colon
+            printf '%s\t' "$_key"
+            _json::_read_value
+            echo
+            _json::_skip_ws
+            [[ "${_json_buf:_json_pos:1}" == ',' ]] && { ((_json_pos++)); _json::_skip_ws; }
+            [[ "${_json_buf:_json_pos:1}" == '}' ]] && break
+        done
+    else
+        local _idx=0
+        _json::_skip_ws
+        [[ "${_json_buf:_json_pos:1}" == ']' ]] && return
+        while true; do
+            printf '%d\t' "$_idx"
+            ((_idx++))
+            _json::_read_value
+            echo
+            _json::_skip_ws
+            [[ "${_json_buf:_json_pos:1}" == ',' ]] && { ((_json_pos++)); _json::_skip_ws; }
+            [[ "${_json_buf:_json_pos:1}" == ']' ]] && break
+        done
+    fi
+}
+
+# ============================================================================
+# ::count — number of entries in container
+# ============================================================================
+json::kv::count() {
+    _json::_kv_require || return 1
+    _json::_kv_enter || return 1
+    _json_pos=$_json_kv_cstart
+    json::len "$_json_kv_root" "$_json_kv_path"
+}
+
+# ============================================================================
+# ::at <relpath> — navigate deeper from current container
+# ============================================================================
+json::kv::at() {
+    _json::_kv_require || return 1
+    local _rel="$1"
+    [[ -n "$_json_kv_path" ]] && _json_kv_path+=".$_rel" || _json_kv_path="$_rel"
+    _json::_kv_enter || { _json_kv_path="${_json_kv_path%.*}"; return 1; }
+    [[ "$_json_kv_ctype" == "object" || "$_json_kv_ctype" == "array" ]] && return 0
+    _json_kv_path="${_json_kv_path%.*}"
+    echo "json::kv::at: '$_rel' does not point to a container" >&2
+    return 1
+}
+
+# ============================================================================
+# ::parent — navigate up one level
+# ============================================================================
+json::kv::parent() {
+    _json::_kv_require || return 1
+    [[ -z "$_json_kv_path" ]] && { echo "json::kv::parent: already at root" >&2; return 1; }
+    _json_kv_path="${_json_kv_path%.*}"
+    [[ "$_json_kv_path" == "$_json_kv_path" ]] && _json_kv_path=""  # no dot → root
+    _json::_kv_enter || return 1
+}
+
+# ============================================================================
+# ::root — return to document root
+# ============================================================================
+json::kv::root() {
+    _json::_kv_require || return 1
+    _json_kv_path=""
+    _json::_kv_enter || return 1
+}
+
+# ============================================================================
+# Write helpers
+# ============================================================================
+
+# Scan container entries, recording each as: key_start key_end val_start val_end
+# (space-separated).  Objects: key span is the quoted key string.
+# Arrays: key_start/key_end = index (for ordering, not byte positions).
+_json::_kv_scan_entries() {
+    local _opener="${_json_buf:_json_kv_cstart:1}"
+    _json_entries=()
+    _json_pos=$(( _json_kv_cstart + 1 ))
+
+    if [[ "$_opener" == '{' ]]; then
+        _json::_skip_ws
+        [[ "${_json_buf:_json_pos:1}" == '}' ]] && return
+        while true; do
+            local _ks=$_json_pos
+            _json::_skip_string
+            local _ke=$(( _json_pos - 1 ))
+            _json::_skip_ws
+            ((_json_pos++))  # colon
+            local _vs=$_json_pos
+            _json::_skip_value
+            local _ve=$(( _json_pos - 1 ))
+            _json_entries+=("$_ks $_ke $_vs $_ve")
+            _json::_skip_ws
+            [[ "${_json_buf:_json_pos:1}" == ',' ]] && { ((_json_pos++)); _json::_skip_ws; }
+            [[ "${_json_buf:_json_pos:1}" == '}' ]] && break
+        done
+    else
+        _json::_skip_ws
+        [[ "${_json_buf:_json_pos:1}" == ']' ]] && return
+        local _idx=0
+        while true; do
+            local _vs=$_json_pos
+            _json::_skip_value
+            local _ve=$(( _json_pos - 1 ))
+            _json_entries+=("$_idx $_idx $_vs $_ve")
+            ((_idx++))
+            _json::_skip_ws
+            [[ "${_json_buf:_json_pos:1}" == ',' ]] && { ((_json_pos++)); _json::_skip_ws; }
+            [[ "${_json_buf:_json_pos:1}" == ']' ]] && break
+        done
+    fi
+}
+
+# ============================================================================
+# ::value::set <key> <raw_json> — insert or update a key-value pair
+# ============================================================================
+json::kv::value::set() {
+    _json::_kv_require || return 1
+    local _key="$1" _val="$2"
+    _json::_kv_enter || return 1
+    _json::_kv_scan_entries
+
+    local _opener _closer _new _first _e _ks _ke _vs _ve _found_key
+    _opener="${_json_buf:_json_kv_cstart:1}"
+    _closer="${_JSON_CLOSER[$_opener]}"
+    _new="$_opener"; _first=1; _found_key=0
+
+    if [[ "$_opener" == '{' ]]; then
+        for _e in "${_json_entries[@]}"; do
+            read -r _ks _ke _vs _ve <<< "$_e"
+            local _ek="${_json_buf:_ks:$(( _ke - _ks + 1 ))}"
+            (( _first )) && _first=0 || _new+=","
+            if [[ "${_ek:1:-1}" == "$_key" ]]; then
+                _new+="\"$_key\":$_val"
+                _found_key=1
+            else
+                _new+="${_json_buf:_ks:$(( _ke - _ks + 1 ))}:${_json_buf:_vs:$(( _ve - _vs + 1 ))}"
+            fi
+        done
+        if (( ! _found_key )); then
+            [[ ${#_json_entries[@]} -gt 0 ]] && _new+=","
+            _new+="\"$_key\":$_val"
+        fi
+    else
+        for _e in "${_json_entries[@]}"; do
+            read -r _ks _ke _vs _ve <<< "$_e"
+            (( _first )) && _first=0 || _new+=","
+            _new+="${_json_buf:_vs:$(( _ve - _vs + 1 ))}"
+        done
+    fi
+    _new+="$_closer"
+
+    local _pre="${_json_kv_root:0:_json_kv_cstart}"
+    local _post="${_json_kv_root:$(( _json_kv_cend + 1 ))}"
+    _json_kv_root="$_pre$_new$_post"
+    _json_kv_cend=$(( _json_kv_cstart + ${#_new} - 1 ))
+    _json_buf="$_json_kv_root"
+    _json_len="${#_json_buf}"
+}
+
+# ============================================================================
+# ::keys::remove <key> — delete a key-value pair from an object
+# ============================================================================
+json::kv::keys::remove() {
+    _json::_kv_require || return 1
+    [[ "$_json_kv_ctype" != "object" ]] && {
+        echo "json::kv::keys::remove: container is not an object" >&2; return 1; }
+    _json::_kv_enter || return 1
+    _json::_kv_scan_entries
+
+    local _new="{" _first=1 _found=0 _e _ks _ke _vs _ve
+    for _e in "${_json_entries[@]}"; do
+        read -r _ks _ke _vs _ve <<< "$_e"
+        local _ek="${_json_buf:_ks:$(( _ke - _ks + 1 ))}"
+        if [[ "${_ek:1:-1}" == "$1" ]]; then
+            _found=1
+            continue
+        fi
+        (( _first )) && _first=0 || _new+=","
+        _new+="${_json_buf:_ks:$(( _ke - _ks + 1 ))}:${_json_buf:_vs:$(( _ve - _vs + 1 ))}"
+    done
+    _new+="}"
+
+    (( _found )) || { echo "json::kv::keys::remove: key '$1' not found" >&2; return 1; }
+
+    local _pre="${_json_kv_root:0:_json_kv_cstart}"
+    local _post="${_json_kv_root:$(( _json_kv_cend + 1 ))}"
+    _json_kv_root="$_pre$_new$_post"
+    _json_kv_cend=$(( _json_kv_cstart + ${#_new} - 1 ))
+    _json_buf="$_json_kv_root"
+    _json_len="${#_json_buf}"
+}
+
+# ============================================================================
+# ::keys::rename <old> <new> — rename a key, preserving value
+# ============================================================================
+json::kv::keys::rename() {
+    _json::_kv_require || return 1
+    [[ "$_json_kv_ctype" != "object" ]] && {
+        echo "json::kv::keys::rename: container is not an object" >&2; return 1; }
+    _json::_kv_enter || return 1
+    _json::_kv_scan_entries
+
+    local _new="{" _first=1 _found=0 _e _ks _ke _vs _ve
+    for _e in "${_json_entries[@]}"; do
+        read -r _ks _ke _vs _ve <<< "$_e"
+        local _ek="${_json_buf:_ks:$(( _ke - _ks + 1 ))}"
+        (( _first )) && _first=0 || _new+=","
+        if [[ "${_ek:1:-1}" == "$1" ]]; then
+            _new+="\"$2\":${_json_buf:_vs:$(( _ve - _vs + 1 ))}"
+            _found=1
+        else
+            _new+="${_json_buf:_ks:$(( _ke - _ks + 1 ))}:${_json_buf:_vs:$(( _ve - _vs + 1 ))}"
+        fi
+    done
+    _new+="}"
+
+    (( _found )) || { echo "json::kv::keys::rename: key '$1' not found" >&2; return 1; }
+
+    local _pre="${_json_kv_root:0:_json_kv_cstart}"
+    local _post="${_json_kv_root:$(( _json_kv_cend + 1 ))}"
+    _json_kv_root="$_pre$_new$_post"
+    _json_kv_cend=$(( _json_kv_cstart + ${#_new} - 1 ))
+    _json_buf="$_json_kv_root"
+    _json_len="${#_json_buf}"
+}

@@ -18,9 +18,11 @@ source ./ext/json/json.sh
 
 ## API Reference
 
-All functions take a JSON string as the first argument and a **dot-notation path** as the second.
-Bracket notation `foo[0].bar` is normalised to the equivalent `foo.0.bar`. An empty path refers
-to the root of the document.
+### Stateless API
+
+All stateless functions take a JSON string as the first argument and a **dot-notation path** as
+the second. Bracket notation `foo[0].bar` is normalised to the equivalent `foo.0.bar`. An empty
+path refers to the root of the document. Every call re-parses from the beginning.
 
 ### `json::get <json> <path>`
 
@@ -71,6 +73,130 @@ json::len '[10,20,30,40]'          # → 4
 json::len '{"data": [1,2,3]}' data # → 3
 ```
 
+### Stateful API (`json::kv`)
+
+The `kv` namespace acts like `cd` for JSON — pre-navigate to a container once, then
+operate from that position without re-walking ancestor paths. All `::*` functions
+share a single global context (re-entering `json::kv` replaces it). Write operations
+mutate the context's JSON string via text splicing.
+
+### `json::kv <json> [path]`
+
+Pre-navigate to a container. Silent on success (exit 0). On failure prints to stderr
+and exits 1.
+
+```bash
+json::kv '{"a":1,"b":{"x":9,"y":8},"c":[1,2,3]}'     # at root object
+json::kv '{"a":1,"b":{"x":9,"y":8}}' b                 # at the 'b' object
+```
+
+### `::keys`
+
+List keys (object) or indices (array), newline-separated. Requires active kv context.
+
+```bash
+json::kv '{"a":1,"b":2,"c":3}'
+json::kv::keys                     # → a\nb\nc
+```
+
+### `::keys::exists <key>`
+
+Return 0 if the key exists in the current object, 1 otherwise. Objects only.
+
+```bash
+json::kv::keys::exists b && echo "found"   # → found
+```
+
+### `::value::get <key>`
+
+Extract a value from the current container. Same semantics as `json::get` but operates
+from the parked position.
+
+```bash
+json::kv::value::get a              # → 1
+json::kv::value::get b              # → {"x":9,"y":8}
+```
+
+### `::value::type <key>`
+
+Return the JSON type of a value in the current container.
+
+```bash
+json::kv::value::type a             # → number
+json::kv::value::type b             # → object
+```
+
+### `::list [fmt]`
+
+Dump all entries in the current container.
+
+```bash
+json::kv::list                      # tab-separated key\tvalue\n  (default)
+json::kv::list json                 # raw container as JSON string
+json::kv::list csv                  # comma-separated values
+```
+
+### `::count`
+
+Return the number of entries in the current container.
+
+```bash
+json::kv::count                     # → 3
+```
+
+### `::at <relpath>`
+
+Navigate deeper into a nested container. Appends to the current path.
+
+```bash
+json::kv '{"a":{"b":{"c":"deep"}}}' a
+json::kv::at b && json::kv::keys    # → c
+```
+
+### `::parent`
+
+Navigate up one level. Strips the last segment from the current path.
+
+```bash
+json::kv::parent && json::kv::keys  # → a  (back to root object)
+```
+
+### `::root`
+
+Return to the document root (clear the path).
+
+```bash
+json::kv::root && json::kv::keys    # → a  (root object keys)
+```
+
+### `::value::set <key> <raw_json>`
+
+Insert or update a key-value pair. The value must be **valid raw JSON** — `42` for
+a number, `'"hello"'` for a string, `'{"nested":true}'` for an object. The mutation
+is applied to the context; subsequent `::*` calls see the modified JSON.
+
+```bash
+json::kv '{"a":1,"b":2}'
+json::kv::value::set c 3           # → {"a":1,"b":2,"c":3}
+json::kv::value::set a 99          # → {"a":99,"b":2,"c":3}
+```
+
+### `::keys::remove <key>`
+
+Delete a key-value pair. Objects only. Fails if the key is not found.
+
+```bash
+json::kv::keys::remove b           # → {"a":99,"c":3}
+```
+
+### `::keys::rename <old> <new>`
+
+Rename a key, preserving its value. Objects only. Fails if the old key is not found.
+
+```bash
+json::kv::keys::rename c d         # → {"a":99,"d":3}
+```
+
 ## Path Syntax
 
 | Input | Normalised | Meaning |
@@ -108,11 +234,14 @@ The trade-off is zero install footprint vs raw speed.
 
 ## Limitations
 
-- **Escaped quotes in strings** (`\"`): the grep-based fast path uses a simple
-  quote-toggle for string tracking and does not detect backslash-escaped quotes.
-  In practice this is vanishingly rare in machine-generated JSON.
 - **No streaming**: the entire JSON must fit in a Bash string. For files over
   ~10 MB, Bash's string handling becomes the bottleneck.
 - **Bash 4.3+** required (associative arrays, namerefs).
 - **GNU grep required**: the `-b` flag for byte offsets is not POSIX. macOS
   users need `brew install grep`.
+- **Number validation**: lenient — leading zeros (`01`), trailing commas,
+  and malformed numbers are now rejected, but top-level scalars (bare `"hello"`)
+  are accepted despite the spec requiring an array or object root.
+- **Write operations (`::value::set`, etc.)** rebuild the container by text
+  splicing — whitespace in the original JSON is not preserved; the rebuilt
+  container uses compact formatting with no extra spaces.
