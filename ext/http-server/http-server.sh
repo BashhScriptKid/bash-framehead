@@ -304,6 +304,26 @@ http::error() {
     printf '\r\n%s' "$msg"
 }
 
+# ── Request header accessors ──
+
+# Get a request header value (case-insensitive key).
+# Usage: http::header::get "content-type"
+http::header::get() {
+    echo "${_HTTP_HEADERS[${1,,}]:-}"
+}
+
+# HTML-entity encode a string. Escapes & < > " '
+# Usage: http::html_encode "$unsafe"
+http::html_encode() {
+    local s="$1"
+    s="${s//&/\&amp;}"
+    s="${s//</\&lt;}"
+    s="${s//>/\&gt;}"
+    s="${s//\"/\&quot;}"
+    s="${s//\'/\&#39;}"
+    printf '%s\n' "$s"
+}
+
 # ==============================================================================
 # ROUTING
 # ==============================================================================
@@ -550,6 +570,7 @@ http::session::destroy() {
 # ==============================================================================
 
 # Serve a static file with appropriate MIME type and path traversal guard.
+# If the path is a directory, tries index.html / index.htm before 404.
 # Usage: http::serve_file <path>
 http::serve_file() {
     local path="$1" docroot resolved
@@ -568,6 +589,14 @@ http::serve_file() {
         http::error 403 "Forbidden"
         return 1
     }
+
+    # If it's a directory, try index files
+    if [[ -d "$path" ]]; then
+        local index
+        for index in index.html index.htm; do
+            [[ -f "$path/$index" ]] && [[ -r "$path/$index" ]] && { path="$path/$index"; break; }
+        done
+    fi
 
     [[ -f "$path" ]] && [[ -r "$path" ]] || {
         http::error 404 "File not found"
