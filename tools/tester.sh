@@ -1014,7 +1014,6 @@ test::hash::combine() { if [[ -n "$(hash::combine foo bar baz)" ]]; then _pass; 
 test::hash::verify()  { if hash::verify hello "$(hash::sha256 hello)" sha256; then _pass; else _fail; fi; }
 
 test::hash::sha256() {
-    _assert_nonempty "sha256 nonempty" "$(hash::sha256 hello)"
     _assert "sha256 known value" \
         "2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9824" \
         "$(hash::sha256 hello)"
@@ -1030,7 +1029,6 @@ test::hash::slot() {
     if [[ $h -ge 0 && $h -lt 10 ]]; then _pass; else _fail; fi
 }
 test::hash::short() {
-    _assert_nonempty "short nonempty" "$(hash::short hello)"
     _assert "short length" "8" \
         "$(hash::short hello 8 | wc -c | tr -d ' ' | awk '{print $1-1}')"
     _sub_done
@@ -1855,7 +1853,8 @@ test::debug::stacktrace() {
     _assert_contains "stack trace" "Stack trace" "$_out"
 
     _out=$(debug::stacktrace colour)
-    _assert_nonempty "colour output" "$_out"
+    _assert_contains "colour output" $'\e[36m' "$_out"
+    _assert_contains "colour frames" "Stack trace" "$_out"
     _sub_done
 }
 
