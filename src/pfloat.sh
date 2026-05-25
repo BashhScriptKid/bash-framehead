@@ -86,6 +86,48 @@ _pfloat::_is_integer() {
 	[[ "$1" =~ ^-?[0-9]+$ ]]
 }
 
+# --- ::fast helpers (nameref output, zero subshells) ---
+
+_pfloat::_to_scaled::fast() {
+	local -n _fast_out=$2
+	local num=$1 sgn="" intp fracp
+	[[ "$num" == -* ]] && { sgn="-"; num="${num#-}"; }
+	if [[ "$num" == *.* ]]; then
+		intp="${num%%.*}"; fracp="${num#*.}"
+	else
+		intp="$num"; fracp=""
+	fi
+	intp="${intp#"${intp%%[!0]*}"}"; [[ -z "$intp" ]] && intp="0"
+	while ((${#fracp} < pfloat_SCALE)); do fracp+="0"; done
+	fracp="${fracp:0:$pfloat_SCALE}"
+	_fast_out="${sgn}${intp}${fracp}"
+	# strip leading zeros from the combined scaled value
+	_fast_out="${_fast_out#"${_fast_out%%[!0]*}"}"
+	[[ -z "$_fast_out" ]] && _fast_out="0"
+}
+
+_pfloat::_from_scaled::fast() {
+	local -n _fast_out=$2
+	local num=$1 sgn="" intp fracp
+	[[ "$num" == -* ]] && { sgn="-"; num="${num#-}"; }
+	num="${num#"${num%%[!0]*}"}"; [[ -z "$num" ]] && num="0"
+	while ((${#num} <= pfloat_SCALE)); do num="0${num}"; done
+	intp="${num:0:${#num}-pfloat_SCALE}"
+	fracp="${num:${#num}-pfloat_SCALE}"
+	while [[ "$fracp" == *0 ]]; do fracp="${fracp%0}"; done
+	if [[ -z "$fracp" ]]; then
+		_fast_out="${sgn}${intp}"
+	else
+		_fast_out="${sgn}${intp}.${fracp}"
+	fi
+}
+
+# Public to_scaled / from_scaled
+pfloat::fixed::to_scaled() { _pfloat::_to_scaled "$@"; }
+pfloat::fixed::from_scaled() { _pfloat::_from_scaled "$@"; }
+pfloat::fixed::to_scaled::fast() { _pfloat::_to_scaled::fast "$@"; }
+pfloat::fixed::from_scaled::fast() { _pfloat::_from_scaled::fast "$@"; }
+
 pfloat::fixed::add() {
 	local a_scaled b_scaled result
 	a_scaled=$(_pfloat::_to_scaled "$1")
@@ -648,6 +690,187 @@ _pfloat::_ln_approx() {
 	echo "$y"
 }
 
+# --- ::fast arithmetic (nameref output, zero subshells) ---
+# Usage: pfloat::fixed::op::fast <a> [<b>] <result_var>
+
+pfloat::fixed::add::fast() {
+	local -n _out=${@: -1}
+	local _a _b
+	_pfloat::_to_scaled::fast "$1" _a
+	_pfloat::_to_scaled::fast "$2" _b
+	_pfloat::_from_scaled::fast $((_a + _b)) _out
+}
+
+pfloat::fixed::sub::fast() {
+	local -n _out=${@: -1}
+	local _a _b
+	_pfloat::_to_scaled::fast "$1" _a
+	_pfloat::_to_scaled::fast "$2" _b
+	_pfloat::_from_scaled::fast $((_a - _b)) _out
+}
+
+pfloat::fixed::mul::fast() {
+	local -n _out=${@: -1}
+	local _a _b _sf i
+	_pfloat::_to_scaled::fast "$1" _a
+	_pfloat::_to_scaled::fast "$2" _b
+	_sf=1; for ((i=0; i<pfloat_SCALE; i++)); do _sf+=0; done
+	_pfloat::_from_scaled::fast $((_a * _b / _sf)) _out
+}
+
+pfloat::fixed::div::fast() {
+	local -n _out=${@: -1}
+	local _a _b _sf i
+	_pfloat::_to_scaled::fast "$1" _a
+	_pfloat::_to_scaled::fast "$2" _b
+	if ((_b == 0)); then _out="0"; return 1; fi
+	_sf=1; for ((i=0; i<pfloat_SCALE; i++)); do _sf+=0; done
+	_pfloat::_from_scaled::fast $((_a * _sf / _b)) _out
+}
+
+pfloat::fixed::mod::fast() {
+	local -n _out=${@: -1}
+	local _a _b
+	_pfloat::_to_scaled::fast "$1" _a
+	_pfloat::_to_scaled::fast "$2" _b
+	if ((_b == 0)); then _out="0"; return 1; fi
+	_pfloat::_from_scaled::fast $((_a % _b)) _out
+}
+
+pfloat::fixed::neg::fast() {
+	local -n _out=${@: -1}
+	local _a
+	_pfloat::_to_scaled::fast "$1" _a
+	_pfloat::_from_scaled::fast $((- _a)) _out
+}
+
+pfloat::fixed::abs::fast() {
+	local -n _out=${@: -1}
+	local _a=$1
+	[[ "$_a" == -* ]] && _a="${_a#-}"
+	_out=$_a
+}
+
+pfloat::fixed::min::fast() {
+	local -n _out=${@: -1}
+	local _a _b
+	_pfloat::_to_scaled::fast "$1" _a
+	_pfloat::_to_scaled::fast "$2" _b
+	if ((_a < _b)); then
+		_pfloat::_from_scaled::fast $_a _out
+	else
+		_pfloat::_from_scaled::fast $_b _out
+	fi
+}
+
+pfloat::fixed::max::fast() {
+	local -n _out=${@: -1}
+	local _a _b
+	_pfloat::_to_scaled::fast "$1" _a
+	_pfloat::_to_scaled::fast "$2" _b
+	if ((_a > _b)); then
+		_pfloat::_from_scaled::fast $_a _out
+	else
+		_pfloat::_from_scaled::fast $_b _out
+	fi
+}
+
+pfloat::fixed::sqr::fast() {
+	pfloat::fixed::mul::fast "$1" "$1" "$2"
+}
+
+pfloat::fixed::recip::fast() {
+	pfloat::fixed::div::fast "1" "$1" "$2"
+}
+
+pfloat::fixed::trunc::fast() {
+	local -n _out=$2
+	local a=$1
+	if [[ "$a" == *.* ]]; then
+		a="${a%%.*}"
+	fi
+	[[ -z "$a" ]] && a="0"
+	_out="$a"
+}
+
+pfloat::fixed::floor::fast() {
+	local -n _out=${@: -1}
+	local a=$1 sgn="" intp fracp
+	if [[ "$a" == -* ]]; then
+		sgn="-"; a="${a#-}"
+	fi
+	if [[ "$a" == *.* ]]; then
+		intp="${a%%.*}"; fracp="${a#*.}"
+	else
+		_out="$1"; return
+	fi
+	[[ -z "$intp" ]] && intp="0"
+	if [[ "$sgn" == "-" ]] && [[ "$fracp" =~ [1-9] ]]; then
+		_out="$(( -intp - 1 ))"
+	else
+		_out="${sgn}${intp}"
+	fi
+}
+
+pfloat::fixed::ceil::fast() {
+	local -n _out=${@: -1}
+	local a=$1 sgn="" intp fracp
+	if [[ "$a" == -* ]]; then
+		sgn="-"; a="${a#-}"
+	fi
+	if [[ "$a" == *.* ]]; then
+		intp="${a%%.*}"; fracp="${a#*.}"
+	else
+		_out="$1"; return
+	fi
+	[[ -z "$intp" ]] && intp="0"
+	if [[ "$fracp" =~ [1-9] ]]; then
+		if [[ "$sgn" == "-" ]]; then
+			_out="-${intp}"
+		else
+			_out="$((intp + 1))"
+		fi
+	else
+		_out="${sgn}${intp}"
+	fi
+}
+
+pfloat::fixed::round::fast() {
+	local -n _out=${@: -1}
+	local a=$1 sgn="" intp fracp first
+	if [[ "$a" == -* ]]; then
+		sgn="-"; a="${a#-}"
+	fi
+	if [[ "$a" == *.* ]]; then
+		intp="${a%%.*}"; fracp="${a#*.}"
+	else
+		_out="$1"; return
+	fi
+	[[ -z "$intp" ]] && intp="0"
+	first="${fracp:0:1}"
+	if ((first >= 5)); then
+		_out="${sgn}$((intp + 1))"
+	else
+		_out="${sgn}${intp}"
+	fi
+}
+
+pfloat::fixed::pow::fast() {
+	local -n _out=${@: -1}
+	local base=$1 exp=$2 _b _sf i result
+	_pfloat::_to_scaled::fast "$base" _b
+	_sf=1; for ((i=0; i<pfloat_SCALE; i++)); do _sf+=0; done
+	result=$_sf
+	if ((exp < 0)); then
+		exp=$((-exp))
+		while ((exp-- > 0)); do result=$((result * _b / _sf)); done
+		_pfloat::_from_scaled::fast $((_sf * _sf / result)) _out
+	else
+		while ((exp-- > 0)); do result=$((result * _b / _sf)); done
+		_pfloat::_from_scaled::fast $((result)) _out
+	fi
+}
+
 # BACKWARD COMPATIBILITY WRAPPERS
 # These aliases maintain compatibility with code using pfloat::* directly
 
@@ -698,19 +921,41 @@ pfloat::factorial() { pfloat::fixed::factorial "$@"; }
 pfloat::sigmoid() { pfloat::fixed::sigmoid "$@"; }
 pfloat::softplus() { pfloat::fixed::softplus "$@"; }
 
+# ::fast backward compatibility wrappers
+pfloat::to_scaled::fast() { pfloat::fixed::to_scaled::fast "$@"; }
+pfloat::from_scaled::fast() { pfloat::fixed::from_scaled::fast "$@"; }
+pfloat::add::fast() { pfloat::fixed::add::fast "$@"; }
+pfloat::sub::fast() { pfloat::fixed::sub::fast "$@"; }
+pfloat::mul::fast() { pfloat::fixed::mul::fast "$@"; }
+pfloat::div::fast() { pfloat::fixed::div::fast "$@"; }
+pfloat::mod::fast() { pfloat::fixed::mod::fast "$@"; }
+pfloat::neg::fast() { pfloat::fixed::neg::fast "$@"; }
+pfloat::abs::fast() { pfloat::fixed::abs::fast "$@"; }
+pfloat::floor::fast() { pfloat::fixed::floor::fast "$@"; }
+pfloat::ceil::fast() { pfloat::fixed::ceil::fast "$@"; }
+pfloat::round::fast() { pfloat::fixed::round::fast "$@"; }
+pfloat::trunc::fast() { pfloat::fixed::trunc::fast "$@"; }
+pfloat::min::fast() { pfloat::fixed::min::fast "$@"; }
+pfloat::max::fast() { pfloat::fixed::max::fast "$@"; }
+pfloat::sqr::fast() { pfloat::fixed::sqr::fast "$@"; }
+pfloat::pow::fast() { pfloat::fixed::pow::fast "$@"; }
+pfloat::recip::fast() { pfloat::fixed::recip::fast "$@"; }
+
 # IEEE 754 DOUBLE-PRECISION IMPLEMENTATION
 # Pure Bash IEEE 754 floating-point arithmetic
 # Uses 64-bit fixed-point representation internally
 
-# IEEE 754 Double-precision constants
-readonly IEEE754_SIGN_BIT=63
-readonly IEEE754_EXP_BITS=11
-readonly IEEE754_MANT_BITS=52
-readonly IEEE754_EXP_BIAS=1023
-readonly IEEE754_EXP_MAX=2047
-readonly IEEE754_MANT_MASK=4503599627370495  # 0xFFFFFFFFFFFFF
-readonly IEEE754_EXP_MASK=9218868437227405312  # 0x7FF0000000000000
-readonly IEEE754_SIGN_MASK=9223372036854775808  # 0x8000000000000000
+# IEEE 754 Double-precision constants (guarded against double-source)
+if ! declare -p IEEE754_SIGN_BIT &>/dev/null 2>&1; then
+	readonly IEEE754_SIGN_BIT=63
+	readonly IEEE754_EXP_BITS=11
+	readonly IEEE754_MANT_BITS=52
+	readonly IEEE754_EXP_BIAS=1023
+	readonly IEEE754_EXP_MAX=2047
+	readonly IEEE754_MANT_MASK=4503599627370495
+	readonly IEEE754_EXP_MASK=9218868437227405312
+	readonly IEEE754_SIGN_MASK=9223372036854775808
+fi
 
 # Internal: Extract sign bit from 64-bit pattern
 _ieee754::get_sign() {
