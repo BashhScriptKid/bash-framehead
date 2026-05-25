@@ -20,30 +20,30 @@
 
 # Mask a value to unsigned 32-bit range
 _random::mask32() {
-    echo $(( $1 & 0xFFFFFFFF ))
+		echo $(( $1 & 0xFFFFFFFF ))
 }
 
 # Rotate left (32-bit)
 _random::rotl32() {
-    local x="$1" n="$2"
-    echo $(( ((x << n) | (x >> (32 - n))) & 0xFFFFFFFF ))
+		local x="$1" n="$2"
+		echo $(( ((x << n) | (x >> (32 - n))) & 0xFFFFFFFF ))
 }
 
 # Rotate left (64-bit, best-effort under signed 64-bit bash arithmetic)
 _random::rotl64() {
-    local x="$1" n="$2"
-    echo $(( (x << n) | (x >> (64 - n)) ))
+		local x="$1" n="$2"
+		echo $(( (x << n) | (x >> (64 - n)) ))
 }
 
 # Seed from /dev/urandom — returns a 32-bit unsigned integer
 random::seed32() {
-    od -An -N4 -tu4 /dev/urandom 2>/dev/null | tr -d ' \n' || echo "$RANDOM"
+		od -An -N4 -tu4 /dev/urandom 2>/dev/null | tr -d ' \n' || echo "$RANDOM"
 }
 
 # Seed from /dev/urandom — returns a 64-bit value (may be negative in bash)
 random::seed64() {
-    od -An -N8 -tu8 /dev/urandom 2>/dev/null | tr -d ' \n' \
-        || echo "$(( RANDOM * 32768 + RANDOM ))"
+		od -An -N8 -tu8 /dev/urandom 2>/dev/null | tr -d ' \n' \
+				|| echo "$(( RANDOM * 32768 + RANDOM ))"
 }
 
 # ==============================================================================
@@ -53,14 +53,14 @@ random::seed64() {
 # ==============================================================================
 
 random::native() {
-    echo "$RANDOM"
+		echo "$RANDOM"
 }
 
 # Returns a value in [min, max] inclusive
 # Usage: random::native::range min max
 random::native::range() {
-    local min="$1" max="$2"
-    echo $(( (RANDOM % (max - min + 1)) + min ))
+		local min="$1" max="$2"
+		echo $(( (RANDOM % (max - min + 1)) + min ))
 }
 
 # ==============================================================================
@@ -73,20 +73,20 @@ random::native::range() {
 # Echo a 32-bit cryptographically secure random integer.
 # Usage: random::secure
 random::secure() {
-    if [[ -z "${SRANDOM:-}" ]]; then
-        echo "random::secure: requires Bash 5.1+ (SRANDOM not available)" >&2; return 1
-    fi
-    echo "$SRANDOM"
+		if [[ -z "${SRANDOM:-}" ]]; then
+				echo "random::secure: requires Bash 5.1+ (SRANDOM not available)" >&2; return 1
+		fi
+		echo "$SRANDOM"
 }
 
 # Secure random in [min, max] inclusive.
 # Usage: random::secure::range min max
 random::secure::range() {
-    if [[ -z "${SRANDOM:-}" ]]; then
-        echo "random::secure::range: requires Bash 5.1+" >&2; return 1
-    fi
-    local min="$1" max="$2"
-    echo $(( (SRANDOM % (max - min + 1)) + min ))
+		if [[ -z "${SRANDOM:-}" ]]; then
+				echo "random::secure::range: requires Bash 5.1+" >&2; return 1
+		fi
+		local min="$1" max="$2"
+		echo $(( (SRANDOM % (max - min + 1)) + min ))
 }
 
 # ==============================================================================
@@ -100,9 +100,9 @@ random::secure::range() {
 # Returns: next value (4-digit middle square extract)
 # WARNING: Degenerates to 0 for many seeds. Short cycles are common.
 random::middle_square() {
-    local x="$1"
-    local squared=$(( x * x ))
-    echo $(( (squared / 100) % 10000 ))
+		local x="$1"
+		local squared=$(( x * x ))
+		echo $(( (squared / 100) % 10000 ))
 }
 
 # ==============================================================================
@@ -115,12 +115,12 @@ random::middle_square() {
 # Usage: random::lcg state
 # Returns: next state (also the output value)
 random::lcg() {
-    _random::mask32 $(( $1 * 1664525 + 1013904223 ))
+		_random::mask32 $(( $1 * 1664525 + 1013904223 ))
 }
 
 # Glibc rand() parameters
 random::lcg::glibc() {
-    _random::mask32 $(( $1 * 1103515245 + 12345 ))
+		_random::mask32 $(( $1 * 1103515245 + 12345 ))
 }
 
 # ==============================================================================
@@ -132,12 +132,12 @@ random::lcg::glibc() {
 # Usage: random::xorshift32 state
 # Returns: next state (also the output value)
 random::xorshift32() {
-    local x
-    x=$(_random::mask32 "$1")
-    x=$(( x ^ (x << 13) )); x=$(_random::mask32 $x)
-    x=$(( x ^ (x >> 17) ))
-    x=$(( x ^ (x << 5)  )); x=$(_random::mask32 $x)
-    echo "$x"
+		local x
+		x=$(_random::mask32 "$1")
+		x=$(( x ^ (x << 13) )); x=$(_random::mask32 $x)
+		x=$(( x ^ (x >> 17) ))
+		x=$(( x ^ (x << 5)  )); x=$(_random::mask32 $x)
+		echo "$x"
 }
 
 # ==============================================================================
@@ -149,11 +149,11 @@ random::xorshift32() {
 # Usage: random::xorshift64 state
 # Returns: next state (also the output value)
 random::xorshift64() {
-    local x="$1"
-    x=$(( x ^ (x << 13) ))
-    x=$(( x ^ (x >> 7)  ))
-    x=$(( x ^ (x << 17) ))
-    echo "$x"
+		local x="$1"
+		x=$(( x ^ (x << 13) ))
+		x=$(( x ^ (x >> 7)  ))
+		x=$(( x ^ (x << 17) ))
+		echo "$x"
 }
 
 # ==============================================================================
@@ -168,14 +168,14 @@ random::xorshift64() {
 # Caller must unpack and pass s0_new/s1_new on the next call:
 #   read -r val s0 s1 <<< "$(random::xorshiftr128plus $s0 $s1)"
 random::xorshiftr128plus() {
-    local s0="$1" s1="$2"
+		local s0="$1" s1="$2"
 
-    local result=$(( s0 + s1 ))
-    s1=$(( s1 ^ s0 ))
-    s0=$(( $(_random::rotl64 $s0 23) ^ s1 ^ (s1 << 17) ))
-    s1=$(_random::rotl64 $s1 26)
+		local result=$(( s0 + s1 ))
+		s1=$(( s1 ^ s0 ))
+		s0=$(( $(_random::rotl64 $s0 23) ^ s1 ^ (s1 << 17) ))
+		s1=$(_random::rotl64 $s1 26)
 
-    echo "$result $s0 $s1"
+		echo "$result $s0 $s1"
 }
 
 # ==============================================================================
@@ -188,39 +188,39 @@ random::xorshiftr128plus() {
 # Returns: "result s0_new s1_new s2_new s3_new"
 #   read -r val s0 s1 s2 s3 <<< "$(random::xoshiro256ss $s0 $s1 $s2 $s3)"
 random::xoshiro256ss() {
-    local s0="$1" s1="$2" s2="$3" s3="$4"
+		local s0="$1" s1="$2" s2="$3" s3="$4"
 
-    local result
-    result=$(_random::rotl64 $(( s1 * 5 )) 7)
-    result=$(( result * 9 ))
-    local t=$(( s1 << 17 ))
+		local result
+		result=$(_random::rotl64 $(( s1 * 5 )) 7)
+		result=$(( result * 9 ))
+		local t=$(( s1 << 17 ))
 
-    s2=$(( s2 ^ s0 ))
-    s3=$(( s3 ^ s1 ))
-    s1=$(( s1 ^ s2 ))
-    s0=$(( s0 ^ s3 ))
-    s2=$(( s2 ^ t ))
-    s3=$(_random::rotl64 $s3 45)
+		s2=$(( s2 ^ s0 ))
+		s3=$(( s3 ^ s1 ))
+		s1=$(( s1 ^ s2 ))
+		s0=$(( s0 ^ s3 ))
+		s2=$(( s2 ^ t ))
+		s3=$(_random::rotl64 $s3 45)
 
-    echo "$result $s0 $s1 $s2 $s3"
+		echo "$result $s0 $s1 $s2 $s3"
 }
 
 # Xoshiro256+ — faster output, slightly weaker low bits
 # Usage: same as xoshiro256ss
 random::xoshiro256p() {
-    local s0="$1" s1="$2" s2="$3" s3="$4"
+		local s0="$1" s1="$2" s2="$3" s3="$4"
 
-    local result=$(( s0 + s3 ))
-    local t=$(( s1 << 17 ))
+		local result=$(( s0 + s3 ))
+		local t=$(( s1 << 17 ))
 
-    s2=$(( s2 ^ s0 ))
-    s3=$(( s3 ^ s1 ))
-    s1=$(( s1 ^ s2 ))
-    s0=$(( s0 ^ s3 ))
-    s2=$(( s2 ^ t ))
-    s3=$(_random::rotl64 $s3 45)
+		s2=$(( s2 ^ s0 ))
+		s3=$(( s3 ^ s1 ))
+		s1=$(( s1 ^ s2 ))
+		s0=$(( s0 ^ s3 ))
+		s2=$(( s2 ^ t ))
+		s3=$(_random::rotl64 $s3 45)
 
-    echo "$result $s0 $s1 $s2 $s3"
+		echo "$result $s0 $s1 $s2 $s3"
 }
 
 # ==============================================================================
@@ -234,34 +234,34 @@ random::xoshiro256p() {
 # Returns: "result new_state"
 #   read -r val state <<< "$(random::pcg32 $state $inc)"
 random::pcg32() {
-    local state="$1" inc="$2"
+		local state="$1" inc="$2"
 
-    local oldstate="$state"
-    state=$(( oldstate * 6364136223846793005 + (inc | 1) ))
+		local oldstate="$state"
+		state=$(( oldstate * 6364136223846793005 + (inc | 1) ))
 
-    local xorshifted=$(( ((oldstate >> 18) ^ oldstate) >> 27 ))
-    local rot=$(( oldstate >> 59 ))
-    local result
-    result=$(_random::mask32 $(( (xorshifted >> rot) | (xorshifted << ((-rot) & 31)) )))
+		local xorshifted=$(( ((oldstate >> 18) ^ oldstate) >> 27 ))
+		local rot=$(( oldstate >> 59 ))
+		local result
+		result=$(_random::mask32 $(( (xorshifted >> rot) | (xorshifted << ((-rot) & 31)) )))
 
-    echo "$result $state"
+		echo "$result $state"
 }
 
 # PCG32 fast — hardcoded increment, same quality
 # Usage: random::pcg32::fast state
 # Returns: "result new_state"
 random::pcg32::fast() {
-    local state="$1"
+		local state="$1"
 
-    local oldstate="$state"
-    state=$(( oldstate * 6364136223846793005 + 1442695040888963407 ))
+		local oldstate="$state"
+		state=$(( oldstate * 6364136223846793005 + 1442695040888963407 ))
 
-    local xorshifted=$(( ((oldstate >> 18) ^ oldstate) >> 27 ))
-    local rot=$(( oldstate >> 59 ))
-    local result
-    result=$(_random::mask32 $(( (xorshifted >> rot) | (xorshifted << ((-rot) & 31)) )))
+		local xorshifted=$(( ((oldstate >> 18) ^ oldstate) >> 27 ))
+		local rot=$(( oldstate >> 59 ))
+		local result
+		result=$(_random::mask32 $(( (xorshifted >> rot) | (xorshifted << ((-rot) & 31)) )))
 
-    echo "$result $state"
+		echo "$result $state"
 }
 
 # ==============================================================================
@@ -275,25 +275,25 @@ random::pcg32::fast() {
 # Returns: "result new_state"
 #   read -r val state <<< "$(random::splitmix64 $state)"
 random::splitmix64() {
-    local state=$(( $1 + 0x9e3779b97f4a7c15 ))
-    local z="$state"
-    z=$(( (z ^ (z >> 30)) * 0xbf58476d1ce4e5b9 ))
-    z=$(( (z ^ (z >> 27)) * 0x94d049bb133111eb ))
-    z=$(( z ^ (z >> 31) ))
-    echo "$z $state"
+		local state=$(( $1 + 0x9e3779b97f4a7c15 ))
+		local z="$state"
+		z=$(( (z ^ (z >> 30)) * 0xbf58476d1ce4e5b9 ))
+		z=$(( (z ^ (z >> 27)) * 0x94d049bb133111eb ))
+		z=$(( z ^ (z >> 31) ))
+		echo "$z $state"
 }
 
 # Expand a single 64-bit seed into four words for xoshiro256 initialisation
 # Usage: random::splitmix64::seed_xoshiro seed
 # Returns: "s0 s1 s2 s3"
 random::splitmix64::seed_xoshiro() {
-    local seed="$1" val state s0 s1 s2 s3
-    state="$seed"
-    read -r val state <<< "$(random::splitmix64 $state)"; s0="$val"
-    read -r val state <<< "$(random::splitmix64 $state)"; s1="$val"
-    read -r val state <<< "$(random::splitmix64 $state)"; s2="$val"
-    read -r val state <<< "$(random::splitmix64 $state)"; s3="$val"
-    echo "$s0 $s1 $s2 $s3"
+		local seed="$1" val state s0 s1 s2 s3
+		state="$seed"
+		read -r val state <<< "$(random::splitmix64 $state)"; s0="$val"
+		read -r val state <<< "$(random::splitmix64 $state)"; s1="$val"
+		read -r val state <<< "$(random::splitmix64 $state)"; s2="$val"
+		read -r val state <<< "$(random::splitmix64 $state)"; s3="$val"
+		echo "$s0 $s1 $s2 $s3"
 }
 
 # ==============================================================================
@@ -305,12 +305,12 @@ random::splitmix64::seed_xoshiro() {
 # Usage: random::mulberry32 state
 # Returns: "result new_state"
 random::mulberry32() {
-    local state
-    state=$(_random::mask32 $(( $1 + 0x6D2B79F5 )))
-    local z="$state"
-    z=$(_random::mask32 $(( (z ^ (z >> 15)) * (1 | (z << 1)) )))
-    z=$(_random::mask32 $(( z ^ (z >> 7) ^ ( (z ^ (z >> 7)) * (61 | (z << 3)) ) )))
-    echo "$(( z ^ (z >> 14) )) $state"
+		local state
+		state=$(_random::mask32 $(( $1 + 0x6D2B79F5 )))
+		local z="$state"
+		z=$(_random::mask32 $(( (z ^ (z >> 15)) * (1 | (z << 1)) )))
+		z=$(_random::mask32 $(( z ^ (z >> 7) ^ ( (z ^ (z >> 7)) * (61 | (z << 3)) ) )))
+		echo "$(( z ^ (z >> 14) )) $state"
 }
 
 # ==============================================================================
@@ -322,13 +322,13 @@ random::mulberry32() {
 # Usage: random::wyrand state
 # Returns: "result new_state"
 random::wyrand() {
-    local state=$(( $1 + 0xa0761d6478bd642f ))
-    local a=$(( state ^ 0xe7037ed1a0b428db ))
-    # Approximate 128-bit multiply via two halves (best-effort in bash)
-    local hi=$(( (state >> 32) * (a >> 32) ))
-    local lo=$(( (state & 0xFFFFFFFF) * (a & 0xFFFFFFFF) ))
-    local result=$(( hi ^ lo ))
-    echo "$result $state"
+		local state=$(( $1 + 0xa0761d6478bd642f ))
+		local a=$(( state ^ 0xe7037ed1a0b428db ))
+		# Approximate 128-bit multiply via two halves (best-effort in bash)
+		local hi=$(( (state >> 32) * (a >> 32) ))
+		local lo=$(( (state & 0xFFFFFFFF) * (a & 0xFFFFFFFF) ))
+		local result=$(( hi ^ lo ))
+		echo "$result $state"
 }
 
 # ==============================================================================
@@ -342,14 +342,14 @@ random::wyrand() {
 # Usage: random::well512::init seed
 # Returns: "0 s0 s1 ... s15"
 random::well512::init() {
-    local seed="$1" val state
-    state="$seed"
-    local -a words=()
-    for (( i=0; i<16; i++ )); do
-        read -r val state <<< "$(random::splitmix64 $state)"
-        words+=( "$(_random::mask32 $val)" )
-    done
-    echo "0 ${words[*]}"
+		local seed="$1" val state
+		state="$seed"
+		local -a words=()
+		for (( i=0; i<16; i++ )); do
+				read -r val state <<< "$(random::splitmix64 $state)"
+				words+=( "$(_random::mask32 $val)" )
+		done
+		echo "0 ${words[*]}"
 }
 
 # Usage: random::well512 index s0 s1 ... s15
@@ -358,25 +358,25 @@ random::well512::init() {
 #   read -r val idx s0 s1 s2 s3 s4 s5 s6 s7 s8 s9 s10 s11 s12 s13 s14 s15 \
 #       <<< "$(random::well512 $idx $s0 ... $s15)"
 random::well512() {
-    local index="$1"; shift
-    local -a s=("$@")
+		local index="$1"; shift
+		local -a s=("$@")
 
-    local a="${s[$index]}"
-    local c="${s[$(( (index + 13) & 15 ))]}"
-    local b
-    b=$(_random::mask32 $(( (a ^ (a << 16)) ^ (c ^ (c << 15)) )))
-    local d="${s[$(( (index + 9) & 15 ))]}"
-    d=$(( d ^ (d >> 11) ))
-    s[$index]=$(_random::mask32 $(( b ^ d )))
-    local e="${s[$index]}"
-    local result
-    result=$(_random::mask32 $(( e ^ ((e << 5) & 0xDA442D24) )))
-    index=$(( (index + 15) & 15 ))
-    a="${s[$index]}"
-    s[$index]=$(_random::mask32 $(( a ^ b ^ d ^ (a << 2) ^ (b << 18) ^ (c << 28) )))
-    result=$(_random::mask32 $(( result ^ s[$index] )))
+		local a="${s[$index]}"
+		local c="${s[$(( (index + 13) & 15 ))]}"
+		local b
+		b=$(_random::mask32 $(( (a ^ (a << 16)) ^ (c ^ (c << 15)) )))
+		local d="${s[$(( (index + 9) & 15 ))]}"
+		d=$(( d ^ (d >> 11) ))
+		s[$index]=$(_random::mask32 $(( b ^ d )))
+		local e="${s[$index]}"
+		local result
+		result=$(_random::mask32 $(( e ^ ((e << 5) & 0xDA442D24) )))
+		index=$(( (index + 15) & 15 ))
+		a="${s[$index]}"
+		s[$index]=$(_random::mask32 $(( a ^ b ^ d ^ (a << 2) ^ (b << 18) ^ (c << 28) )))
+		result=$(_random::mask32 $(( result ^ s[$index] )))
 
-    echo "$result $index ${s[*]}"
+		echo "$result $index ${s[*]}"
 }
 
 # ==============================================================================
@@ -392,36 +392,36 @@ random::well512() {
 # Usage: random::isaac::init seed
 # Returns: "a b c s0 s1 s2 s3 s4 s5 s6 s7"
 random::isaac::init() {
-    local seed="$1" val state
-    state="$seed"
-    local -a words=()
-    for (( i=0; i<8; i++ )); do
-        read -r val state <<< "$(random::splitmix64 $state)"
-        words+=( "$(_random::mask32 $val)" )
-    done
-    echo "0 0 0 ${words[*]}"
+		local seed="$1" val state
+		state="$seed"
+		local -a words=()
+		for (( i=0; i<8; i++ )); do
+				read -r val state <<< "$(random::splitmix64 $state)"
+				words+=( "$(_random::mask32 $val)" )
+		done
+		echo "0 0 0 ${words[*]}"
 }
 
 # Usage: random::isaac a b c s0..s7
 # Returns: "result new_a new_b new_c s0..s7"
 random::isaac() {
-    local a="$1" b="$2" c="$3"; shift 3
-    local -a s=("$@")
+		local a="$1" b="$2" c="$3"; shift 3
+		local -a s=("$@")
 
-    c=$(( c + 1 ))
-    b=$(( b + c ))
-    a=$(( (a ^ (a << 13)) & 0xFFFFFFFF ))
-    local x="${s[0]}"
-    a=$(( (a + s[4]) & 0xFFFFFFFF ))
-    local y=$(( (x + a + b) & 0xFFFFFFFF ))
-    s[0]=$(( (y ^ (y >> 13)) & 0xFFFFFFFF ))
-    b=$(( (s[0] + x) & 0xFFFFFFFF ))
-    local result="$b"
+		c=$(( c + 1 ))
+		b=$(( b + c ))
+		a=$(( (a ^ (a << 13)) & 0xFFFFFFFF ))
+		local x="${s[0]}"
+		a=$(( (a + s[4]) & 0xFFFFFFFF ))
+		local y=$(( (x + a + b) & 0xFFFFFFFF ))
+		s[0]=$(( (y ^ (y >> 13)) & 0xFFFFFFFF ))
+		b=$(( (s[0] + x) & 0xFFFFFFFF ))
+		local result="$b"
 
-    # Rotate state
-    local tmp="${s[0]}"
-    for (( i=0; i<7; i++ )); do s[$i]="${s[$((i+1))]}"; done
-    s[7]="$tmp"
+		# Rotate state
+		local tmp="${s[0]}"
+		for (( i=0; i<7; i++ )); do s[$i]="${s[$((i+1))]}"; done
+		s[7]="$tmp"
 
-    echo "$result $a $b $c ${s[*]}"
+		echo "$result $a $b $c ${s[*]}"
 }

@@ -21,24 +21,24 @@
 #   value  — integer to pack
 #   endian — "le" (little-endian, LSB first) or "be" (big-endian, MSB first)
 _binary::pack() {
-    local width=$1 value=$2 endian=$3
-    local octets=() i
+		local width=$1 value=$2 endian=$3
+		local octets=() i
 
-    for ((i = 0; i < width; i++)); do
-        octets+=($(( (value >> (8 * i)) & 0xFF )))
-    done
+		for ((i = 0; i < width; i++)); do
+				octets+=($(( (value >> (8 * i)) & 0xFF )))
+		done
 
-    if [[ $endian == be ]]; then
-        local tmp=() idx
-        for ((idx = width - 1; idx >= 0; idx--)); do
-            tmp+=("${octets[idx]}")
-        done
-        octets=("${tmp[@]}")
-    fi
+		if [[ $endian == be ]]; then
+				local tmp=() idx
+				for ((idx = width - 1; idx >= 0; idx--)); do
+						tmp+=("${octets[idx]}")
+				done
+				octets=("${tmp[@]}")
+		fi
 
-    local fmt
-    printf -v fmt '\\x%02x' "${octets[@]}"
-    printf '%b' "$fmt"
+		local fmt
+		printf -v fmt '\\x%02x' "${octets[@]}"
+		printf '%b' "$fmt"
 }
 
 # ==============================================================================
@@ -80,46 +80,46 @@ binary::u64be() { _binary::pack 8 "$1" be; }
 # Internal: emit unsigned integer as minimal-width little-endian bytes.
 # Usage: _binary::from_uint <value>
 _binary::from_uint() {
-    local val=$1
-    if (( val == 0 )); then
-        printf '\x00'
-        return
-    fi
-    local octets=()
-    while (( val > 0 )); do
-        octets+=($(( val & 0xFF )))
-        (( val >>= 8 ))
-    done
-    local fmt
-    printf -v fmt '\\x%02x' "${octets[@]}"
-    printf '%b' "$fmt"
+		local val=$1
+		if (( val == 0 )); then
+				printf '\x00'
+				return
+		fi
+		local octets=()
+		while (( val > 0 )); do
+				octets+=($(( val & 0xFF )))
+				(( val >>= 8 ))
+		done
+		local fmt
+		printf -v fmt '\\x%02x' "${octets[@]}"
+		printf '%b' "$fmt"
 }
 
 # Emit raw bytes from a hex string (each pair of hex chars = 1 byte).
 # Odd-length input is zero-padded on the left.
 # Usage: binary::from_hex <hex>
 binary::from_hex() {
-    local hex=$1
-    (( ${#hex} % 2 != 0 )) && hex="0$hex"
-    local i
-    for ((i = 0; i < ${#hex}; i += 2)); do
-        printf -v _fh_byte '\\x%s' "${hex:i:2}"
-        printf '%b' "$_fh_byte"
-    done
-    unset _fh_byte
+		local hex=$1
+		(( ${#hex} % 2 != 0 )) && hex="0$hex"
+		local i
+		for ((i = 0; i < ${#hex}; i += 2)); do
+				printf -v _fh_byte '\\x%s' "${hex:i:2}"
+				printf '%b' "$_fh_byte"
+		done
+		unset _fh_byte
 }
 
 # Emit raw bytes from an octal number string (minimal-width unsigned LE).
 # Usage: binary::from_oct <octal>
 binary::from_oct() {
-    local val=$((8#$1))
-    _binary::from_uint "$val"
+		local val=$((8#$1))
+		_binary::from_uint "$val"
 }
 
 # Emit raw bytes from an unsigned decimal integer (minimal-width LE).
 # Usage: binary::from_uint <n>
 binary::from_uint() {
-    _binary::from_uint "$1"
+		_binary::from_uint "$1"
 }
 
 # Emit raw bytes from a signed decimal integer (minimal-width two's complement LE).
@@ -130,47 +130,47 @@ binary::from_uint() {
 #   127  → 7f
 #   128  → 8000
 binary::from_int() {
-    local val=$1
-    if (( val == 0 )); then
-        printf '\x00'
-        return
-    fi
+		local val=$1
+		if (( val == 0 )); then
+				printf '\x00'
+				return
+		fi
 
-    local octets=() neg=0
-    if (( val < 0 )); then
-        neg=1
-        (( val = -val ))
-    fi
+		local octets=() neg=0
+		if (( val < 0 )); then
+				neg=1
+				(( val = -val ))
+		fi
 
-    # Encode absolute value as minimal unsigned bytes
-    while (( val > 0 )); do
-        octets+=($(( val & 0xFF )))
-        (( val >>= 8 ))
-    done
+		# Encode absolute value as minimal unsigned bytes
+		while (( val > 0 )); do
+				octets+=($(( val & 0xFF )))
+				(( val >>= 8 ))
+		done
 
-    if (( neg )); then
-        # Two's complement: flip bits and add 1
-        local carry=1 i
-        for ((i = 0; i < ${#octets[@]}; i++)); do
-            (( octets[i] = (~octets[i] & 0xFF) + carry ))
-            (( carry = octets[i] >> 8 ? 1 : 0 ))
-            (( octets[i] &= 0xFF ))
-        done
-        if (( carry )); then
-            octets+=(1)
-        fi
-        # Ensure sign bit is set in the high byte
-        if (( (octets[-1] & 0x80) == 0 )); then
-            octets+=(0xFF)
-        fi
-    else
-        # Positive: ensure sign bit is clear in the high byte
-        if (( (octets[-1] & 0x80) != 0 )); then
-            octets+=(0)
-        fi
-    fi
+		if (( neg )); then
+				# Two's complement: flip bits and add 1
+				local carry=1 i
+				for ((i = 0; i < ${#octets[@]}; i++)); do
+						(( octets[i] = (~octets[i] & 0xFF) + carry ))
+						(( carry = octets[i] >> 8 ? 1 : 0 ))
+						(( octets[i] &= 0xFF ))
+				done
+				if (( carry )); then
+						octets+=(1)
+				fi
+				# Ensure sign bit is set in the high byte
+				if (( (octets[-1] & 0x80) == 0 )); then
+						octets+=(0xFF)
+				fi
+		else
+				# Positive: ensure sign bit is clear in the high byte
+				if (( (octets[-1] & 0x80) != 0 )); then
+						octets+=(0)
+				fi
+		fi
 
-    local fmt
-    printf -v fmt '\\x%02x' "${octets[@]}"
-    printf '%b' "$fmt"
+		local fmt
+		printf -v fmt '\\x%02x' "${octets[@]}"
+		printf '%b' "$fmt"
 }

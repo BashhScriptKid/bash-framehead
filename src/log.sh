@@ -59,17 +59,17 @@ readonly _LOG_COLOUR_RESET='\033[0m'
 
 # Initialise config vars if not already set by the caller
 log::init() {
-    LOG_FMT="${LOG_FMT:-%datetime% [%severity%] %message%}"
-    LOG_FILE="${LOG_FILE:-}"
-    LOG_TO_STDOUT="${LOG_TO_STDOUT:-2#0011}"
-    if [[ -z "${LOG_COLOUR+x}" ]]; then
-        # Auto-detect: enable if terminal supports colour
-        if [[ -t 1 && "${TERM:-}" != "dumb" && ( -n "${COLORTERM:-}" || "${TERM:-}" == *color* || "${TERM:-}" == *256* ) ]]; then
-            LOG_COLOUR=1
-        else
-            LOG_COLOUR=0
-        fi
-    fi
+		LOG_FMT="${LOG_FMT:-%datetime% [%severity%] %message%}"
+		LOG_FILE="${LOG_FILE:-}"
+		LOG_TO_STDOUT="${LOG_TO_STDOUT:-2#0011}"
+		if [[ -z "${LOG_COLOUR+x}" ]]; then
+				# Auto-detect: enable if terminal supports colour
+				if [[ -t 1 && "${TERM:-}" != "dumb" && ( -n "${COLORTERM:-}" || "${TERM:-}" == *color* || "${TERM:-}" == *256* ) ]]; then
+						LOG_COLOUR=1
+				else
+						LOG_COLOUR=0
+				fi
+		fi
 }
 
 # ==============================================================================
@@ -79,67 +79,67 @@ log::init() {
 # Strip ANSI escape codes from a string
 # Usage: _log::strip_colour string
 _log::strip_colour() {
-    # shellcheck disable=SC2001
-    sed 's/\x1b\[[0-9;]*m//g' <<< "$1"
+		# shellcheck disable=SC2001
+		sed 's/\x1b\[[0-9;]*m//g' <<< "$1"
 }
 
 # Format a log line using LOG_FMT token substitution
 # Usage: _log::format severity message caller_line caller_func
 _log::format() {
-    local severity="$1" msg="$2" caller_line="$3" caller_func="$4"
-    local fmt="${LOG_FMT}"
+		local severity="$1" msg="$2" caller_line="$3" caller_func="$4"
+		local fmt="${LOG_FMT}"
 
-    fmt="${fmt//%timestamp%/$(date +%s)}"
-    fmt="${fmt//%datetime%/$(date '+%Y-%m-%d %H:%M:%S')}"
-    fmt="${fmt//%severity%/$severity}"
-    fmt="${fmt//%severity_lower%/${severity,,}}"
-    fmt="${fmt//%message%/$msg}"
-    fmt="${fmt//%script%/$0}"
-    fmt="${fmt//%pid%/$$}"
-    fmt="${fmt//%line%/$caller_line}"
-    fmt="${fmt//%func%/$caller_func}"
+		fmt="${fmt//%timestamp%/$(date +%s)}"
+		fmt="${fmt//%datetime%/$(date '+%Y-%m-%d %H:%M:%S')}"
+		fmt="${fmt//%severity%/$severity}"
+		fmt="${fmt//%severity_lower%/${severity,,}}"
+		fmt="${fmt//%message%/$msg}"
+		fmt="${fmt//%script%/$0}"
+		fmt="${fmt//%pid%/$$}"
+		fmt="${fmt//%line%/$caller_line}"
+		fmt="${fmt//%func%/$caller_func}"
 
-    echo "$fmt"
+		echo "$fmt"
 }
 
 # Apply ANSI colour to a line based on severity
 # Usage: _log::colourise severity line
 _log::colourise() {
-    local severity="$1" line="$2"
-    (( LOG_COLOUR )) || { echo "$line"; return; }
-    local colour
-    case "$severity" in
-        DEBUG) colour="$_LOG_COLOUR_CYAN"   ;;
-        INFO)  colour="$_LOG_COLOUR_GREEN"  ;;
-        WARN)  colour="$_LOG_COLOUR_YELLOW" ;;
-        ERROR) colour="$_LOG_COLOUR_RED"    ;;
-        *)     echo "$line"; return         ;;
-    esac
-    printf '%b%s%b\n' "$colour" "$line" "$_LOG_COLOUR_RESET"
+		local severity="$1" line="$2"
+		(( LOG_COLOUR )) || { echo "$line"; return; }
+		local colour
+		case "$severity" in
+				DEBUG) colour="$_LOG_COLOUR_CYAN"   ;;
+				INFO)  colour="$_LOG_COLOUR_GREEN"  ;;
+				WARN)  colour="$_LOG_COLOUR_YELLOW" ;;
+				ERROR) colour="$_LOG_COLOUR_RED"    ;;
+				*)     echo "$line"; return         ;;
+		esac
+		printf '%b%s%b\n' "$colour" "$line" "$_LOG_COLOUR_RESET"
 }
 
 # Core emit function — format, route, and output a log line
 # Usage: _log::emit severity level_bit message caller_line caller_func
 _log::emit() {
-    local severity="$1" bit="$2" msg="$3" caller_line="$4" caller_func="$5"
+		local severity="$1" bit="$2" msg="$3" caller_line="$4" caller_func="$5"
 
-    # Ensure defaults are set
-    [[ -z "${LOG_FMT+x}" ]] && log::init
+		# Ensure defaults are set
+		[[ -z "${LOG_FMT+x}" ]] && log::init
 
-    local line
-    line=$(_log::format "$severity" "$msg" "$caller_line" "$caller_func")
+		local line
+		line=$(_log::format "$severity" "$msg" "$caller_line" "$caller_func")
 
-    local should_stdout=$(( (LOG_TO_STDOUT >> bit) & 1 ))
+		local should_stdout=$(( (LOG_TO_STDOUT >> bit) & 1 ))
 
-    if (( should_stdout )); then
-        _log::colourise "$severity" "$line" >&1
-    else
-        _log::colourise "$severity" "$line" >&2
-    fi
+		if (( should_stdout )); then
+				_log::colourise "$severity" "$line" >&1
+		else
+				_log::colourise "$severity" "$line" >&2
+		fi
 
-    if [[ -n "$LOG_FILE" ]]; then
-        _log::strip_colour "$line" >> "$LOG_FILE"
-    fi
+		if [[ -n "$LOG_FILE" ]]; then
+				_log::strip_colour "$line" >> "$LOG_FILE"
+		fi
 }
 
 # ==============================================================================
@@ -152,7 +152,7 @@ _log::emit() {
 # Example:
 #   log::debug "processing file: $filename"
 log::debug() {
-    _log::emit "DEBUG" $LOG_DEBUG "$*" "${BASH_LINENO[0]}" "${FUNCNAME[1]}"
+		_log::emit "DEBUG" $LOG_DEBUG "$*" "${BASH_LINENO[0]}" "${FUNCNAME[1]}"
 }
 
 # Log an informational message
@@ -160,7 +160,7 @@ log::debug() {
 # Example:
 #   log::info "server started on port $port"
 log::info() {
-    _log::emit "INFO" $LOG_INFO "$*" "${BASH_LINENO[0]}" "${FUNCNAME[1]}"
+		_log::emit "INFO" $LOG_INFO "$*" "${BASH_LINENO[0]}" "${FUNCNAME[1]}"
 }
 
 # Log a warning message
@@ -169,7 +169,7 @@ log::info() {
 # Example:
 #   log::warn "config not found, using defaults"
 log::warn() {
-    _log::emit "WARN" $LOG_WARN "$*" "${BASH_LINENO[0]}" "${FUNCNAME[1]}"
+		_log::emit "WARN" $LOG_WARN "$*" "${BASH_LINENO[0]}" "${FUNCNAME[1]}"
 }
 
 # Log an error message, optionally exiting with a given code
@@ -179,12 +179,12 @@ log::warn() {
 #   log::error "failed to connect to database"
 #   log::error "permission denied" 126
 log::error() {
-    local msg="$1"
-    local exit_code="${2:-}"
-    _log::emit "ERROR" $LOG_ERROR "$msg" "${BASH_LINENO[0]}" "${FUNCNAME[1]}"
-    if [[ -n "$exit_code" && "$exit_code" =~ ^-?[0-9]+$ ]]; then
-        exit "$exit_code"
-    fi
+		local msg="$1"
+		local exit_code="${2:-}"
+		_log::emit "ERROR" $LOG_ERROR "$msg" "${BASH_LINENO[0]}" "${FUNCNAME[1]}"
+		if [[ -n "$exit_code" && "$exit_code" =~ ^-?[0-9]+$ ]]; then
+				exit "$exit_code"
+		fi
 }
 
 # Log an error and always exit, defaulting to exit code 1
@@ -194,5 +194,5 @@ log::error() {
 #   log::fatal "cannot continue without config file"
 #   log::fatal "unsupported OS" 2
 log::fatal() {
-    log::error "$1" "${2:-1}"
+		log::error "$1" "${2:-1}"
 }

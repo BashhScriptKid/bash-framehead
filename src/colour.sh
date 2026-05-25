@@ -22,26 +22,26 @@
 
 # Check if the terminal supports any colour
 colour::supports() {
-    [[ -t 1 ]] || return 1
-    local count
-    count=$(colour::depth)
-    (( count >= 8 ))
+		[[ -t 1 ]] || return 1
+		local count
+		count=$(colour::depth)
+		(( count >= 8 ))
 }
 
 # Return the number of colours the terminal supports
 colour::depth() {
-    tput colors 2>/dev/null || echo "0"
+		tput colors 2>/dev/null || echo "0"
 }
 
 # Check if terminal supports 256 colours
 colour::supports_256() {
-    (( $(colour::depth) >= 256 ))
+		(( $(colour::depth) >= 256 ))
 }
 
 # Check if terminal supports true colour (24-bit)
 # Checks $COLORTERM env var — set by most modern terminals
 colour::supports_truecolor() {
-    [[ "$COLORTERM" == "truecolor" || "$COLORTERM" == "24bit" ]]
+		[[ "$COLORTERM" == "truecolor" || "$COLORTERM" == "24bit" ]]
 }
 
 # ==============================================================================
@@ -53,89 +53,89 @@ colour::supports_truecolor() {
 # Usage: colour::index::4bit colour_name [fg|bg]
 # Returns: ANSI code number (30-37, 40-47, 90-97, 100-107)
 colour::index::4bit() {
-    local key="${1,,}" fg_bg="${2:-fg}"
+		local key="${1,,}" fg_bg="${2:-fg}"
 
-    # Handle bright prefix — "bright red" or "brightred"
-    local is_bright=0
-    if [[ "$key" == bright* ]]; then
-        is_bright=1
-        key="${key#bright}"
-        key="${key# }"  # strip optional space
-    fi
+		# Handle bright prefix — "bright red" or "brightred"
+		local is_bright=0
+		if [[ "$key" == bright* ]]; then
+				is_bright=1
+				key="${key#bright}"
+				key="${key# }"  # strip optional space
+		fi
 
-    local val
-    case "$key" in
-        black)   val=30 ;;
-        red)     val=31 ;;
-        green)   val=32 ;;
-        yellow)  val=33 ;;
-        blue)    val=34 ;;
-        magenta) val=35 ;;
-        cyan)    val=36 ;;
-        white)   val=37 ;;
-        *)       return 1 ;;
-    esac
+		local val
+		case "$key" in
+				black)   val=30 ;;
+				red)     val=31 ;;
+				green)   val=32 ;;
+				yellow)  val=33 ;;
+				blue)    val=34 ;;
+				magenta) val=35 ;;
+				cyan)    val=36 ;;
+				white)   val=37 ;;
+				*)       return 1 ;;
+		esac
 
-    (( is_bright )) && val=$(( val + 60 ))
-    [[ "$fg_bg" == "bg" ]] && val=$(( val + 10 ))
+		(( is_bright )) && val=$(( val + 60 ))
+		[[ "$fg_bg" == "bg" ]] && val=$(( val + 10 ))
 
-    echo "$val"
+		echo "$val"
 }
 
 # Get 8-bit colour index (0-255)
 # Usage: colour::index::8bit colour_name
 # Accepts: named colours, "bright name", "rgbR,G,B", "greyN"/"grayN"
 colour::index::8bit() {
-    local key="${1,,}"
+		local key="${1,,}"
 
-    # Handle bright prefix
-    local is_bright=0
-    if [[ "$key" == bright* ]]; then
-        is_bright=1
-        key="${key#bright}"
-        key="${key# }"
-    fi
+		# Handle bright prefix
+		local is_bright=0
+		if [[ "$key" == bright* ]]; then
+				is_bright=1
+				key="${key#bright}"
+				key="${key# }"
+		fi
 
-    # Named colours (0-7, or 8-15 if bright)
-    local val=-1
-    case "$key" in
-        black)   val=0 ;;
-        red)     val=1 ;;
-        green)   val=2 ;;
-        yellow)  val=3 ;;
-        blue)    val=4 ;;
-        magenta) val=5 ;;
-        cyan)    val=6 ;;
-        white)   val=7 ;;
-    esac
+		# Named colours (0-7, or 8-15 if bright)
+		local val=-1
+		case "$key" in
+				black)   val=0 ;;
+				red)     val=1 ;;
+				green)   val=2 ;;
+				yellow)  val=3 ;;
+				blue)    val=4 ;;
+				magenta) val=5 ;;
+				cyan)    val=6 ;;
+				white)   val=7 ;;
+		esac
 
-    if (( val >= 0 )); then
-        (( is_bright )) && val=$(( val + 8 ))
-        echo "$val"
-        return 0
-    fi
+		if (( val >= 0 )); then
+				(( is_bright )) && val=$(( val + 8 ))
+				echo "$val"
+				return 0
+		fi
 
-    # RGB cube (16-231): rgb0,0,0 to rgb5,5,5 or bare R,G,B
-    if [[ "$key" =~ ^(rgb)?([0-5]),([0-5]),([0-5])$ ]]; then
-        local r="${BASH_REMATCH[2]}" g="${BASH_REMATCH[3]}" b="${BASH_REMATCH[4]}"
-        (( is_bright )) && echo "colour::index::8bit: bright ignored for RGB" >&2
-        echo $(( 16 + r * 36 + g * 6 + b ))
-        return 0
-    fi
+		# RGB cube (16-231): rgb0,0,0 to rgb5,5,5 or bare R,G,B
+		if [[ "$key" =~ ^(rgb)?([0-5]),([0-5]),([0-5])$ ]]; then
+				local r="${BASH_REMATCH[2]}" g="${BASH_REMATCH[3]}" b="${BASH_REMATCH[4]}"
+				(( is_bright )) && echo "colour::index::8bit: bright ignored for RGB" >&2
+				echo $(( 16 + r * 36 + g * 6 + b ))
+				return 0
+		fi
 
-    # Greyscale (232-255): grey0-grey23 or gray0-gray23
-    if [[ "$key" =~ ^(gr[ae]y)?([0-9]+)$ ]]; then
-        local n="${BASH_REMATCH[2]}"
-        # Warn on bare numbers — ambiguous intent
-        [[ "$key" =~ ^[0-9]+$ ]] && \
-            echo "colour::index::8bit: bare number interpreted as greyscale index" >&2
-        (( n >= 0 && n <= 23 )) || { echo "colour::index::8bit: greyscale index must be 0-23" >&2; return 1; }
-        echo $(( 232 + n ))
-        return 0
-    fi
+		# Greyscale (232-255): grey0-grey23 or gray0-gray23
+		if [[ "$key" =~ ^(gr[ae]y)?([0-9]+)$ ]]; then
+				local n="${BASH_REMATCH[2]}"
+				# Warn on bare numbers — ambiguous intent
+				[[ "$key" =~ ^[0-9]+$ ]] && \
+						echo "colour::index::8bit: bare number interpreted as greyscale index" >&2
+				(( n >= 0 && n <= 23 )) || { echo "colour::index::8bit: greyscale index must be 0-23" >&2; return 1; }
+				echo $(( 232 + n ))
+				return 0
+		fi
 
-    echo "colour::index::8bit: unrecognised colour '${1}'" >&2
-    return 1
+		echo "colour::index::8bit: unrecognised colour '${1}'" >&2
+		return 1
 }
 
 # ==============================================================================
@@ -148,49 +148,49 @@ colour::index::8bit() {
 #   fg_bg  — fg or bg
 #   colour — colour name/value (see header for formats)
 colour::esc() {
-    local bit="${1:-}" fg_bg="${2:-fg}"; shift 2
-    [[ -n "$bit" ]] || return 1
+		local bit="${1:-}" fg_bg="${2:-fg}"; shift 2
+		[[ -n "$bit" ]] || return 1
 
-    case "$bit" in
-    4)
-        local index
-        index=$(colour::index::4bit "$*" "$fg_bg") || return 1
-        printf '\033[%sm' "$index"
-        ;;
-    8)
-        local index
-        index=$(colour::index::8bit "$*") || return 1
-        if [[ "$fg_bg" == "bg" ]]; then
-            printf '\033[48;5;%sm' "$index"
-        else
-            printf '\033[38;5;%sm' "$index"
-        fi
-        ;;
-    24)
-        local r g b
-        if [[ "$1" =~ ^(rgb)?([0-9]+),([0-9]+),([0-9]+)$ ]]; then
-            r="${BASH_REMATCH[2]}"
-            g="${BASH_REMATCH[3]}"
-            b="${BASH_REMATCH[4]}"
-        else
-            echo "colour::esc: 24-bit expects R,G,B format" >&2
-            return 1
-        fi
-        # Clamp to 0-255
-        (( r = r > 255 ? 255 : r ))
-        (( g = g > 255 ? 255 : g ))
-        (( b = b > 255 ? 255 : b ))
-        if [[ "$fg_bg" == "bg" ]]; then
-            printf '\033[48;2;%s;%s;%sm' "$r" "$g" "$b"
-        else
-            printf '\033[38;2;%s;%s;%sm' "$r" "$g" "$b"
-        fi
-        ;;
-    *)
-        echo "colour::esc: bit depth must be 4, 8, or 24" >&2
-        return 1
-        ;;
-    esac
+		case "$bit" in
+		4)
+				local index
+				index=$(colour::index::4bit "$*" "$fg_bg") || return 1
+				printf '\033[%sm' "$index"
+				;;
+		8)
+				local index
+				index=$(colour::index::8bit "$*") || return 1
+				if [[ "$fg_bg" == "bg" ]]; then
+						printf '\033[48;5;%sm' "$index"
+				else
+						printf '\033[38;5;%sm' "$index"
+				fi
+				;;
+		24)
+				local r g b
+				if [[ "$1" =~ ^(rgb)?([0-9]+),([0-9]+),([0-9]+)$ ]]; then
+						r="${BASH_REMATCH[2]}"
+						g="${BASH_REMATCH[3]}"
+						b="${BASH_REMATCH[4]}"
+				else
+						echo "colour::esc: 24-bit expects R,G,B format" >&2
+						return 1
+				fi
+				# Clamp to 0-255
+				(( r = r > 255 ? 255 : r ))
+				(( g = g > 255 ? 255 : g ))
+				(( b = b > 255 ? 255 : b ))
+				if [[ "$fg_bg" == "bg" ]]; then
+						printf '\033[48;2;%s;%s;%sm' "$r" "$g" "$b"
+				else
+						printf '\033[38;2;%s;%s;%sm' "$r" "$g" "$b"
+				fi
+				;;
+		*)
+				echo "colour::esc: bit depth must be 4, 8, or 24" >&2
+				return 1
+				;;
+		esac
 }
 
 # ==============================================================================
@@ -269,63 +269,63 @@ colour::bg::bright_white()   { printf '\033[107m'; }
 # Usage: colour::print bit fg_bg colour text
 #        echo "text" | colour::print bit fg_bg colour
 colour::print() {
-  local bit="$1" fg_bg="$2" col="$3" text
-  if [[ $# -ge 4 ]]; then text="$4"; else text=$(cat); fi
-  colour::esc "$bit" "$fg_bg" "$col"
-  printf '%s' "$text"
-  colour::reset
+	local bit="$1" fg_bg="$2" col="$3" text
+	if [[ $# -ge 4 ]]; then text="$4"; else text=$(cat); fi
+	colour::esc "$bit" "$fg_bg" "$col"
+	printf '%s' "$text"
+	colour::reset
 }
 
 # Print text in colour followed by newline
 colour::println() {
-  colour::print "$@"
-  printf '\n'
+	colour::print "$@"
+	printf '\n'
 }
 
 # Wrap text in escape codes and return as string (no direct print)
 # Usage: colour::wrap bit fg_bg colour text
 #        echo "text" | colour::wrap bit fg_bg colour
 colour::wrap() {
-  local bit="$1" fg_bg="$2" col="$3" text
-  if [[ $# -ge 4 ]]; then text="$4"; else text=$(cat); fi
-  printf '%s%s%s' "$(colour::esc "$bit" "$fg_bg" "$col")" "$text" "$(colour::reset)"
+	local bit="$1" fg_bg="$2" col="$3" text
+	if [[ $# -ge 4 ]]; then text="$4"; else text=$(cat); fi
+	printf '%s%s%s' "$(colour::esc "$bit" "$fg_bg" "$col")" "$text" "$(colour::reset)"
 }
 
 # Strip all ANSI escape codes from a string
 # Usage: colour::strip text
 #        echo "text" | colour::strip
 colour::strip() {
-  local input
-  if [[ $# -ge 1 ]]; then input="$1"; else input=$(cat); fi
-  printf '%s\n' "$input" | sed 's/\x1b\[[0-9;]*[mGKHF]//g'
+	local input
+	if [[ $# -ge 1 ]]; then input="$1"; else input=$(cat); fi
+	printf '%s\n' "$input" | sed 's/\x1b\[[0-9;]*[mGKHF]//g'
 }
 
 # Return the visible length of a string (excluding escape codes)
 # Useful for padding/alignment with coloured strings
 colour::visible_length() {
-  local input
-  if [[ $# -ge 1 ]]; then input="$1"; else input=$(cat); fi
-  local stripped
-  stripped=$(colour::strip "$input")
-  echo "${#stripped}"
+	local input
+	if [[ $# -ge 1 ]]; then input="$1"; else input=$(cat); fi
+	local stripped
+	stripped=$(colour::strip "$input")
+	echo "${#stripped}"
 }
 
 # Check if a string contains any ANSI escape codes
 colour::has_colour() {
-  local input
-  if [[ $# -ge 1 ]]; then input="$1"; else input=$(cat); fi
-  [[ "$input" =~ $'\033'\[ ]]
+	local input
+	if [[ $# -ge 1 ]]; then input="$1"; else input=$(cat); fi
+	[[ "$input" =~ $'\033'\[ ]]
 }
 
 # Gracefully degrade — return escape code only if terminal supports the depth
 # Usage: colour::safe_esc bit fg_bg colour
 # Returns empty string (no-op) if terminal doesn't support the requested depth
 colour::safe_esc() {
-    local bit="$1"
-    case "$bit" in
-    4)  colour::supports     || return 0 ;;
-    8)  colour::supports_256 || return 0 ;;
-    24) colour::supports_truecolor || return 0 ;;
-    esac
-    colour::esc "$@"
+		local bit="$1"
+		case "$bit" in
+		4)  colour::supports     || return 0 ;;
+		8)  colour::supports_256 || return 0 ;;
+		24) colour::supports_truecolor || return 0 ;;
+		esac
+		colour::esc "$@"
 }
