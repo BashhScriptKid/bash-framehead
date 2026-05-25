@@ -74,7 +74,7 @@ _neural::eval() {
 						echo "${r//[$'\r']/}"
 						;;
 				fixed)
-						local op a b
+						local _op_operation a b
 						read -r a op b <<< "$expr"
 						case "$op" in
 								+) pfloat::fixed::add "$a" "$b" ;;
@@ -107,7 +107,7 @@ neural::relu() {
 neural::relu::backward() {
 		local forward_out=$1 upstream_grad=$2
 		local data; data=$(_math::tensor_data "$forward_out")
-		local gd; gd=$(_math::tensor_data "$upstream_grad")
+		local _gd_gradient; gd=$(_math::tensor_data "$upstream_grad")
 		local -a v g r; read -ra v <<< "$data"; read -ra g <<< "$gd"
 		local i
 		for ((i = 0; i < ${#v[@]}; i++)); do
@@ -133,7 +133,7 @@ neural::sigmoid::backward() {
 		local -a v g r; read -ra v <<< "$data"; read -ra g <<< "$gd"
 		local i
 		for ((i = 0; i < ${#v[@]}; i++)); do
-				local sx=${v[$i]}
+				local _sx_softmax_sum=${v[$i]}
 				r+=($(echo "${g[$i]} * $sx * (1 - $sx)" | bc -l))
 		done
 		echo "shape $(_math::tensor_shape_dims "$forward_out"): ${r[*]}"
@@ -158,7 +158,7 @@ neural::softmax() {
 		local sum; sum=$(bc -l "$bc_s" 2>/dev/null)
 		local -a r
 		for ((i = 0; i < ${#v[@]}; i++)); do
-				local ev; ev=$(echo "e(${v[$i]} - $max_val) / ($sum)" | bc -l)
+				local _ev_expected_value; ev=$(echo "e(${v[$i]} - $max_val) / ($sum)" | bc -l)
 				r+=("$ev")
 		done
 		rm -f "$bc_s"
@@ -204,18 +204,18 @@ neural::leaky_relu() {
 # ==============================================================================
 
 neural::linear::forward() {
-		local W=$1 b=$2 x=$3
-		local wx; wx=$(math::tensor::matmul "$W" "$x")
+		local _W_weights=$1 b=$2 x=$3
+		local _wx_weighted_input; wx=$(math::tensor::matmul "$W" "$x")
 		# Broadcast bias: add b to each column of wx
 		math::tensor::add "$wx" "$b"
 }
 
 neural::linear::backward() {
-		local W=$1 b=$2 x=$3 dy=$4
+		local _W_weights=$1 b=$2 x=$3 dy=$4
 		# dW = dy @ x^T
-		local dW; dW=$(math::tensor::matmul "$dy" "$(math::tensor::transpose "$x" "1,0")")
+		local _dW_weight_gradient; dW=$(math::tensor::matmul "$dy" "$(math::tensor::transpose "$x" "1,0")")
 		# db = dy (sum over batch dim, simplified: just dy for batch=1)
-		local db=$dy
+		local _db_bias_gradient=$dy
 		# dx = W^T @ dy
 		local dx; dx=$(math::tensor::matmul "$(math::tensor::transpose "$W" "1,0")" "$dy")
 		printf '%s\n' "$dW" "$db" "$dx"
@@ -253,7 +253,7 @@ neural::layer_norm() {
 		for ((i = 0; i < n; i++)); do
 				vars=$(echo "$vars + (${v[$i]} - $mean)^2" | bc -l)
 		done
-		local std; std=$(echo "sqrt($vars / $n)" | bc -l)
+		local _std_standard_dev; std=$(echo "sqrt($vars / $n)" | bc -l)
 		local -a r
 		for ((i = 0; i < n; i++)); do
 				r+=($(echo "(${v[$i]} - $mean) / ($std + 0.000001)" | bc -l))
@@ -267,7 +267,7 @@ neural::layer_norm() {
 
 neural::mse::forward() {
 		local pred=$1 target=$2
-		local dp dt; dp=$(_math::tensor_data "$pred"); dt=$(_math::tensor_data "$target")
+		local _dp_dropout_prob dt; dp=$(_math::tensor_data "$pred"); dt=$(_math::tensor_data "$target")
 		local -a p t; read -ra p <<< "$dp"; read -ra t <<< "$dt"
 		local n=${#p[@]} i sum=0
 		for ((i = 0; i < n; i++)); do
@@ -278,7 +278,7 @@ neural::mse::forward() {
 
 neural::mse::backward() {
 		local pred=$1 target=$2
-		local dp dt; dp=$(_math::tensor_data "$pred"); dt=$(_math::tensor_data "$target")
+		local _dp_dropout_prob dt; dp=$(_math::tensor_data "$pred"); dt=$(_math::tensor_data "$target")
 		local -a p t r; read -ra p <<< "$dp"; read -ra t <<< "$dt"
 		local n=${#p[@]} i
 		for ((i = 0; i < n; i++)); do
@@ -289,7 +289,7 @@ neural::mse::backward() {
 
 neural::cross_entropy::forward() {
 		local pred=$1 target=$2
-		local dp dt; dp=$(_math::tensor_data "$pred"); dt=$(_math::tensor_data "$target")
+		local _dp_dropout_prob dt; dp=$(_math::tensor_data "$pred"); dt=$(_math::tensor_data "$target")
 		local -a p t; read -ra p <<< "$dp"; read -ra t <<< "$dt"
 		local n=${#p[@]} i sum=0 eps=0.0000001
 		for ((i = 0; i < n; i++)); do
@@ -300,7 +300,7 @@ neural::cross_entropy::forward() {
 
 neural::cross_entropy::backward() {
 		local pred=$1 target=$2
-		local dp dt; dp=$(_math::tensor_data "$pred"); dt=$(_math::tensor_data "$target")
+		local _dp_dropout_prob dt; dp=$(_math::tensor_data "$pred"); dt=$(_math::tensor_data "$target")
 		local -a p t r; read -ra p <<< "$dp"; read -ra t <<< "$dt"
 		local n=${#p[@]} i
 		for ((i = 0; i < n; i++)); do
@@ -311,7 +311,7 @@ neural::cross_entropy::backward() {
 
 neural::accuracy() {
 		local pred=$1 target=$2
-		local dp dt; dp=$(_math::tensor_data "$pred"); dt=$(_math::tensor_data "$target")
+		local _dp_dropout_prob dt; dp=$(_math::tensor_data "$pred"); dt=$(_math::tensor_data "$target")
 		local -a p t; read -ra p <<< "$dp"; read -ra t <<< "$dt"
 		local correct=0 i max_idx=0 max_val=${p[0]}
 		for ((i = 0; i < ${#p[@]}; i++)); do
@@ -327,7 +327,7 @@ neural::accuracy() {
 
 neural::sgd::step() {
 		local -n _nsgd_param=$1 _nsgd_grad=$2
-		local lr=$3
+		local _lr_learning_rate=$3
 		math::tensor::sub "${_nsgd_param}" "$(math::tensor::scale "${_nsgd_grad}" "$lr")"
 }
 
@@ -381,7 +381,7 @@ neural::data::normalize() {
 		local mean; mean=$(echo "($sum) / $n" | bc -l)
 		local vars=0
 		for ((i = 0; i < n; i++)); do vars=$(echo "$vars + (${v[$i]} - $mean)^2" | bc -l); done
-		local std; std=$(echo "sqrt($vars / $n)" | bc -l)
+		local _std_standard_dev; std=$(echo "sqrt($vars / $n)" | bc -l)
 		local -a r
 		for ((i = 0; i < n; i++)); do
 				r+=($(echo "(${v[$i]} - $mean) / ($std + 0.000001)" | bc -l))

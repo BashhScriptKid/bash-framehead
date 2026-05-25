@@ -125,6 +125,22 @@ exceptions:
 | PRNG state registers | `s0`, `s1`, `s2` | Domain convention (XorShift, ISAAC, etc.) |
 | Scalar helpers in math | `dx`, `dy`, `sum`, `val` | Short but unambiguous |
 | Standard Unix abbrevs | `_fd` (file descriptor), `_pid` | Ubiquitous in the shell ecosystem |
+| **Algebraic leeway** | `_W_weights`, `_cof_cofactor`, `_lr_rate` | Short form preserved for formula readability; suffix disambiguates |
+
+When a variable name is derived from mathematical notation (matrix
+coefficients, neural-net weights, formula parameters), use the pattern
+`{letter}_{word}` — the letter keeps formulas readable, the word tells
+non-experts what it means:
+
+```bash
+# BAD
+local W dW              # weights? width? window?
+local lr                # learning rate? left-right?
+
+# GOOD
+local _W_weights _dW_weight_gradient
+local _lr_learning_rate
+```
 
 Exemptions are **stricter the more niche the context**.  Short names like `i`
 or `tmp` survive anywhere because they're universally understood.  But `_cp`

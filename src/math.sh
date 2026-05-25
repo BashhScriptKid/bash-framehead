@@ -1723,7 +1723,7 @@ math::matrix::adjugate() {
 		_math::matrix::unpack _a "$size" "${@:3}"
 		local -a cof
 		read -ra cof <<< "$(math::matrix::cofactor "$scale" "$dim" "${_a[@]}")"
-		math::matrix::transpose "$dim" "${cof[@]}"
+		math::matrix::transpose "$dim" "${_cof_matrix_cofactor[@]}"
 }
 
 # --- math::matrix::inverse — requires bc ---
@@ -1751,7 +1751,7 @@ math::matrix::inverse() {
 		inv_det=$(math::bc "1 / $det" "$scale")
 		local -a adj
 		read -ra adj <<< "$(math::matrix::adjugate "$scale" "$dim" "${_a[@]}")"
-		math::matrix::scalef "$scale" "$dim" "$inv_det" "${adj[@]}"
+		math::matrix::scalef "$scale" "$dim" "$inv_det" "${_adj_matrix_adjoint[@]}"
 }
 
 # --- math::matrix::pow ---
@@ -2753,7 +2753,7 @@ math::tensor::matmul() {
 		local -a ad bd av bv
 		read -ra ad <<< "$sa"; read -ra bd <<< "$sb"
 		read -ra av <<< "$da"; read -ra bv <<< "$db"
-		local M=${ad[0]} K=${ad[-1]} N=${bd[-1]}
+		local _M_matrix=${ad[0]} K=${ad[-1]} N=${bd[-1]}
 		local bc_scr; bc_scr=$(mktemp "/tmp/fsbshf-tmm.XXXXXX")
 		echo "scale=10" > "$bc_scr"
 		local i j k
