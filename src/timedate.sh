@@ -14,6 +14,12 @@ _timedate::has_gnu_date() {
     date --version >/dev/null 2>&1
 }
 
+# Public: check if GNU date is available
+# Usage: timedate::has_gnu_date && echo "GNU date"
+timedate::has_gnu_date() {
+    _timedate::has_gnu_date
+}
+
 # Portable date formatting
 # Usage: _timedate::format format [timestamp]
 _timedate::format() {

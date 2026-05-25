@@ -1,7 +1,6 @@
 #!/usr/bin/env bash
 # needs runtime.sh
 # i actually dont want to kms anymore i think
-# shellcheck disable=SC2034,SC2046,SC2155
 # numbers are scaled by 10^pfloat_SCALE
 # pfloat_SCALE defaults to 5 (balance between precision and overflow prevention)
 # For more precision, set pfloat_SCALE before sourcing (max recommended: 8 for 64-bit safety)
@@ -341,7 +340,7 @@ pfloat::fixed::max() {
 }
 
 pfloat::fixed::clamp() {
-  local val_s lo_s hi_s
+  local val lo hi val_s lo_s hi_s
   val_s=$(_pfloat::_to_scaled "$1")
   lo_s=$(_pfloat::_to_scaled "$2")
   hi_s=$(_pfloat::_to_scaled "$3")
@@ -594,15 +593,15 @@ pfloat::fixed::sigmoid() {
 
   if pfloat::fixed::is_negative "$x"; then
     neg_x=$(pfloat::fixed::neg "$x")
-    exp_val=$(_pfloat::fixed::exp_approx "$neg_x")
+    exp_val=$(_pfloat::_exp_approx "$neg_x")
     pfloat::fixed::div "1" $(pfloat::fixed::add "1" "$exp_val")
   else
-    exp_val=$(_pfloat::fixed::exp_approx "$x")
+    exp_val=$(_pfloat::_exp_approx "$x")
     pfloat::fixed::div "$exp_val" $(pfloat::fixed::add "1" "$exp_val")
   fi
 }
 
-_pfloat::fixed::exp_approx() {
+_pfloat::_exp_approx() {
   local x="$1"
   local result="1" term="$1" i
 
@@ -623,13 +622,13 @@ pfloat::fixed::softplus() {
     return
   fi
 
-  exp_val=$(_pfloat::fixed::exp_approx "$x")
+  exp_val=$(_pfloat::_exp_approx "$x")
   one_plus_exp=$(pfloat::fixed::add "1" "$exp_val")
 
-  _pfloat::fixed::ln_approx "$one_plus_exp"
+  _pfloat::_ln_approx "$one_plus_exp"
 }
 
-_pfloat::fixed::ln_approx() {
+_pfloat::_ln_approx() {
   local x="$1"
   local y="1" i iterations=20
 
@@ -640,7 +639,7 @@ _pfloat::fixed::ln_approx() {
 
   for ((i = 0; i < iterations; i++)); do
     local ey num den delta
-    ey=$(_pfloat::fixed::exp_approx "$y")
+    ey=$(_pfloat::_exp_approx "$y")
     num=$(pfloat::fixed::mul "2" $(pfloat::fixed::sub "$x" "$ey"))
     den=$(pfloat::fixed::add "$x" "$ey")
     delta=$(pfloat::fixed::div "$num" "$den")
@@ -773,24 +772,21 @@ _ieee754::is_subnormal() {
 }
 
 # Internal: Convert decimal string to IEEE 754 double
-# Pure Bash implementation - converts decimal to binary IEEE 754 representation
+# Uses fixed-point intermediate representation for precision
 _ieee754::from_string() {
   local str="$1"
   local sign=0
 
-  # Handle sign
   if [[ "$str" == -* ]]; then
     sign=1
     str="${str#-}"
   fi
 
-  # Handle special values
   case "$str" in
     inf|Inf|infinity|Infinity) echo $((sign << 63 | 2047 << 52)); return ;;
     nan|NaN) echo $((2047 << 52 | 1)); return ;;
   esac
 
-  # Parse integer and fractional parts
   local int_part frac_part=""
   if [[ "$str" == *.* ]]; then
     int_part="${str%%.*}"
@@ -799,209 +795,155 @@ _ieee754::from_string() {
     int_part="$str"
   fi
 
-  # Remove leading zeros from int_part
   int_part="${int_part#"${int_part%%[!0]*}"}"
   [[ -z "$int_part" ]] && int_part="0"
 
-  # Handle zero
-  if [[ "$int_part" == "0" ]] && [[ -z "$frac_part" || "$frac_part" == "0" ]]; then
+  if [[ "$int_part" == "0" ]] && [[ -z "$frac_part" || "$frac_part" =~ ^0+$ ]]; then
     echo $((sign << 63))
     return
   fi
 
-  # Convert to a single integer numerator and power-of-10 denominator
-  # value = (int_part * 10^frac_len + frac_part) / 10^frac_len
+  # Convert to numerator / denominator
   local frac_len=${#frac_part}
-  local numerator denominator
+  while [[ -n "$frac_part" && "${frac_part: -1}" == "0" ]]; do
+    frac_part="${frac_part%0}"
+    ((frac_len--))
+  done
 
+  local numerator denominator
   if ((frac_len > 0)); then
-    # Build numerator: concatenate int_part and frac_part as integers
-    numerator=$((int_part * 10**frac_len + frac_part))
-    denominator=$((10**frac_len))
+    denominator=1
+    local _i
+    for ((_i = 0; _i < frac_len; _i++)); do
+      denominator=$((denominator * 10))
+    done
+    numerator=$((int_part * denominator + frac_part))
   else
     numerator=$int_part
     denominator=1
   fi
 
-  # Now convert numerator/denominator to IEEE 754
-  # Find the binary exponent: we need 2^exp <= numerator/denominator < 2^(exp+1)
-  # This means: exp = floor(log2(numerator) - log2(denominator))
+  # Binary long division: normalize to 1 <= numerator/denominator < 2
+  local exp=0
 
-  # Find log2(numerator) by counting bits
-  local temp=$numerator
-  local num_bits=0
-  while ((temp > 0)); do
-    temp=$((temp >> 1))
-    ((num_bits++))
+  while ((numerator < denominator)); do
+    if ((numerator > (1 << 62))); then
+      numerator=$((numerator >> 1))
+      denominator=$((denominator >> 1))
+    fi
+    numerator=$((numerator << 1))
+    ((exp--))
   done
 
-  # Find log2(denominator) by counting bits
-  temp=$denominator
-  local den_bits=0
-  while ((temp > 0)); do
-    temp=$((temp >> 1))
-    ((den_bits++))
+  while ((numerator >= denominator * 2)); do
+    denominator=$((denominator << 1))
+    ((exp++))
   done
 
-  # Approximate exponent: exp ≈ num_bits - den_bits
-  # But we need to be more precise. Let's compute it exactly:
-  # We want the largest exp such that: 2^exp <= numerator/denominator
-  # i.e., 2^exp * denominator <= numerator
+  # Remove implicit leading 1
+  numerator=$((numerator - denominator))
 
-  local exp=$((num_bits - den_bits))
+  # Extract 52 mantissa bits
+  local mant=0 i
+  for ((i = 51; i >= 0; i--)); do
+    numerator=$((numerator << 1))
+    if ((numerator >= denominator)); then
+      mant=$((mant | (1 << i)))
+      numerator=$((numerator - denominator))
+    fi
+  done
 
-  # Adjust exponent if needed
-  local power_of_2
-  if ((exp >= 0)); then
-    power_of_2=$((1 << exp))
-    while ((power_of_2 * denominator > numerator)); do
-      ((exp--))
-      power_of_2=$((power_of_2 / 2))
-    done
-    while ((power_of_2 * 2 * denominator <= numerator)); do
+  # Round to nearest, ties to even
+  if ((numerator * 2 > denominator || (numerator * 2 == denominator && (mant & 1)))); then
+    mant=$((mant + 1))
+    if ((mant >= (1 << 52))); then
+      mant=0
       ((exp++))
-      power_of_2=$((power_of_2 * 2))
-    done
-  else
-    # exp is negative
-    power_of_2=1
-    local abs_exp=$((-exp))
-    local i
-    for ((i=0; i<abs_exp; i++)); do
-      power_of_2=$((power_of_2 * 2))
-    done
-    # Check: numerator/denominator >= 2^exp means numerator * 2^(-exp) >= denominator
-    while ((numerator * power_of_2 < denominator)); do
-      ((exp--))
-      power_of_2=$((power_of_2 * 2))
-    done
-    while ((numerator * power_of_2 * 2 >= denominator)); do
-      ((exp++))
-      power_of_2=$((power_of_2 / 2))
-    done
+    fi
   fi
 
-  # Now calculate mantissa: mantissa = (numerator/denominator) / 2^exp * 2^52
-  # = numerator * 2^52 / (denominator * 2^exp)
-  # Use bc for precision
-  local mantissa
-  if ((exp >= 0)); then
-    mantissa=$(echo "($numerator * 4503599627370496) / ($denominator * 2^$exp)" | bc)
-  else
-    mantissa=$(echo "($numerator * 4503599627370496 * 2^$((-exp))) / $denominator" | bc)
-  fi
-
-  # Normalize mantissa to ensure bit 52 is set (for normalized numbers)
-  if ((mantissa > 0)); then
-    while ((mantissa < 4503599627370496 && mantissa > 0)); do
-      mantissa=$((mantissa << 1))
-      ((exp--))
-    done
-    while ((mantissa >= 9007199254740992)); do
-      mantissa=$((mantissa >> 1))
-      ((exp++))
-    done
-  fi
-
-  # Calculate IEEE 754 exponent (with bias)
   local ieee_exp=$((exp + 1023))
-
-  # Check for overflow/underflow
-  if ((ieee_exp >= 2047)); then
-    echo $((sign << 63 | 2047 << 52))  # Infinity
-    return
-  fi
   if ((ieee_exp <= 0)); then
-    # Subnormal or zero
     echo $((sign << 63))
     return
   fi
+  if ((ieee_exp >= 2047)); then
+    echo $((sign << 63 | 2047 << 52))
+    return
+  fi
 
-  # Remove implicit leading 1 (bit 52) and mask to 52 bits
-  mantissa=$((mantissa & 4503599627370495))
-
-  # Pack and return
-  echo $(( (sign << 63) | (ieee_exp << 52) | mantissa ))
+  echo $(( (sign << 63) | (ieee_exp << 52) | mant ))
 }
 
 # Internal: Convert IEEE 754 double to decimal string
 _ieee754::to_string() {
   local bits="$1"
 
-  # Check for special values
-  if _ieee754::is_nan "$bits"; then
-    echo "NaN"
-    return
-  fi
+  if _ieee754::is_nan "$bits"; then echo "NaN"; return; fi
 
   if _ieee754::is_inf "$bits"; then
-    if [[ $( _ieee754::get_sign "$bits" ) -eq 1 ]]; then
-      echo "-Inf"
-    else
-      echo "Inf"
-    fi
+    if [[ $(_ieee754::get_sign "$bits") -eq 1 ]]; then echo "-Inf"; else echo "Inf"; fi
     return
   fi
 
-  if _ieee754::is_zero "$bits"; then
-    echo "0"
-    return
-  fi
+  if _ieee754::is_zero "$bits"; then echo "0"; return; fi
 
-  # Extract components
   local sign=$(_ieee754::get_sign "$bits")
   local exp=$(_ieee754::get_exp "$bits")
   local mant=$(_ieee754::get_mant "$bits")
 
   # Add implicit leading 1 for normalized numbers
   if ((exp > 0)); then
-    mant=$((mant | 4503599627370496))  # Add 2^52
+    mant=$((mant | 4503599627370496))
   fi
 
-  # Calculate the actual value using bc for precision
-  # value = mant * 2^(exp - 1023 - 52)
-  local exponent=$((exp - 1023 - 52))
+  local actual_exp=$((exp - 1023 - 52))
 
-  # Convert to decimal string using bc
-  local value
-  if ((exponent >= 0)); then
-    value=$(echo "$mant * 2^$exponent" | bc)
+  if ((actual_exp >= 0)); then
+    local int_result=$((mant << actual_exp))
+    ((sign)) && echo "-$int_result" || echo "$int_result"
+    return
+  fi
+
+  local shift=$((-actual_exp))
+  local int_part=$((mant >> shift))
+
+  # Fractional remainder = mant - int_part * 2^shift = low bits of mant
+  local frac_rem
+  if ((shift <= 60)); then
+    frac_rem=$((mant & ((1 << shift) - 1)))
   else
-    # For negative exponents, we need decimal places
-    # Multiply by 10^15 first, then divide by 2^|exponent|
-    local scale=1000000000000000
-    value=$(echo "($mant * $scale) / 2^$((-exponent))" | bc)
+    # For large shift: int_part is 0, whole mant is fractional
+    frac_rem=$mant
   fi
 
-  # Format output
-  local int_part frac_part
+  # Convert binary fraction to decimal: digits of frac_rem / 2^shift
+  local frac_digits=""
+  local max_digits=15 i digit
 
-  if ((exponent >= 0)); then
-    # Integer result
-    echo "$value"
-  else
-    # Decimal result
-    int_part=$((value / 1000000000000000))
-    frac_part=$((value % 1000000000000000))
-
-    # Remove trailing zeros from fraction
-    while ((frac_part % 10 == 0 && frac_part > 0)); do
-      frac_part=$((frac_part / 10))
-    done
-
-    # Build result string
-    local result="$int_part"
-    if ((frac_part > 0)); then
-      result="${result}.${frac_part}"
+  for ((i = 0; i < max_digits; i++)); do
+    if ((shift <= 60)); then
+      local denom=$((1 << shift))
+      frac_rem=$((frac_rem * 10))
+      digit=$((frac_rem / denom))
+      frac_rem=$((frac_rem - digit * denom))
+    else
+      digit=0
+      frac_rem=$((frac_rem * 10))
     fi
+    frac_digits+="$digit"
+    ((frac_rem == 0)) && break
+  done
 
-    # Add sign if negative
-    if ((sign)); then
-      result="-${result}"
-    fi
+  # Remove trailing zeros from fraction
+  while [[ "$frac_digits" != "" && "${frac_digits: -1}" == "0" ]]; do
+    frac_digits="${frac_digits%0}"
+  done
 
-    echo "$result"
-  fi
+  local result="$int_part"
+  [[ -n "$frac_digits" ]] && result="${result}.${frac_digits}"
+  ((sign)) && result="-${result}"
+  echo "$result"
 }
 
 # IEEE 754: Addition
@@ -1074,8 +1016,8 @@ pfloat::ieee754::add() {
     echo $((result_sign << 63 | 2047 << 52))  # Infinity
     return
   fi
-
-  # Handle zero result (before masking)
+  
+  # Handle zero result (before removing implicit 1)
   if ((result_mant == 0)); then
     echo 0
     return
@@ -1083,7 +1025,7 @@ pfloat::ieee754::add() {
 
   # Remove implicit leading 1 and pack
   result_mant=$((result_mant & 4503599627370495))
-
+  
   _ieee754::pack "$result_sign" "$result_exp" "$result_mant"
 }
 
@@ -1096,10 +1038,9 @@ pfloat::ieee754::sub() {
 }
 
 # IEEE 754: Multiplication
-# Uses chunked multiplication (26-bit halves) to avoid 64-bit overflow
 pfloat::ieee754::mul() {
   local a="$1" b="$2"
-
+  
   # Extract components
   local sign_a=$(_ieee754::get_sign "$a")
   local sign_b=$(_ieee754::get_sign "$b")
@@ -1107,46 +1048,46 @@ pfloat::ieee754::mul() {
   local exp_b=$(_ieee754::get_exp "$b")
   local mant_a=$(_ieee754::get_mant "$a")
   local mant_b=$(_ieee754::get_mant "$b")
-
+  
   # Handle special cases
   if ((exp_a == 2047 || exp_b == 2047)); then
     echo $(( (sign_a ^ sign_b) << 63 | 2047 << 52 ))  # Inf or NaN
     return
   fi
-
+  
   # Result sign
   local result_sign=$((sign_a ^ sign_b))
-
+  
   # Result exponent (subtract bias)
   local result_exp=$((exp_a + exp_b - 1023))
-
+  
   # Add implicit leading 1
   if ((exp_a > 0)); then mant_a=$((mant_a | 4503599627370496)); fi
   if ((exp_b > 0)); then mant_b=$((mant_b | 4503599627370496)); fi
-
-  # Multiply mantissas using shift-and-add (pure Bash)
-  # Split 53-bit numbers into 26-bit chunks to avoid 64-bit overflow
+  
+  # Multiply mantissas: split 53-bit values into 26-bit chunks
+  # mant_a = a_hi*2^26 + a_lo, mant_b = b_hi*2^26 + b_lo
+  # product = a_hi*b_hi*2^52 + (a_hi*b_lo + a_lo*b_hi)*2^26 + a_lo*b_lo
+  # result = product >> 52 = a_hi*b_hi + ((a_hi*b_lo + a_lo*b_hi)*2^26 + a_lo*b_lo) >> 52
   local a_lo=$((mant_a & 0x3FFFFFF))
   local a_hi=$((mant_a >> 26))
   local b_lo=$((mant_b & 0x3FFFFFF))
   local b_hi=$((mant_b >> 26))
 
-  # Partial products
-  local p0=$((a_lo * b_lo))
-  local p1=$((a_hi * b_lo + a_lo * b_hi))
-  local p2=$((a_hi * b_hi))
+  local cross=$((a_hi * b_lo + a_lo * b_hi))
+  local cross_hi=$((cross >> 26))
+  local cross_lo=$((cross & 0x3FFFFFF))
 
-  # Combine: result = p2 + (p1 >> 26) + carry_from_lower_bits
-  local p1_lo=$((p1 & 0x3FFFFFF))
-  local carry=$(( ((p1_lo << 26) + p0) >> 52 ))
-  local result_mant=$((p2 + (p1 >> 26) + carry))
-
+  local frac=$(((cross_lo << 26) + a_lo * b_lo))
+  local carry=$((cross_hi + (frac >> 52)))
+  local result_mant=$((a_hi * b_hi + carry))
+  
   # Normalize
-  while ((result_mant >= 9007199254740992)); do
+  if ((result_mant >= 9007199254740992)); then
     result_mant=$((result_mant >> 1))
     ((result_exp++))
-  done
-
+  fi
+  
   # Check for overflow/underflow
   if ((result_exp >= 2047)); then
     echo $((result_sign << 63 | 2047 << 52))  # Infinity
@@ -1157,17 +1098,16 @@ pfloat::ieee754::mul() {
     echo $((result_sign << 63))
     return
   fi
-
+  
   # Remove implicit leading 1 and pack
   result_mant=$((result_mant & 4503599627370495))
   _ieee754::pack "$result_sign" "$result_exp" "$result_mant"
 }
 
 # IEEE 754: Division
-# Uses restoring division algorithm (pure Bash)
 pfloat::ieee754::div() {
   local a="$1" b="$2"
-
+  
   # Extract components
   local sign_a=$(_ieee754::get_sign "$a")
   local sign_b=$(_ieee754::get_sign "$b")
@@ -1175,7 +1115,7 @@ pfloat::ieee754::div() {
   local exp_b=$(_ieee754::get_exp "$b")
   local mant_a=$(_ieee754::get_mant "$a")
   local mant_b=$(_ieee754::get_mant "$b")
-
+  
   # Handle division by zero
   if _ieee754::is_zero "$b"; then
     if _ieee754::is_zero "$a"; then
@@ -1186,48 +1126,54 @@ pfloat::ieee754::div() {
     echo $(( (sign_a ^ sign_b) << 63 | 2047 << 52 ))  # Infinity
     return
   fi
-
+  
   # Handle special cases
   if ((exp_a == 2047 || exp_b == 2047)); then
     echo $(( (sign_a ^ sign_b) << 63 | 2047 << 52 ))
     return
   fi
-
+  
   # Result sign
   local result_sign=$((sign_a ^ sign_b))
-
+  
   # Result exponent (add bias)
   local result_exp=$((exp_a - exp_b + 1023))
-
+  
   # Add implicit leading 1
   if ((exp_a > 0)); then mant_a=$((mant_a | 4503599627370496)); fi
   if ((exp_b > 0)); then mant_b=$((mant_b | 4503599627370496)); fi
-
-  # Divide mantissas using bc for arbitrary precision
-  # Compute 53-bit quotient directly
-  local q
-  q=$(echo "($mant_a * 4503599627370496) / $mant_b" | bc)  # 2^52
-
-  # Normalize q to [2^52, 2^53) range
-  local shift=0
-  while ((q >= 9007199254740992)); do
-    q=$((q >> 1))
-    ((shift++))
+  
+  # Divide mantissas: compute (mant_a * 2^52) // mant_b
+  # Use 10-bit chunks to keep intermediate values under 2^63
+  local result_mant=0
+  local rem=$mant_a
+  local bits_done=0
+  local chunk
+  while ((bits_done < 52)); do
+    chunk=10
+    ((bits_done + chunk > 52)) && chunk=$((52 - bits_done))
+    rem=$((rem << chunk))
+    local q_chunk=$((rem / mant_b))
+    rem=$((rem - q_chunk * mant_b))
+    result_mant=$(((result_mant << chunk) | q_chunk))
+    bits_done=$((bits_done + chunk))
   done
-  while ((q < 4503599627370496 && q > 0)); do
-    q=$((q << 1))
-    ((shift--))
-  done
-
-  ((result_exp += shift))
-  local result_mant=$((q & 4503599627370495))
-
+  
+  # Normalize
+  if ((result_mant >= 9007199254740992)); then
+    result_mant=$((result_mant >> 1))
+    ((result_exp++))
+  elif ((result_mant < 4503599627370496 && result_exp > 1)); then
+    result_mant=$((result_mant << 1))
+    ((result_exp--))
+  fi
+  
   # Check for overflow/underflow
   if ((result_exp >= 2047)); then
     echo $((result_sign << 63 | 2047 << 52))
     return
   fi
-
+  
   # Remove implicit leading 1 and pack
   result_mant=$((result_mant & 4503599627370495))
   _ieee754::pack "$result_sign" "$result_exp" "$result_mant"
@@ -1236,7 +1182,7 @@ pfloat::ieee754::div() {
 # IEEE 754: Square root (Newton-Raphson iteration)
 pfloat::ieee754::sqrt() {
   local a="$1"
-
+  
   # Handle negative input
   if [[ $(_ieee754::get_sign "$a") -eq 1 ]]; then
     echo "NaN" >&2
@@ -1380,108 +1326,111 @@ pfloat::ieee754::to_string() {
   _ieee754::to_string "$1"
 }
 
-# IEEE 754: Dump bit layout for diagnostics
-# Usage: pfloat::ieee754::dump bits
-# Output: Value: 1.5, Int: 4609434218613702656, Sign: 0, Exp: 1023 (01111111111), Mant: 2251799813685248 (1000000000000000000000000000000000000000000000000000)
+# IEEE 754: Pretty-print bit representation
+# Usage: pfloat::ieee754::dump <bits>
 pfloat::ieee754::dump() {
   local bits="$1"
-  local sign=$(_ieee754::get_sign "$bits")
-  local exp=$(_ieee754::get_exp "$bits")
-  local mant=$(_ieee754::get_mant "$bits")
-  local value
-  value=$(pfloat::ieee754::to_string "$bits")
-
-  # Convert exponent and mantissa to binary strings
-  local exp_bin="" mant_bin=""
-  local temp=$exp i
-  for ((i=0; i<11; i++)); do
-    exp_bin="$((temp & 1))$exp_bin"
-    temp=$((temp >> 1))
-  done
-  temp=$mant
-  for ((i=0; i<52; i++)); do
-    mant_bin="$((temp & 1))$mant_bin"
-    temp=$((temp >> 1))
-  done
-
-  printf "Value: %s, Int: %s, Sign: %s, Exp: %s (%s), Mant: %s (%s)\n" \
-    "$value" "$bits" "$sign" "$exp" "$exp_bin" "$mant" "$mant_bin"
+  local sign; sign=$(_ieee754::get_sign "$bits")
+  local exp;   exp=$(_ieee754::get_exp "$bits")
+  local mant;  mant=$(_ieee754::get_mant "$bits")
+  printf 'sign=%d exp=%d mantissa=0x%013x' "$sign" "$exp" "$mant"
 }
 
-# IEEE 754: Convert from 64-bit integer (raw bit pattern)
-# Usage: pfloat::ieee754::from_int 4607182418800017408
-pfloat::ieee754::from_int() {
-  echo "$1"
-}
-
-# IEEE 754: Convert to 64-bit integer (raw bit pattern)
-# Usage: pfloat::ieee754::to_int bits
-pfloat::ieee754::to_int() {
-  echo "$1"
-}
-
-# IEEE 754: Convert from binary string
-# Usage: pfloat::ieee754::from_binary "0011111111111000..."          # flat (64 chars)
-#        pfloat::ieee754::from_binary "0" "01111111111" "1000..."   # 3 args (1+11+52)
+# IEEE 754: Build 64-bit pattern from sign, exponent, mantissa strings
+# Usage: pfloat::ieee754::from_binary <sign> <exp> <mantissa>
 pfloat::ieee754::from_binary() {
-  local raw
-  if (( $# == 1 )); then
-    raw="${1//_/}"
-    if ((${#raw} != 64)); then
-      echo "pfloat::ieee754::from_binary: expected 64-bit flat binary, got ${#raw}" >&2
-      return 1
-    fi
-  elif (( $# == 3 )); then
-    local s="${1//_/}" e="${2//_/}" m="${3//_/}"
-    if ((${#s} != 1)); then
-      echo "pfloat::ieee754::from_binary: sign must be 1 bit, got ${#s}" >&2
-      return 1
-    fi
-    if ((${#e} != 11)); then
-      echo "pfloat::ieee754::from_binary: exponent must be 11 bits, got ${#e}" >&2
-      return 1
-    fi
-    if ((${#m} != 52)); then
-      echo "pfloat::ieee754::from_binary: mantissa must be 52 bits, got ${#m}" >&2
-      return 1
-    fi
-    raw="${s}${e}${m}"
-  else
-    echo "pfloat::ieee754::from_binary: expected 1 arg (flat 64-bit) or 3 args (sign exp mant)" >&2
-    return 1
-  fi
-
-  # Convert binary string to integer
-  local result=0 i
-  for ((i=0; i<64; i++)); do
-    result=$(( (result << 1) | ${raw:$i:1} ))
-  done
-  echo "$result"
+  local sign="$1" exp="$2" mant="$3"
+  local s_val=$((2#$sign))
+  local e_val=$((2#$exp))
+  local m_val=$((2#$mant))
+  _ieee754::pack "$s_val" "$e_val" "$m_val"
 }
 
-# IEEE 754: Convert to binary string
-# Usage: pfloat::ieee754::to_binary bits [separator]
-# Default separator: space between sign, exponent, mantissa
+# IEEE 754: Decompose 64-bit pattern into sign, exponent, mantissa
+# Usage: pfloat::ieee754::to_binary <bits>
 pfloat::ieee754::to_binary() {
   local bits="$1"
-  local sep
-  if [[ $# -ge 2 ]]; then sep="$2"; else sep=" "; fi
-  local sign=$(_ieee754::get_sign "$bits")
-  local exp=$(_ieee754::get_exp "$bits")
-  local mant=$(_ieee754::get_mant "$bits")
+  local sign; sign=$(_ieee754::get_sign "$bits")
+  local exp;   exp=$(_ieee754::get_exp "$bits")
+  local mant;  mant=$(_ieee754::get_mant "$bits")
+  printf '%d\n%d\n%d' "$sign" "$exp" "$mant"
+}
 
-  # Convert to binary strings
-  local exp_bin="" mant_bin="" i temp
-  temp=$exp
-  for ((i=0; i<11; i++)); do
-    exp_bin="$((temp & 1))$exp_bin"
-    temp=$((temp >> 1))
-  done
-  temp=$mant
-  for ((i=0; i<52; i++)); do
-    mant_bin="$((temp & 1))$mant_bin"
-    temp=$((temp >> 1))
-  done
+# IEEE 754: Truncate float toward zero, return as integer bits
+# Usage: pfloat::ieee754::trunc <bits>
+pfloat::ieee754::trunc() {
+  local bits="$1"
+  _ieee754::is_nan "$bits" && { echo "0"; return 1; }
+  _ieee754::is_inf "$bits" && { echo "$bits"; return 0; }
+  _ieee754::is_zero "$bits" && { echo "$bits"; return 0; }
 
-  printf "%s%s%s%s%s\n" "$sign" "$sep" "$exp_bin" "$sep" "$mant_bin"
+  local sign; sign=$(_ieee754::get_sign "$bits")
+  local exp;   exp=$(_ieee754::get_exp "$bits")
+  local mant;  mant=$(_ieee754::get_mant "$bits")
+
+  local unbiased=$(( exp - 1023 ))
+  if (( unbiased < 0 )); then
+    # |value| < 1 → truncates to 0 (or -0)
+    _ieee754::pack "$sign" 0 0
+    return 0
+  fi
+  if (( unbiased >= 52 )); then
+    # Already an integer
+    echo "$bits"
+    return 0
+  fi
+
+  # Zero out fractional bits in mantissa
+  local frac_bits=$(( 52 - unbiased ))
+  local frac_mask=$(( (1 << frac_bits) - 1 ))
+  _ieee754::pack "$sign" "$exp" $(( mant & ~frac_mask ))
+}
+
+# IEEE 754: Round float to nearest integer, ties to even
+# Usage: pfloat::ieee754::round <bits>
+pfloat::ieee754::round() {
+  local bits="$1"
+  _ieee754::is_nan "$bits" && { echo "0"; return 1; }
+  _ieee754::is_inf "$bits" && { echo "$bits"; return 0; }
+  _ieee754::is_zero "$bits" && { echo "$bits"; return 0; }
+
+  local sign; sign=$(_ieee754::get_sign "$bits")
+  local exp;   exp=$(_ieee754::get_exp "$bits")
+  local mant;  mant=$(_ieee754::get_mant "$bits")
+
+  local unbiased=$(( exp - 1023 ))
+  if (( unbiased < 0 )); then
+    # |value| < 1
+    if (( unbiased == -1 && mant > 0 )); then
+      # 0.5 < |value| < 1 → round to ±1
+      _ieee754::pack "$sign" 1023 0
+    else
+      # |value| ≤ 0.5 → round to 0 (ties-to-even: 0.5 → 0)
+      _ieee754::pack "$sign" 0 0
+    fi
+    return 0
+  fi
+  if (( unbiased >= 52 )); then
+    # Already an integer
+    echo "$bits"
+    return 0
+  fi
+
+  # Round to nearest, ties to even
+  local frac_bits=$(( 52 - unbiased ))
+  local half_bit=$(( 1 << (frac_bits - 1) ))
+  local frac_mask=$(( (1 << frac_bits) - 1 ))
+  local frac=$(( mant & frac_mask ))
+
+  if (( frac > half_bit )); then
+    # Round up: add 1 << frac_bits, then zero fraction
+    mant=$(( mant + (1 << frac_bits) ))
+  elif (( frac == half_bit )); then
+    # Ties to even: round up if the integer LSB is 1
+    if (( (mant >> frac_bits) & 1 )); then
+      mant=$(( mant + (1 << frac_bits) ))
+    fi
+  fi
+  # Zero out fractional bits
+  _ieee754::pack "$sign" "$exp" $(( mant & ~frac_mask ))
 }

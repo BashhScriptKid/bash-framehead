@@ -6,14 +6,24 @@
 # INSPECTION
 # ==============================================================================
 
-# Check if path is a character device
+# Check if path is any kind of device (block or character)
 device::is_device() {
+    [[ -b "$1" || -c "$1" ]]
+}
+
+# Check if path is a character device
+device::is_device::char() {
     [[ -c "$1" ]]
 }
 
 # Check if path is a block device
-device::is_block() {
+device::is_device::block() {
     [[ -b "$1" ]]
+}
+
+# Backward-compatible alias
+device::is_block() {
+    device::is_device::block "$@"
 }
 
 # Check if device is writable
@@ -114,8 +124,8 @@ device::type() {
     [[ "$dev" == /dev/bus/usb/* ]] && echo "usb" && return
 
     # Generic character vs block fallback
-    device::is_block "$dev"  && echo "block" && return
-    device::is_device "$dev" && echo "char"  && return
+    device::is_device::block "$dev" && echo "block" && return
+    device::is_device::char  "$dev" && echo "char"  && return
 
     echo "unknown"
 }
