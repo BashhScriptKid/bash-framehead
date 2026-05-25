@@ -28,6 +28,29 @@ Bash is everywhere. But writing robust scripts in Bash usually means reinventing
 
 ---
 
+## Don't want the entire framework?
+
+No worries — the enforced code style keeps every function self-documenting,
+so individual functions work as standalone **implementation references**.
+Copy what you need, inherit framehead's robustness, leave the rest.
+
+Even better — run `compile_bare` to get exactly the minimum needed for your
+project:
+
+```bash
+# Compile only what 'json::*' transitively depends on
+./main.sh compile_bare "json::*" json_bare.sh
+
+# Or just one function + its helpers + its globals
+./main.sh compile_bare "string::trim" trim.sh
+```
+
+It traces the full call graph — functions, private helpers, global
+variables — and emits a single self-contained script.  No framework,
+no lock-in, just the parts you actually use.
+
+---
+
 ## Getting started
 
 Clone the repo and compile the framework into a single file:
