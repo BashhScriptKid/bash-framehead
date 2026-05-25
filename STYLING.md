@@ -126,6 +126,13 @@ exceptions:
 | Scalar helpers in math | `dx`, `dy`, `sum`, `val` | Short but unambiguous |
 | Standard Unix abbrevs | `_fd` (file descriptor), `_pid` | Ubiquitous in the shell ecosystem |
 
+Exemptions are **stricter the more niche the context**.  Short names like `i`
+or `tmp` survive anywhere because they're universally understood.  But `_cp`
+in a unicode decoder confuses everyone who doesn't already know it means
+"code point" — so in narrow domains you must spell it out precisely *because*
+fewer readers share the context:  `_codepoint` over `_cp`, `_delimiter` over
+`_d`.  When in doubt, expand.
+
 Otherwise, spell it out:
 
 ```bash

@@ -98,18 +98,18 @@ _json::_maybe_index() {
 # Pure-Bash \uXXXX → UTF-8 encoder.  Takes 4 hex digits, echoes the UTF-8 bytes.
 # Uses two-stage printf: first build the \xHH format string, then emit it.
 _json::_decode_unicode() {
-		local _hex="$1" _cp _fmt
+		local _hex="$1" _codepoint _fmt
 		[[ "$_hex" =~ ^[0-9a-fA-F]{4}$ ]] || { printf '\\u%s' "$_hex"; return; }
-		_cp=$(( 16#$_hex ))
-		if (( _cp < 0x80 )); then
-				printf -v _fmt "\\x%02x" "$_cp"
-		elif (( _cp < 0x800 )); then
-				printf -v _fmt "\\x%02x\\x%02x" "$(( 0xC0 | (_cp >> 6) ))" "$(( 0x80 | (_cp & 0x3F) ))"
+		_codepoint=$(( 16#$_hex ))
+		if (( _codepoint < 0x80 )); then
+				printf -v _fmt "\\x%02x" "$_codepoint"
+		elif (( _codepoint < 0x800 )); then
+				printf -v _fmt "\\x%02x\\x%02x" "$(( 0xC0 | (_codepoint >> 6) ))" "$(( 0x80 | (_codepoint & 0x3F) ))"
 		else
 				printf -v _fmt "\\x%02x\\x%02x\\x%02x" \
-						"$(( 0xE0 | (_cp >> 12) ))" \
-						"$(( 0x80 | ((_cp >> 6) & 0x3F) ))" \
-						"$(( 0x80 | (_cp & 0x3F) ))"
+						"$(( 0xE0 | (_codepoint >> 12) ))" \
+						"$(( 0x80 | ((_codepoint >> 6) & 0x3F) ))" \
+						"$(( 0x80 | (_codepoint & 0x3F) ))"
 		fi
 		printf "$_fmt"
 }
