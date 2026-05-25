@@ -15,12 +15,12 @@ Product of a sequence of integers
 
 ```bash
 math::product() {
-    local result=1
-    for n in "$@"; do
-        _math::is_float "$n" && { echo "math::product: float input — use math::productf" >&2; return 1; }
-        (( result *= n ))
-    done
-    echo "$result"
+		local result=1
+		for n in "$@"; do
+				_math::is_float "$n" && { echo "math::product: float input — use math::productf" >&2; return 1; }
+				(( result *= n ))
+		done
+		echo "$result"
 }
 ```
 

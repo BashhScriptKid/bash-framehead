@@ -20,7 +20,7 @@ Check if device is a RAM disk
 
 ```bash
 device::is_ram() {
-    [[ "$1" == /dev/ram* || "$1" == /dev/zram* ]]
+		[[ "$1" == /dev/ram* || "$1" == /dev/zram* ]]
 }
 ```
 

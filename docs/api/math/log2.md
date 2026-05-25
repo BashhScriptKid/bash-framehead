@@ -20,7 +20,7 @@ Log base 2
 
 ```bash
 math::log2() {
-    math::bc "l($1) / l(2)"
+		math::bc "l($1) / l(2)"
 }
 ```
 

@@ -21,8 +21,8 @@ Fast variant using nameref
 
 ```bash
 string::lower::fast() {
-  local -n _string_lower_result="$1"
-  _string_lower_result="${2,,}"
+	local -n _string_lower_result="$1"
+	_string_lower_result="${2,,}"
 }
 ```
 

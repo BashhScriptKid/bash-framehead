@@ -20,7 +20,7 @@ Reload a process config (SIGHUP)
 
 ```bash
 process::reload() {
-    kill -HUP "$1" 2>/dev/null
+		kill -HUP "$1" 2>/dev/null
 }
 ```
 

@@ -26,7 +26,7 @@ Example:
 
 ```bash
 log::info() {
-    _log::emit "INFO" $LOG_INFO "$*" "${BASH_LINENO[0]}" "${FUNCNAME[1]}"
+		_log::emit "INFO" $LOG_INFO "$*" "${BASH_LINENO[0]}" "${FUNCNAME[1]}"
 }
 ```
 

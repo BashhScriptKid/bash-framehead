@@ -15,8 +15,8 @@ snake_case → path/case
 
 ```bash
 string::snake_to_path() {
-  local input; _string::read_input input "$@"
-  echo "${input//_//}"
+	local input; _string::read_input input "$@"
+	echo "${input//_//}"
 }
 ```
 

@@ -15,8 +15,8 @@ _No description available._
 
 ```bash
 git::commit::author() {
-    local ref="${1:-HEAD}"
-    git log -1 --format="%an" "${ref}" 2>/dev/null || echo "unknown"
+		local ref="${1:-HEAD}"
+		git log -1 --format="%an" "${ref}" 2>/dev/null || echo "unknown"
 }
 ```
 

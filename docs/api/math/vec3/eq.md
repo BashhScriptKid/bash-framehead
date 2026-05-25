@@ -24,7 +24,7 @@ Check if two vec3 vectors are equal
 
 ```bash
 math::vec3::eq() {
-    [[ "$1" == "$2" ]]
+		[[ "$1" == "$2" ]]
 }
 ```
 

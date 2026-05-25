@@ -21,7 +21,7 @@ Create a hard link
 
 ```bash
 fs::hardlink() {
-    ln "$1" "$2"
+		ln "$1" "$2"
 }
 ```
 

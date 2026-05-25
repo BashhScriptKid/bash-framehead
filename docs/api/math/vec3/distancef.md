@@ -24,9 +24,9 @@ Distance between two vec3 points with explicit scale
 
 ```bash
 math::vec3::distancef() {
-    local scale=$1 x1 y1 z1 x2 y2 z2
-    _math::vec3::unpack6 x1 y1 z1 x2 y2 z2 "$2" "$3"
-    math::bc "sqrt(($x1-$x2)*($x1-$x2) + ($y1-$y2)*($y1-$y2) + ($z1-$z2)*($z1-$z2))" "$scale"
+		local scale=$1 x1 y1 z1 x2 y2 z2
+		_math::vec3::unpack6 x1 y1 z1 x2 y2 z2 "$2" "$3"
+		math::bc "sqrt(($x1-$x2)*($x1-$x2) + ($y1-$y2)*($y1-$y2) + ($z1-$z2)*($z1-$z2))" "$scale"
 }
 ```
 

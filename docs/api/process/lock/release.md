@@ -20,7 +20,7 @@ Release a lock
 
 ```bash
 process::lock::release() {
-    rm -f "/tmp/fsbshf_${1}.lock"
+		rm -f "/tmp/fsbshf_${1}.lock"
 }
 ```
 

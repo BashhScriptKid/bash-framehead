@@ -20,7 +20,7 @@ Number of hard links
 
 ```bash
 fs::link_count() {
-    stat -c '%h' "$1" 2>/dev/null
+		stat -c '%h' "$1" 2>/dev/null
 }
 ```
 

@@ -15,7 +15,7 @@ List with hidden files
 
 ```bash
 fs::ls::all() {
-    ls -1A "${1:-.}"
+		ls -1A "${1:-.}"
 }
 ```
 

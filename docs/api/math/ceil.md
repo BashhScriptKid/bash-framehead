@@ -20,9 +20,9 @@ Ceiling — smallest integer ≥ n
 
 ```bash
 math::ceil() {
-  local n
-  if [[ ! -t 0 ]]; then n=$(cat); else n="$1"; fi
-    math::bc "scale=0; if ($n == ($n / 1)) $n else if ($n > 0) ($n / 1) + 1 else ($n / 1)"
+	local n
+	if [[ $# -ge 1 ]]; then n="$1"; else n=$(cat); fi
+		math::bc "scale=0; if ($n == ($n / 1)) $n else if ($n > 0) ($n / 1) + 1 else ($n / 1)"
 }
 ```
 

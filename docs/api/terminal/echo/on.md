@@ -15,7 +15,7 @@ Re-enable terminal echo
 
 ```bash
 terminal::echo::on() {
-    stty echo 2>/dev/null
+		stty echo 2>/dev/null
 }
 ```
 

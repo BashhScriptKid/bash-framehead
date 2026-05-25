@@ -15,11 +15,11 @@ camelCase → CONSTANT_CASE
 
 ```bash
 string::camel_to_constant() {
-  local input; _string::read_input input "$@"
-  local words
-  words=$(_string::to_words "$input")
-  local s="${words// /_}"
-  echo "${s^^}"
+	local input; _string::read_input input "$@"
+	local words
+	words=$(_string::to_words "$input")
+	local _str="${words// /_}"
+	echo "${s^^}"
 }
 ```
 

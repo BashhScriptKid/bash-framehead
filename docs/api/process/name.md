@@ -20,12 +20,12 @@ Get process name from PID
 
 ```bash
 process::name() {
-    local pid="${1:-$$}"
-    if [[ -f "/proc/$pid/comm" ]]; then
-        cat "/proc/$pid/comm"
-    else
-        ps -o comm= -p "$pid" 2>/dev/null
-    fi
+		local pid="${1:-$$}"
+		if [[ -f "/proc/$pid/comm" ]]; then
+				cat "/proc/$pid/comm"
+		else
+				ps -o comm= -p "$pid" 2>/dev/null
+		fi
 }
 ```
 

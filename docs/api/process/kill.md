@@ -20,7 +20,7 @@ Terminate a process (SIGTERM)
 
 ```bash
 process::kill() {
-    kill -TERM "$1" 2>/dev/null
+		kill -TERM "$1" 2>/dev/null
 }
 ```
 

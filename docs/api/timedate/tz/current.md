@@ -15,7 +15,7 @@ Get current timezone name
 
 ```bash
 timedate::tz::current() {
-    date +%Z
+		date +%Z
 }
 ```
 

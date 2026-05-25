@@ -8,7 +8,7 @@
 
 ## Description
 
-_No description available._
+IEEE 754: Check if value is positive (non-zero, non-negative)
 
 ## Parameters
 
@@ -20,9 +20,9 @@ _No description available._
 
 ```bash
 pfloat::ieee754::is_positive() {
-  local bits="$1"
-  local sign=$(_ieee754::get_sign "$bits")
-  ((sign == 0)) && ! _ieee754::is_zero "$bits"
+	local bits="$1"
+	local sign=$(_ieee754::get_sign "$bits")
+	((sign == 0)) && ! _ieee754::is_zero "$bits"
 }
 ```
 

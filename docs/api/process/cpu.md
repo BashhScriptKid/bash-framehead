@@ -8,7 +8,7 @@
 
 ## Description
 
-Get CPU usage percentage for a PID
+--- RESOURCE USAGE ---
 
 ## Parameters
 
@@ -20,7 +20,7 @@ Get CPU usage percentage for a PID
 
 ```bash
 process::cpu() {
-    ps -o pcpu= -p "$1" 2>/dev/null | tr -d ' '
+		ps -o pcpu= -p "$1" 2>/dev/null | tr -d ' '
 }
 ```
 

@@ -21,10 +21,10 @@ _No description available._
 
 ```bash
 pfloat::fixed::percent_change() {
-  local old="$1" new="$2"
-  local diff
-  diff=$(pfloat::fixed::sub "$new" "$old")
-  pfloat::fixed::mul $(pfloat::fixed::div "$diff" "$old") "100"
+	local old="$1" new="$2"
+	local diff
+	diff=$(pfloat::fixed::sub "$new" "$old")
+	pfloat::fixed::mul $(pfloat::fixed::div "$diff" "$old") "100"
 }
 ```
 

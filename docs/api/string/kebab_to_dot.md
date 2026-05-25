@@ -15,8 +15,8 @@ kebab-case → dot.case
 
 ```bash
 string::kebab_to_dot() {
-  local input; _string::read_input input "$@"
-  echo "${input//-/.}"
+	local input; _string::read_input input "$@"
+	echo "${input//-/.}"
 }
 ```
 

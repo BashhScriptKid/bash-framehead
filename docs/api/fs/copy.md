@@ -8,7 +8,7 @@
 
 ## Description
 
-Copy file or directory
+--- OPERATIONS ---
 
 ## Parameters
 
@@ -21,7 +21,7 @@ Copy file or directory
 
 ```bash
 fs::copy() {
-    cp -r "$1" "$2"
+		cp -r "$1" "$2"
 }
 ```
 

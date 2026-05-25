@@ -21,7 +21,7 @@ Check if file contains a string
 
 ```bash
 fs::contains() {
-    grep -qF "$2" "$1" 2>/dev/null
+		grep -qF "$2" "$1" 2>/dev/null
 }
 ```
 

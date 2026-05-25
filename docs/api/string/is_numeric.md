@@ -15,11 +15,11 @@ _No description available._
 
 ```bash
 string::is_numeric() {
-  # accepts int, float, hex, binary, octal
-  local input; _string::read_input input "$@"
-  string::is_integer "$input" || string::is_float "$input" ||
-    string::is_hex "$input" || string::is_bin "$input" ||
-    string::is_octal "$input"
+	# accepts int, float, hex, binary, octal
+	local input; _string::read_input input "$@"
+	string::is_integer "$input" || string::is_float "$input" ||
+		string::is_hex "$input" || string::is_bin "$input" ||
+		string::is_octal "$input"
 }
 ```
 

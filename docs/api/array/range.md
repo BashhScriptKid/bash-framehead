@@ -28,11 +28,11 @@ array::range 1 5 → 1 2 3 4 5
 
 ```bash
 array::range() {
-    local start="$1" end="$2" step="${3:-1}"
-    local i
-    for (( i=start; i<=end; i+=step )); do
-        echo "$i"
-    done
+		local start="$1" end="$2" step="${3:-1}"
+		local i
+		for (( i=start; i<=end; i+=step )); do
+				echo "$i"
+		done
 }
 ```
 

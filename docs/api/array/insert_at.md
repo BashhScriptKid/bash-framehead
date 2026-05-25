@@ -24,14 +24,14 @@ Insert element at index
 
 ```bash
 array::insert_at() {
-    local idx="$1" val="$2" i=0; shift 2
-    for el in "$@"; do
-        [[ "$i" -eq "$idx" ]] && echo "$val"
-        echo "$el"
-        (( i++ ))
-    done
-    # If index is beyond end, append
-    [[ "$i" -le "$idx" ]] && echo "$val"
+		local idx="$1" val="$2" i=0; shift 2
+		for el in "$@"; do
+				[[ "$i" -eq "$idx" ]] && echo "$val"
+				echo "$el"
+				(( i++ ))
+		done
+		# If index is beyond end, append
+		[[ "$i" -le "$idx" ]] && echo "$val"
 }
 ```
 

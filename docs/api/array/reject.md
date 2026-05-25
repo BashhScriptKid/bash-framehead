@@ -23,10 +23,10 @@ Filter elements NOT matching a regex
 
 ```bash
 array::reject() {
-    local regex="$1"; shift
-    for el in "$@"; do
-        [[ ! "$el" =~ $regex ]] && echo "$el"
-    done
+		local regex="$1"; shift
+		for el in "$@"; do
+				[[ ! "$el" =~ $regex ]] && echo "$el"
+		done
 }
 ```
 

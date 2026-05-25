@@ -15,7 +15,7 @@ _No description available._
 
 ```bash
 runtime::ssh_client() {
-  echo "${SSH_CLIENT%% *}"  # First part is client IP
+	echo "${SSH_CLIENT%% *}"  # First part is client IP
 }
 ```
 

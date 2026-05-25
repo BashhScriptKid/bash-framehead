@@ -21,7 +21,7 @@ Read a specific line number (1-indexed)
 
 ```bash
 fs::line() {
-    sed -n "${2}p" "$1"
+		sed -n "${2}p" "$1"
 }
 ```
 

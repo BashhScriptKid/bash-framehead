@@ -15,9 +15,9 @@ plain → path/case
 
 ```bash
 string::plain_to_path() {
-  local input; _string::read_input input "$@"
-  local s="${input// //}"
-  echo "${s,,}"
+	local input; _string::read_input input "$@"
+	local _str="${input// //}"
+	echo "${s,,}"
 }
 ```
 

@@ -22,8 +22,8 @@ Fast variant using nameref
 
 ```bash
 string::before::fast() {
-  local -n _string_before_result="$1"
-  _string_before_result="${2%%"$3"*}"
+	local -n _string_before_result="$1"
+	_string_before_result="${2%%"$3"*}"
 }
 ```
 

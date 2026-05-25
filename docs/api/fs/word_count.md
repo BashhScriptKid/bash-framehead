@@ -20,7 +20,7 @@ Count words in a file
 
 ```bash
 fs::word_count() {
-    wc -w < "$1"
+		wc -w < "$1"
 }
 ```
 

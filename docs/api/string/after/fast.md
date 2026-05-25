@@ -22,8 +22,8 @@ Fast variant using nameref
 
 ```bash
 string::after::fast() {
-  local -n _string_after_result="$1"
-  _string_after_result="${2#*"$3"}"
+	local -n _string_after_result="$1"
+	_string_after_result="${2#*"$3"}"
 }
 ```
 

@@ -20,9 +20,9 @@ Read n random bytes from /dev/urandom
 
 ```bash
 device::random() {
-    local bytes="${1:-16}"
-    dd if=/dev/urandom bs=1 count="$bytes" 2>/dev/null | od -An -tx1 | tr -d ' \n'
-    echo
+		local bytes="${1:-16}"
+		dd if=/dev/urandom bs=1 count="$bytes" 2>/dev/null | od -An -tx1 | tr -d ' \n'
+		echo
 }
 ```
 

@@ -20,7 +20,7 @@ _No description available._
 
 ```bash
 math::cos() {
-    math::bc "c($1)"
+		math::bc "c($1)"
 }
 ```
 

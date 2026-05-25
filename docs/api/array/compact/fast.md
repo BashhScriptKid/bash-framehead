@@ -23,12 +23,12 @@ Fast variant using nameref
 
 ```bash
 array::compact::fast() {
-    local -n _array_compact_result="$1"
-    shift
-    _array_compact_result=()
-    for el in "$@"; do
-        [[ -n "$el" ]] && _array_compact_result+=("$el")
-    done
+		local -n _array_compact_result="$1"
+		shift
+		_array_compact_result=()
+		for el in "$@"; do
+				[[ -n "$el" ]] && _array_compact_result+=("$el")
+		done
 }
 ```
 

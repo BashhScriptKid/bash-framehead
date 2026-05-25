@@ -8,7 +8,7 @@
 
 ## Description
 
-Convert to uppercase
+--- CASE ---
 
 ## Parameters
 
@@ -20,8 +20,8 @@ Convert to uppercase
 
 ```bash
 string::upper() {
-  local input; _string::read_input input "$@"
-  echo "${input^^}"
+	local input; _string::read_input input "$@"
+	echo "${input^^}"
 }
 ```
 

@@ -20,32 +20,32 @@ _No description available._
 
 ```bash
 pfloat::fixed::ceil() {
-  local a="$1" sign="" int_part frac_part
+	local a="$1" sign="" int_part frac_part
 
-  if [[ "$a" == -* ]]; then
-    sign="-"
-    a="${a#-}"
-  fi
+	if [[ "$a" == -* ]]; then
+		sign="-"
+		a="${a#-}"
+	fi
 
-  if [[ "$a" == *.* ]]; then
-    int_part="${a%%.*}"
-    frac_part="${a#*.}"
-  else
-    echo "$a"
-    return
-  fi
+	if [[ "$a" == *.* ]]; then
+		int_part="${a%%.*}"
+		frac_part="${a#*.}"
+	else
+		echo "$a"
+		return
+	fi
 
-  [[ -z "$int_part" ]] && int_part="0"
+	[[ -z "$int_part" ]] && int_part="0"
 
-  if [[ "$frac_part" =~ [1-9] ]]; then
-    if [[ "$sign" == "-" ]]; then
-      echo "${sign}${int_part}"
-    else
-      echo "$((int_part + 1))"
-    fi
-  else
-    echo "${sign}${int_part}"
-  fi
+	if [[ "$frac_part" =~ [1-9] ]]; then
+		if [[ "$sign" == "-" ]]; then
+			echo "${sign}${int_part}"
+		else
+			echo "$((int_part + 1))"
+		fi
+	else
+		echo "${sign}${int_part}"
+	fi
 }
 ```
 

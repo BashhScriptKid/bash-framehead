@@ -21,8 +21,8 @@ Fast variant using nameref
 
 ```bash
 string::upper::fast() {
-  local -n _string_upper_result="$1"
-  _string_upper_result="${2^^}"
+	local -n _string_upper_result="$1"
+	_string_upper_result="${2^^}"
 }
 ```
 

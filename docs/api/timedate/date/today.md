@@ -8,14 +8,14 @@
 
 ## Description
 
-Current date in YYYY-MM-DD format
+--- DATE ---
 
 
 ## Source
 
 ```bash
 timedate::date::today() {
-    date +%Y-%m-%d
+		date +%Y-%m-%d
 }
 ```
 

@@ -22,7 +22,7 @@ Read a range of lines
 
 ```bash
 fs::lines() {
-    sed -n "${2},${3}p" "$1"
+		sed -n "${2},${3}p" "$1"
 }
 ```
 

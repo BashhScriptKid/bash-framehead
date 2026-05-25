@@ -15,8 +15,8 @@ _No description available._
 
 ```bash
 git::branch::list::all() {
-    git::is_repo || return 1
-    git branch -a 2>/dev/null | sed 's/^[* ] //' | grep -v '\->'
+		git::is_repo || return 1
+		git branch -a 2>/dev/null | sed 's/^[* ] //' | grep -v '\->'
 }
 ```
 

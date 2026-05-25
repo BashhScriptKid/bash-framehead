@@ -21,7 +21,7 @@ Power (floating point)
 
 ```bash
 math::powf() {
-    math::bc "e($2 * l($1))"
+		math::bc "e($2 * l($1))"
 }
 ```
 

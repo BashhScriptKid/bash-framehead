@@ -21,8 +21,8 @@ Fast variant using nameref
 
 ```bash
 string::path_to_dot::fast() {
-  local -n _string_path_to_dot_result="$1"
-  _string_path_to_dot_result="${2//\//.}"
+	local -n _string_path_to_dot_result="$1"
+	_string_path_to_dot_result="${2//\//.}"
 }
 ```
 

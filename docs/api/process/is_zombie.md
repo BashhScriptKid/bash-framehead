@@ -20,7 +20,7 @@ Check if a process is a zombie
 
 ```bash
 process::is_zombie() {
-    [[ "$(process::state "$1")" == "Z" ]]
+		[[ "$(process::state "$1")" == "Z" ]]
 }
 ```
 

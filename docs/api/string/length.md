@@ -8,7 +8,7 @@
 
 ## Description
 
-Length of a string
+--- INSPECTION ---
 
 ## Parameters
 
@@ -20,8 +20,8 @@ Length of a string
 
 ```bash
 string::length() {
-  local input; _string::read_input input "$@"
-  echo "${#input}"
+	local input; _string::read_input input "$@"
+	echo "${#input}"
 }
 ```
 

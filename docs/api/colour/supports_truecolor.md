@@ -15,7 +15,7 @@ Check if terminal supports true colour (24-bit)
 
 ```bash
 colour::supports_truecolor() {
-    [[ "$COLORTERM" == "truecolor" || "$COLORTERM" == "24bit" ]]
+		[[ "$COLORTERM" == "truecolor" || "$COLORTERM" == "24bit" ]]
 }
 ```
 

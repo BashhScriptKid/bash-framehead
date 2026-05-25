@@ -1,6 +1,6 @@
 # Function Dictionary
 
-Alphabetical index of all functions in bash-framehead. **1117 functions** across 18 modules.
+Alphabetical index of all functions in bash-framehead. **~1,300 functions** across 21 modules.
 
 Per-module listings: [`array`](array.md), [`colour`](colour.md), [`device`](device.md), [`fs`](fs.md), [`git`](git.md), [`hardware`](hardware.md), [`hash`](hash.md), [`log`](log.md), [`math`](math.md), [`net`](net.md), [`pfloat`](pfloat.md), [`pm`](pm.md), [`process`](process.md), [`random`](random.md), [`runtime`](runtime.md), [`string`](string.md), [`terminal`](terminal.md), [`timedate`](timedate.md)
 

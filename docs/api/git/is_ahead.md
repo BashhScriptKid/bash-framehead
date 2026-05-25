@@ -15,8 +15,8 @@ _No description available._
 
 ```bash
 git::is_ahead() {
-    git::is_repo || return 1
-    [[ "$(git::ahead_count)" -gt 0 ]]
+		git::is_repo || return 1
+		[[ "$(git::ahead_count)" -gt 0 ]]
 }
 ```
 

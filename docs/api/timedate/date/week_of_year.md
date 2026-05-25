@@ -15,7 +15,7 @@ Get week of year (ISO 8601, 01-53)
 
 ```bash
 timedate::date::week_of_year() {
-    date +%V
+		date +%V
 }
 ```
 

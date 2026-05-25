@@ -20,8 +20,8 @@ Collapse multiple consecutive spaces into one
 
 ```bash
 string::collapse_spaces() {
-  local input; _string::read_input input "$@"
-  echo "$input" | tr -s ' '
+	local input; _string::read_input input "$@"
+	echo "$input" | tr -s ' '
 }
 ```
 

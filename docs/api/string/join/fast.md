@@ -24,20 +24,20 @@ Fast variant using nameref
 
 ```bash
 string::join::fast() {
-  local -n _string_join_result="$1"
-  local delim="$2"
-  shift 2
-  local result=""
-  local first=true
-  for part in "$@"; do
-    if $first; then
-      result="$part"
-      first=false
-    else
-      result+="${delim}${part}"
-    fi
-  done
-  _string_join_result="$result"
+	local -n _string_join_result="$1"
+	local delim="$2"
+	shift 2
+	local result=""
+	local first=true
+	for part in "$@"; do
+		if $first; then
+			result="$part"
+			first=false
+		else
+			result+="${delim}${part}"
+		fi
+	done
+	_string_join_result="$result"
 }
 ```
 

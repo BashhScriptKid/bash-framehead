@@ -8,17 +8,17 @@
 
 ## Description
 
-Check if the terminal supports any colour
+!/usr/bin/env bash
 
 
 ## Source
 
 ```bash
 colour::supports() {
-    [[ -t 1 ]] || return 1
-    local count
-    count=$(colour::depth)
-    (( count >= 8 ))
+		[[ -t 1 ]] || return 1
+		local count
+		count=$(colour::depth)
+		(( count >= 8 ))
 }
 ```
 

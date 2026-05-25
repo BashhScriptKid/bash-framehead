@@ -21,12 +21,12 @@ Fast variant using nameref (requires rev or awk)
 
 ```bash
 string::reverse::fast() {
-  local -n _string_reverse_result="$1"
-  if runtime::has_command rev; then
-    _string_reverse_result=$(echo "$2" | rev)
-  else
-    _string_reverse_result=$(echo "$2" | awk '{for(i=length;i>0;i--) printf substr($0,i,1); print ""}')
-  fi
+	local -n _string_reverse_result="$1"
+	if runtime::has_command rev; then
+		_string_reverse_result=$(echo "$2" | rev)
+	else
+		_string_reverse_result=$(echo "$2" | awk '{for(i=length;i>0;i--) printf substr($0,i,1); print ""}')
+	fi
 }
 ```
 

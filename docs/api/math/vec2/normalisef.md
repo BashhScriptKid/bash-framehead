@@ -21,10 +21,10 @@ Normalise a vec2 with explicit scale
 
 ```bash
 math::vec2::normalisef() {
-    local scale=$1 x y mag
-    _math::vec2::unpack2 x y "$2"
-    mag=$(math::bc "sqrt($x * $x + $y * $y)" "$scale")
-    echo "$(math::bc "$x / $mag" "$scale"),$(math::bc "$y / $mag" "$scale")"
+		local scale=$1 x y mag
+		_math::vec2::unpack2 x y "$2"
+		mag=$(math::bc "sqrt($x * $x + $y * $y)" "$scale")
+		echo "$(math::bc "$x / $mag" "$scale"),$(math::bc "$y / $mag" "$scale")"
 }
 ```
 

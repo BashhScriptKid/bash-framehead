@@ -20,7 +20,7 @@ Resolved symlink target (follows chain)
 
 ```bash
 fs::symlink::resolve() {
-    readlink -f "$1" 2>/dev/null
+		readlink -f "$1" 2>/dev/null
 }
 ```
 

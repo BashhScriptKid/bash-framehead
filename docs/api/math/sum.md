@@ -23,12 +23,12 @@ Sum of a sequence of integers
 
 ```bash
 math::sum() {
-    local total=0
-    for n in "$@"; do
-        _math::is_float "$n" && { echo "math::sum: float input — use math::sumf" >&2; return 1; }
-        (( total += n ))
-    done
-    echo "$total"
+		local total=0
+		for n in "$@"; do
+				_math::is_float "$n" && { echo "math::sum: float input — use math::sumf" >&2; return 1; }
+				(( total += n ))
+		done
+		echo "$total"
 }
 ```
 

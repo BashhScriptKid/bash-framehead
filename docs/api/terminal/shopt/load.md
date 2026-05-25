@@ -20,8 +20,8 @@ Restore state from a variable
 
 ```bash
 terminal::shopt::load() {
-    local _var="${1:-_SHOPT_STATE}"
-    eval "${!_var}"
+		local _var="${1:-_SHOPT_STATE}"
+		eval "${!_var}"
 }
 ```
 

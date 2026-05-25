@@ -8,7 +8,7 @@
 
 ## Description
 
-Check if a systemd service is running
+--- DAEMON / SERVICE ---
 
 ## Parameters
 
@@ -20,13 +20,13 @@ Check if a systemd service is running
 
 ```bash
 process::service::is_running() {
-    if runtime::has_command systemctl; then
-        systemctl is-active --quiet "$1" 2>/dev/null
-    elif runtime::has_command service; then
-        service "$1" status >/dev/null 2>&1
-    else
-        process::is_running::name "$1"
-    fi
+		if runtime::has_command systemctl; then
+				systemctl is-active --quiet "$1" 2>/dev/null
+		elif runtime::has_command service; then
+				service "$1" status >/dev/null 2>&1
+		else
+				process::is_running::name "$1"
+		fi
 }
 ```
 

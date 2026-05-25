@@ -15,8 +15,8 @@ _No description available._
 
 ```bash
 string::is_hex() {
-  local input; _string::read_input input "$@"
-  [[ "$input" =~ ^(0[xX])?[0-9A-Fa-f]+$ ]]
+	local input; _string::read_input input "$@"
+	[[ "$input" =~ ^(0[xX])?[0-9A-Fa-f]+$ ]]
 }
 ```
 

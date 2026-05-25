@@ -15,7 +15,7 @@ _No description available._
 
 ```bash
 git::root_dir() {
-    git rev-parse --show-toplevel 2>/dev/null || echo "unknown"
+		git rev-parse --show-toplevel 2>/dev/null || echo "unknown"
 }
 ```
 

@@ -15,8 +15,8 @@ _No description available._
 
 ```bash
 runtime::is_redirected() {
-  # Check if any std descriptor is redirected
-  [[ ! -t 0 ]] || [[ ! -t 1 ]] || [[ ! -t 2 ]]
+	# Check if any std descriptor is redirected
+	[[ ! -t 0 ]] || [[ ! -t 1 ]] || [[ ! -t 2 ]]
 }
 ```
 

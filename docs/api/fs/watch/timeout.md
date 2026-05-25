@@ -23,21 +23,22 @@ Watch with a timeout (seconds)
 
 ```bash
 fs::watch::timeout() {
-    local path="$1" callback="$2" timeout="$3" interval="${4:-1}"
-    local elapsed=0
-    local last_modified
-    last_modified=$(fs::modified "$path")
+		local path="$1" callback="$2" timeout="$3" interval="${4:-1}"
+		local elapsed=0
+		local last_modified
+		last_modified=$(fs::modified "$path")
 
-    while (( elapsed < timeout )); do
-        sleep "$interval"
-        (( elapsed += interval ))
-        local current
-        current=$(fs::modified "$path")
-        if [[ "$current" != "$last_modified" ]]; then
-            last_modified="$current"
-            "$callback" "$path"
-        fi
-    done
+		while (( elapsed < timeout )); do
+				local current
+				current=$(fs::modified "$path")
+				if [[ "$current" != "$last_modified" ]]; then
+						last_modified="$current"
+						"$callback" "$path"
+				fi
+				(( elapsed += interval ))
+				(( elapsed < timeout )) || break
+				sleep "$interval"
+		done
 }
 ```
 

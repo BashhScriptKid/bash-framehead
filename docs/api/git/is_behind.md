@@ -15,8 +15,8 @@ _No description available._
 
 ```bash
 git::is_behind() {
-    git::is_repo || return 1
-    [[ "$(git::behind_count)" -gt 0 ]]
+		git::is_repo || return 1
+		[[ "$(git::behind_count)" -gt 0 ]]
 }
 ```
 

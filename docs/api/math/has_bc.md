@@ -8,14 +8,14 @@
 
 ## Description
 
-Check if bc is available
+--- BC WRAPPER ---
 
 
 ## Source
 
 ```bash
 math::has_bc() {
-    runtime::has_command bc
+		runtime::has_command bc
 }
 ```
 

@@ -22,11 +22,11 @@ Scan common ports on a host, print open ones
 
 ```bash
 net::port::scan() {
-    local host="$1" start="${2:-1}" end="${3:-1024}"
-    local port
-    for (( port=start; port<=end; port++ )); do
-        net::port::is_open "$host" "$port" 1 && echo "$port"
-    done
+		local host="$1" start="${2:-1}" end="${3:-1024}"
+		local port
+		for (( port=start; port<=end; port++ )); do
+				net::port::is_open "$host" "$port" 1 && echo "$port"
+		done
 }
 ```
 

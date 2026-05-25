@@ -23,8 +23,8 @@ Prepend an element
 
 ```bash
 array::unshift() {
-    local new="$1"; shift
-    printf '%s\n' "$new" "$@"
+		local new="$1"; shift
+		printf '%s\n' "$new" "$@"
 }
 ```
 

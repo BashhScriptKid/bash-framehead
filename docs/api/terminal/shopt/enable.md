@@ -8,7 +8,7 @@
 
 ## Description
 
-Enable a shopt option, return 1 if unsupported
+SHOPT WRAPPERS
 
 ## Parameters
 
@@ -20,7 +20,7 @@ Enable a shopt option, return 1 if unsupported
 
 ```bash
 terminal::shopt::enable() {
-    shopt -s "$1" 2>/dev/null
+		shopt -s "$1" 2>/dev/null
 }
 ```
 

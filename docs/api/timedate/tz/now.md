@@ -20,7 +20,7 @@ Get current time in a specific timezone
 
 ```bash
 timedate::tz::now() {
-    TZ="$1" date "+%Y-%m-%d %H:%M:%S %Z" 2>/dev/null
+		TZ="$1" date "+%Y-%m-%d %H:%M:%S %Z" 2>/dev/null
 }
 ```
 

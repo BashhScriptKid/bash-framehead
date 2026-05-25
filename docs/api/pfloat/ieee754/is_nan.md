@@ -8,7 +8,7 @@
 
 ## Description
 
-IEEE 754: Classification
+IEEE 754: Check if value is NaN
 
 ## Parameters
 
@@ -20,7 +20,7 @@ IEEE 754: Classification
 
 ```bash
 pfloat::ieee754::is_nan() {
-  _ieee754::is_nan "$1"
+	_ieee754::is_nan "$1"
 }
 ```
 

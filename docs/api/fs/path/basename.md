@@ -15,7 +15,7 @@ Get filename from path (like basename)
 
 ```bash
 fs::path::basename() {
-    echo "${1##*/}"
+		echo "${1##*/}"
 }
 ```
 

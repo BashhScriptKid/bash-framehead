@@ -20,7 +20,7 @@ _No description available._
 
 ```bash
 pfloat::fixed::recip() {
-  pfloat::fixed::div "1" "$1"
+	pfloat::fixed::div "1" "$1"
 }
 ```
 

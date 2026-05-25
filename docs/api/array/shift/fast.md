@@ -23,9 +23,9 @@ Fast variant using nameref
 
 ```bash
 array::shift::fast() {
-    local -n _array_shift_result="$1"
-    shift 2
-    _array_shift_result=("$@")
+		local -n _array_shift_result="$1"
+		shift 2
+		_array_shift_result=("$@")
 }
 ```
 

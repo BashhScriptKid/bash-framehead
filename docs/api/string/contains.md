@@ -21,9 +21,9 @@ Check if string contains substring
 
 ```bash
 string::contains() {
-  local input
-  if [[ ! -t 0 ]]; then input=$(cat); shift 0; else input="$1"; shift; fi
-  [[ "$input" == *"$1"* ]]
+	local input
+	if [[ $# -ge 2 ]]; then input="$1"; shift; else input=$(cat); fi
+	[[ "$input" == *"$1"* ]]
 }
 ```
 

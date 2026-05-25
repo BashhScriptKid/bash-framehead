@@ -15,8 +15,8 @@ _No description available._
 
 ```bash
 git::commit::count() {
-    git::is_repo || { echo 0; return; }
-    git rev-list --count HEAD 2>/dev/null || echo 0
+		git::is_repo || { echo 0; return; }
+		git rev-list --count HEAD 2>/dev/null || echo 0
 }
 ```
 

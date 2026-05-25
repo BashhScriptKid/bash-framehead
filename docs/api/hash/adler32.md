@@ -15,17 +15,17 @@ Adler-32 — fast checksum used in zlib/PNG
 
 ```bash
 hash::adler32() {
-  local input; _hash::read_input input "$@"
-    local s="$input"
-    local a=1 b=0 i char MOD=65521
+	local input; _hash::read_input input "$@"
+		local _str="$input"
+		local a=1 b=0 i char MOD=65521
 
-    for (( i=0; i<${#s}; i++ )); do
-        char=$(printf '%d' "'${s:$i:1}")
-        a=$(( (a + char) % MOD ))
-        b=$(( (b + a) % MOD ))
-    done
+		for (( i=0; i<${#s}; i++ )); do
+				char=$(printf '%d' "'${_str:$i:1}")
+				a=$(( (a + char) % MOD ))
+				b=$(( (b + a) % MOD ))
+		done
 
-    echo $(( (b << 16) | a ))
+		echo $(( (b << 16) | a ))
 }
 ```
 

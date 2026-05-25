@@ -15,7 +15,7 @@ _No description available._
 
 ```bash
 runtime::nounset_enabled() {
-    [[ "$-" == *u* ]]
+		[[ "$-" == *u* ]]
 }
 ```
 

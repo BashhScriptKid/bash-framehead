@@ -23,13 +23,13 @@ Fast variant using nameref
 
 ```bash
 string::substr::fast() {
-  local -n _string_substr_result="$1"
-  local s="$2" start="$3" len="${4:-}"
-  if [[ -n "$len" ]]; then
-    _string_substr_result="${s:$start:$len}"
-  else
-    _string_substr_result="${s:$start}"
-  fi
+	local -n _string_substr_result="$1"
+	local _str="$2" start="$3" len="${4:-}"
+	if [[ -n "$len" ]]; then
+		_string_substr_result="${_str:$start:$len}"
+	else
+		_string_substr_result="${_str:$start}"
+	fi
 }
 ```
 

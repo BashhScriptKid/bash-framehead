@@ -23,13 +23,13 @@ Fast variant using nameref
 
 ```bash
 array::min::fast() {
-    local -n _array_min_result="$1"
-    shift
-    local min="$1"
-    for el in "$@"; do
-        (( el < min )) && min="$el"
-    done
-    _array_min_result=$min
+		local -n _array_min_result="$1"
+		shift
+		local min="$1"
+		for el in "$@"; do
+				(( el < min )) && min="$el"
+		done
+		_array_min_result=$min
 }
 ```
 

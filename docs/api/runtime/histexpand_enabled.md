@@ -15,7 +15,7 @@ _No description available._
 
 ```bash
 runtime::histexpand_enabled() {
-    [[ "$-" == *H* ]]
+		[[ "$-" == *H* ]]
 }
 ```
 

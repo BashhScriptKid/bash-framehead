@@ -20,9 +20,9 @@ _No description available._
 
 ```bash
 math::is_int() {
-  local n
-  if [[ ! -t 0 ]]; then n=$(cat); else n="$1"; fi
-    [[ "$n" =~ ^-?[0-9]+$ ]]
+	local n
+	if [[ $# -ge 1 ]]; then n="$1"; else n=$(cat); fi
+		[[ "$n" =~ ^-?[0-9]+$ ]]
 }
 ```
 

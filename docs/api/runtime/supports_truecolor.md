@@ -15,7 +15,7 @@ _No description available._
 
 ```bash
 runtime::supports_truecolor() {
-  [[ -n "$COLORTERM" ]] && [[ "$COLORTERM" =~ ^(truecolor|24bit) ]]
+	[[ -n "$COLORTERM" ]] && [[ "$COLORTERM" =~ ^(truecolor|24bit) ]]
 }
 ```
 

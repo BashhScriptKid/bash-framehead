@@ -20,9 +20,9 @@ Get process working directory
 
 ```bash
 process::cwd() {
-    local pid="${1:-$$}"
-    readlink "/proc/$pid/cwd" 2>/dev/null || \
-        lsof -p "$pid" 2>/dev/null | awk '$4=="cwd"{print $9}'
+		local pid="${1:-$$}"
+		readlink "/proc/$pid/cwd" 2>/dev/null || \
+				lsof -p "$pid" 2>/dev/null | awk '$4=="cwd"{print $9}'
 }
 ```
 

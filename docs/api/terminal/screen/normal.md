@@ -15,7 +15,7 @@ Return to normal screen buffer
 
 ```bash
 terminal::screen::normal() {
-    printf '\033[?1049l'
+		printf '\033[?1049l'
 }
 ```
 

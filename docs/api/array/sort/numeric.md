@@ -15,7 +15,7 @@ Sort elements numerically
 
 ```bash
 array::sort::numeric() {
-    printf '%s\n' "$@" | sort -n
+		printf '%s\n' "$@" | sort -n
 }
 ```
 

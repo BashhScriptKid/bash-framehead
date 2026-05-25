@@ -8,18 +8,18 @@
 
 ## Description
 
-_No description available._
+SAFE PASSTHROUGH
 
 
 ## Source
 
 ```bash
 git::exec() {
-    git::is_repo || {
-        echo "git::exec: not inside a git repository" >&2
-        return 1
-    }
-    git "$@"
+		git::is_repo || {
+				echo "git::exec: not inside a git repository" >&2
+				return 1
+		}
+		git "$@"
 }
 ```
 

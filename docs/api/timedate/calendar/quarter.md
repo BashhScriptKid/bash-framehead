@@ -20,13 +20,13 @@ Get quarter for a date
 
 ```bash
 timedate::calendar::quarter() {
-    local month
-    if _timedate::has_gnu_date; then
-        month=$(date -d "$1" +%m 2>/dev/null)
-    else
-        month=$(date -j -f "%Y-%m-%d" "$1" +%m 2>/dev/null)
-    fi
-    echo $(( (10#$month - 1) / 3 + 1 ))
+		local month
+		if _timedate::has_gnu_date; then
+				month=$(date -d "$1" +%m 2>/dev/null)
+		else
+				month=$(date -j -f "%Y-%m-%d" "$1" +%m 2>/dev/null)
+		fi
+		echo $(( (10#$month - 1) / 3 + 1 ))
 }
 ```
 

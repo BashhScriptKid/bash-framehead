@@ -8,7 +8,7 @@
 
 ## Description
 
-Absolute value (integer)
+BASIC INTEGER ARITHMETIC
 
 ## Parameters
 
@@ -20,10 +20,10 @@ Absolute value (integer)
 
 ```bash
 math::abs() {
-  local n
-  if [[ ! -t 0 ]]; then n=$(cat); else n="$1"; fi
-    _math::is_float "$n" && { echo "math::abs: float input — use math::absf" >&2; return 1; }
-    echo $(( $n < 0 ? -$n : $n ))
+	local n
+	if [[ $# -ge 1 ]]; then n="$1"; else n=$(cat); fi
+		_math::is_float "$n" && { echo "math::abs: float input — use math::absf" >&2; return 1; }
+		echo $(( $n < 0 ? -$n : $n ))
 }
 ```
 

@@ -15,7 +15,7 @@ _No description available._
 
 ```bash
 runtime::noclobber_enabled() {
-    [[ "$-" == *C* ]]
+		[[ "$-" == *C* ]]
 }
 ```
 

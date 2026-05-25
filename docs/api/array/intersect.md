@@ -8,7 +8,7 @@
 
 ## Description
 
-Intersection — elements present in both arrays
+--- SET OPERATIONS ---
 
 ## Parameters
 
@@ -25,12 +25,12 @@ Intersection — elements present in both arrays
 
 ```bash
 array::intersect() {
-    local -a a=($1) b=($2)
-    for el in "${a[@]}"; do
-        for other in "${b[@]}"; do
-            [[ "$el" == "$other" ]] && echo "$el" && break
-        done
-    done
+		local -a a=($1) b=($2)
+		for el in "${a[@]}"; do
+				for other in "${b[@]}"; do
+						[[ "$el" == "$other" ]] && echo "$el" && break
+				done
+		done
 }
 ```
 

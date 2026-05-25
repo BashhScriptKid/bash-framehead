@@ -27,7 +27,7 @@ Example:
 
 ```bash
 log::fatal() {
-    log::error "$1" "${2:-1}"
+		log::error "$1" "${2:-1}"
 }
 ```
 

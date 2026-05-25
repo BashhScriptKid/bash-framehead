@@ -21,8 +21,8 @@ Fast variant using nameref
 
 ```bash
 string::strip_spaces::fast() {
-  local -n _string_strip_spaces_result="$1"
-  _string_strip_spaces_result="${2//[[:space:]]/}"
+	local -n _string_strip_spaces_result="$1"
+	_string_strip_spaces_result="${2//[[:space:]]/}"
 }
 ```
 

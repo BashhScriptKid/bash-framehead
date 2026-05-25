@@ -27,12 +27,12 @@ Example:
 
 ```bash
 log::error() {
-    local msg="$1"
-    local exit_code="${2:-}"
-    _log::emit "ERROR" $LOG_ERROR "$msg" "${BASH_LINENO[0]}" "${FUNCNAME[1]}"
-    if [[ -n "$exit_code" && "$exit_code" =~ ^-?[0-9]+$ ]]; then
-        exit "$exit_code"
-    fi
+		local msg="$1"
+		local exit_code="${2:-}"
+		_log::emit "ERROR" $LOG_ERROR "$msg" "${BASH_LINENO[0]}" "${FUNCNAME[1]}"
+		if [[ -n "$exit_code" && "$exit_code" =~ ^-?[0-9]+$ ]]; then
+				exit "$exit_code"
+		fi
 }
 ```
 

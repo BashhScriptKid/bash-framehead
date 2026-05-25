@@ -8,14 +8,14 @@
 
 ## Description
 
-Print each element on its own line (normalise for piping)
+--- TRANSFORMATION ---
 
 
 ## Source
 
 ```bash
 array::print() {
-    printf '%s\n' "$@"
+		printf '%s\n' "$@"
 }
 ```
 

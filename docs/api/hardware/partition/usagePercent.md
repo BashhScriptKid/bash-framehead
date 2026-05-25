@@ -20,8 +20,8 @@ _No description available._
 
 ```bash
 hardware::partition::usagePercent() {
-    local device="${1:-/}"
-    df "$device" 2>/dev/null | awk 'NR==2 { gsub(/%/,"",$5); print $5 }'
+		local device="${1:-/}"
+		df "$device" 2>/dev/null | awk 'NR==2 { gsub(/%/,"",$5); print $5 }'
 }
 ```
 

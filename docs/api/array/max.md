@@ -22,11 +22,11 @@ Maximum value (numeric)
 
 ```bash
 array::max() {
-    local max="$1"; shift
-    for el in "$@"; do
-        (( el > max )) && max="$el"
-    done
-    echo "$max"
+		local max="$1"; shift
+		for el in "$@"; do
+				(( el > max )) && max="$el"
+		done
+		echo "$max"
 }
 ```
 

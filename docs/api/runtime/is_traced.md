@@ -15,7 +15,7 @@ _No description available._
 
 ```bash
 runtime::is_traced() {
-    [[ "$-" == *x* ]] || [[ -n "$BASH_XTRACEFD" ]]
+		[[ "$-" == *x* ]] || [[ -n "$BASH_XTRACEFD" ]]
 }
 ```
 

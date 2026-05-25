@@ -15,7 +15,7 @@ Move cursor to start of line n lines down
 
 ```bash
 terminal::cursor::next_line() {
-    printf '\033[%sE' "${1:-1}"
+		printf '\033[%sE' "${1:-1}"
 }
 ```
 

@@ -26,7 +26,7 @@ Example:
 
 ```bash
 log::warn() {
-    _log::emit "WARN" $LOG_WARN "$*" "${BASH_LINENO[0]}" "${FUNCNAME[1]}"
+		_log::emit "WARN" $LOG_WARN "$*" "${BASH_LINENO[0]}" "${FUNCNAME[1]}"
 }
 ```
 

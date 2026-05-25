@@ -8,14 +8,14 @@
 
 ## Description
 
-_No description available._
+--- CURSOR ---
 
 
 ## Source
 
 ```bash
 terminal::cursor::show() {
-    printf '\033[?25h'
+		printf '\033[?25h'
 }
 ```
 

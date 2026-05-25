@@ -8,7 +8,7 @@
 
 ## Description
 
-Returns: next value (4-digit middle square extract)
+MIDDLE SQUARE
 
 ## Parameters
 
@@ -20,9 +20,9 @@ Returns: next value (4-digit middle square extract)
 
 ```bash
 random::middle_square() {
-    local x="$1"
-    local squared=$(( x * x ))
-    echo $(( (squared / 100) % 10000 ))
+		local x="$1"
+		local squared=$(( x * x ))
+		echo $(( (squared / 100) % 10000 ))
 }
 ```
 

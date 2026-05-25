@@ -22,9 +22,9 @@ Scale a vec3 by a scalar
 
 ```bash
 math::vec3::scale() {
-    local x y z
-    _math::vec3::unpack3 x y z "$1"
-    echo "$(( x * $2 )),$(( y * $2 )),$(( z * $2 ))"
+		local x y z
+		_math::vec3::unpack3 x y z "$1"
+		echo "$(( x * $2 )),$(( y * $2 )),$(( z * $2 ))"
 }
 ```
 

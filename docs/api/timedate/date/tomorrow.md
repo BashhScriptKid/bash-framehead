@@ -15,7 +15,7 @@ Get tomorrow's date
 
 ```bash
 timedate::date::tomorrow() {
-    timedate::date::add_days "$(timedate::date::today)" 1
+		timedate::date::add_days "$(timedate::date::today)" 1
 }
 ```
 

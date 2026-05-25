@@ -24,16 +24,16 @@ _No description available._
 
 ```bash
 pfloat::fixed::dist3() {
-  local x1="$1" y1="$2" z1="$3" x2="$4" y2="$5" z2="$6"
-  local dx dy dz dx2 dy2 dz2 sum
-  dx=$(pfloat::fixed::sub "$x1" "$x2")
-  dy=$(pfloat::fixed::sub "$y1" "$y2")
-  dz=$(pfloat::fixed::sub "$z1" "$z2")
-  dx2=$(pfloat::fixed::mul "$dx" "$dx")
-  dy2=$(pfloat::fixed::mul "$dy" "$dy")
-  dz2=$(pfloat::fixed::mul "$dz" "$dz")
-  sum=$(pfloat::fixed::add "$dx2" "$dy2" "$dz2")
-  pfloat::fixed::sqrt "$sum"
+	local x1="$1" y1="$2" z1="$3" x2="$4" y2="$5" z2="$6"
+	local dx dy dz dx2 dy2 dz2 sum
+	dx=$(pfloat::fixed::sub "$x1" "$x2")
+	dy=$(pfloat::fixed::sub "$y1" "$y2")
+	dz=$(pfloat::fixed::sub "$z1" "$z2")
+	dx2=$(pfloat::fixed::mul "$dx" "$dx")
+	dy2=$(pfloat::fixed::mul "$dy" "$dy")
+	dz2=$(pfloat::fixed::mul "$dz" "$dz")
+	sum=$(pfloat::fixed::add "$dx2" "$dy2" "$dz2")
+	pfloat::fixed::sqrt "$sum"
 }
 ```
 

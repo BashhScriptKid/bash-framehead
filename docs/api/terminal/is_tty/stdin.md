@@ -15,7 +15,7 @@ Check if stdin is a terminal
 
 ```bash
 terminal::is_tty::stdin() {
-    [[ -t 0 ]]
+		[[ -t 0 ]]
 }
 ```
 

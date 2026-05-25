@@ -20,7 +20,7 @@ Get PID(s) of a named process (one per line)
 
 ```bash
 process::pid() {
-    pgrep -x "$1" 2>/dev/null
+		pgrep -x "$1" 2>/dev/null
 }
 ```
 

@@ -15,7 +15,7 @@ _No description available._
 
 ```bash
 runtime::is_terminal::stderr() {
-  [[ -t 2 ]]
+	[[ -t 2 ]]
 }
 ```
 

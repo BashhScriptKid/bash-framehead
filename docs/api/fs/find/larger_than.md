@@ -15,7 +15,7 @@ Find files larger than n bytes
 
 ```bash
 fs::find::larger_than() {
-    find "${1:-.}" -type f -size "+${2}c" 2>/dev/null
+		find "${1:-.}" -type f -size "+${2}c" 2>/dev/null
 }
 ```
 

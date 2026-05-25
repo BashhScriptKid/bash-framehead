@@ -21,8 +21,8 @@ Convert unix timestamp to human-readable
 
 ```bash
 timedate::timestamp::to_human() {
-    local ts="$1" fmt="${2:-%Y-%m-%d %H:%M:%S}"
-    _timedate::format "$fmt" "$ts"
+		local _timestamp="$1" fmt="${2:-%Y-%m-%d %H:%M:%S}"
+		_timedate::format "$fmt" "$_timestamp"
 }
 ```
 

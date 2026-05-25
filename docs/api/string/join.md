@@ -23,19 +23,19 @@ Join an array of arguments with a delimiter
 
 ```bash
 string::join() {
-  local delim="$1"
-  shift
-  local result=""
-  local first=true
-  for part in "$@"; do
-    if $first; then
-      result="$part"
-      first=false
-    else
-      result+="${delim}${part}"
-    fi
-  done
-  echo "$result"
+	local delim="$1"
+	shift
+	local result=""
+	local first=true
+	for part in "$@"; do
+		if $first; then
+			result="$part"
+			first=false
+		else
+			result+="${delim}${part}"
+		fi
+	done
+	echo "$result"
 }
 ```
 

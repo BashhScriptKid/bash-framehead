@@ -21,7 +21,7 @@ _No description available._
 
 ```bash
 pfloat::fixed::mean() {
-  pfloat::fixed::avg "$1" "$2"
+	pfloat::fixed::avg "$1" "$2"
 }
 ```
 

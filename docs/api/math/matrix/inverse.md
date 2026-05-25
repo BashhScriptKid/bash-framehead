@@ -8,7 +8,7 @@
 
 ## Description
 
-Compute the inverse of a square matrix — requires bc
+--- math::matrix::inverse — requires bc ---
 
 ## Parameters
 
@@ -22,25 +22,25 @@ Compute the inverse of a square matrix — requires bc
 
 ```bash
 math::matrix::inverse() {
-    local scale=$1 dim=$2
-    local rows cols
-    _math::matrix::dim "$dim" rows cols
-    local size=$(( rows * cols ))
-    local -a _a
-    _math::matrix::unpack _a "$size" "${@:3}"
+		local scale=$1 dim=$2
+		local rows cols
+		_math::matrix::dim "$dim" rows cols
+		local size=$(( rows * cols ))
+		local -a _a
+		_math::matrix::unpack _a "$size" "${@:3}"
 
-    local det
-    det=$(math::matrix::determinant "$scale" "$dim" "${_a[@]}")
-    if [[ $(math::bc "$det == 0" "$scale") -eq 1 ]]; then
-        echo "Error: math::matrix::inverse: matrix is singular (determinant = 0)" >&2
-        return 1
-    fi
+		local det
+		det=$(math::matrix::determinant "$scale" "$dim" "${_a[@]}")
+		if [[ $(math::bc "$det == 0" "$scale") -eq 1 ]]; then
+				echo "Error: math::matrix::inverse: matrix is singular (determinant = 0)" >&2
+				return 1
+		fi
 
-    local inv_det
-    inv_det=$(math::bc "1 / $det" "$scale")
-    local -a adj
-    read -ra adj <<< "$(math::matrix::adjugate "$scale" "$dim" "${_a[@]}")"
-    math::matrix::scalef "$scale" "$dim" "$inv_det" "${adj[@]}"
+		local inv_det
+		inv_det=$(math::bc "1 / $det" "$scale")
+		local -a adj
+		read -ra adj <<< "$(math::matrix::adjugate "$scale" "$dim" "${_a[@]}")"
+		math::matrix::scalef "$scale" "$dim" "$inv_det" "${_adj_matrix_adjoint[@]}"
 }
 ```
 

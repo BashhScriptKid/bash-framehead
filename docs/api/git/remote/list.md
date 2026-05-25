@@ -15,8 +15,8 @@ _No description available._
 
 ```bash
 git::remote::list() {
-    git::is_repo || return 1
-    git remote 2>/dev/null
+		git::is_repo || return 1
+		git remote 2>/dev/null
 }
 ```
 

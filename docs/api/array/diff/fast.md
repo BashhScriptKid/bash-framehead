@@ -26,16 +26,16 @@ Fast variant using nameref
 
 ```bash
 array::diff::fast() {
-    local -n _array_diff_result="$1"
-    local -a a=($2) b=($3)
-    _array_diff_result=()
-    for el in "${a[@]}"; do
-        local found=false
-        for other in "${b[@]}"; do
-            [[ "$el" == "$other" ]] && found=true && break
-        done
-        $found || _array_diff_result+=("$el")
-    done
+		local -n _array_diff_result="$1"
+		local -a a=($2) b=($3)
+		_array_diff_result=()
+		for el in "${a[@]}"; do
+				local found=false
+				for other in "${b[@]}"; do
+						[[ "$el" == "$other" ]] && found=true && break
+				done
+				$found || _array_diff_result+=("$el")
+		done
 }
 ```
 

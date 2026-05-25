@@ -22,10 +22,10 @@ Fast variant using nameref
 
 ```bash
 string::repeat::fast() {
-  local -n _string_repeat_result="$1"
-  local str="$2" n="$3" result=""
-  for ((i = 0; i < n; i++)); do result+="$str"; done
-  _string_repeat_result="$result"
+	local -n _string_repeat_result="$1"
+	local str="$2" n="$3" result=""
+	for ((i = 0; i < n; i++)); do result+="$str"; done
+	_string_repeat_result="$result"
 }
 ```
 

@@ -21,8 +21,8 @@ Fast variant using nameref
 
 ```bash
 string::kebab_to_snake::fast() {
-  local -n _string_kebab_to_snake_result="$1"
-  _string_kebab_to_snake_result="${2//-/_}"
+	local -n _string_kebab_to_snake_result="$1"
+	_string_kebab_to_snake_result="${2//-/_}"
 }
 ```
 

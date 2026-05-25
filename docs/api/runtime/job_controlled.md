@@ -15,7 +15,7 @@ _No description available._
 
 ```bash
 runtime::job_controlled() {
-    [[ "$-" == *m* ]]
+		[[ "$-" == *m* ]]
 }
 ```
 

@@ -22,11 +22,11 @@ _No description available._
 
 ```bash
 pfloat::fixed::lerp() {
-  local a="$1" b="$2" t="$3"
-  local diff scaled
-  diff=$(pfloat::fixed::sub "$b" "$a")
-  scaled=$(pfloat::fixed::mul "$diff" "$t")
-  pfloat::fixed::add "$a" "$scaled"
+	local a="$1" b="$2" t="$3"
+	local diff scaled
+	diff=$(pfloat::fixed::sub "$b" "$a")
+	scaled=$(pfloat::fixed::mul "$diff" "$t")
+	pfloat::fixed::add "$a" "$scaled"
 }
 ```
 

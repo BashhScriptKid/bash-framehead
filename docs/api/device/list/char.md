@@ -15,7 +15,7 @@ List all character devices
 
 ```bash
 device::list::char() {
-    find /dev -maxdepth 1 -type c 2>/dev/null | sort
+		find /dev -maxdepth 1 -type c 2>/dev/null | sort
 }
 ```
 

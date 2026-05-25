@@ -15,7 +15,7 @@ Enter alternate screen buffer (like vim/less do)
 
 ```bash
 terminal::screen::alternate() {
-    printf '\033[?1049h'
+		printf '\033[?1049h'
 }
 ```
 

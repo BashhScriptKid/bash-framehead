@@ -21,9 +21,9 @@ Fast variant using nameref
 
 ```bash
 string::path_to_kebab::fast() {
-  local -n _string_path_to_kebab_result="$1"
-  _string_path_to_kebab_result="${2//\\/-}"
-  _string_path_to_kebab_result="${_string_path_to_kebab_result//\//-}"
+	local -n _string_path_to_kebab_result="$1"
+	_string_path_to_kebab_result="${2//\\/-}"
+	_string_path_to_kebab_result="${_string_path_to_kebab_result//\//-}"
 }
 ```
 

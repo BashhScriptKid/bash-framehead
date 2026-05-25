@@ -21,12 +21,12 @@ Get all DNS records of a type
 
 ```bash
 net::dns::records() {
-    local host="$1" type="${2:-A}"
-    if runtime::has_command dig; then
-        dig +short "$host" "$type" 2>/dev/null
-    elif runtime::has_command nslookup; then
-        nslookup -type="$type" "$host" 2>/dev/null
-    fi
+		local host="$1" type="${2:-A}"
+		if runtime::has_command dig; then
+				dig +short "$host" "$type" 2>/dev/null
+		elif runtime::has_command nslookup; then
+				nslookup -type="$type" "$host" 2>/dev/null
+		fi
 }
 ```
 

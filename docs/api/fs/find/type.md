@@ -20,7 +20,7 @@ Recursive find by type (f=file, d=dir, l=symlink)
 
 ```bash
 fs::find::type() {
-    find "${1:-.}" -type "$2" 2>/dev/null
+		find "${1:-.}" -type "$2" 2>/dev/null
 }
 ```
 

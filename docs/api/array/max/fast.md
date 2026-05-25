@@ -23,13 +23,13 @@ Fast variant using nameref
 
 ```bash
 array::max::fast() {
-    local -n _array_max_result="$1"
-    shift
-    local max="$1"
-    for el in "$@"; do
-        (( el > max )) && max="$el"
-    done
-    _array_max_result=$max
+		local -n _array_max_result="$1"
+		shift
+		local max="$1"
+		for el in "$@"; do
+				(( el > max )) && max="$el"
+		done
+		_array_max_result=$max
 }
 ```
 

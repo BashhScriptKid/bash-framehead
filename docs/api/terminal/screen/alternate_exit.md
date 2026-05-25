@@ -15,8 +15,8 @@ _No description available._
 
 ```bash
 terminal::screen::alternate_exit() {
-    terminal::screen::normal
-    trap - EXIT INT TERM
+		terminal::screen::normal
+		trap - EXIT INT TERM
 }
 ```
 

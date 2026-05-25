@@ -8,7 +8,7 @@
 
 ## Description
 
-Send a signal to a process
+--- CONTROL ---
 
 ## Parameters
 
@@ -21,7 +21,7 @@ Send a signal to a process
 
 ```bash
 process::signal() {
-    kill -"$2" "$1" 2>/dev/null
+		kill -"$2" "$1" 2>/dev/null
 }
 ```
 

@@ -22,10 +22,10 @@ Check if two strings have the same hash (constant-time safe via hash comparison)
 
 ```bash
 hash::equal() {
-    local h1 h2 algo="${3:-sha256}"
-    h1=$(hash::"$algo" "$1" 2>/dev/null) || return 1
-    h2=$(hash::"$algo" "$2" 2>/dev/null) || return 1
-    [[ "$h1" == "$h2" ]]
+		local _hash_a _hash_b algo="${3:-sha256}"
+		_hash_a=$(hash::"$algo" "$1" 2>/dev/null) || return 1
+		_hash_b=$(hash::"$algo" "$2" 2>/dev/null) || return 1
+		[[ "$_hash_a" == "$_hash_b" ]]
 }
 ```
 

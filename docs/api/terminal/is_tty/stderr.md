@@ -15,7 +15,7 @@ Check if stderr is a terminal
 
 ```bash
 terminal::is_tty::stderr() {
-    [[ -t 2 ]]
+		[[ -t 2 ]]
 }
 ```
 

@@ -15,7 +15,7 @@ Clear current line
 
 ```bash
 terminal::clear::line() {
-    printf '\033[2K'
+		printf '\033[2K'
 }
 ```
 

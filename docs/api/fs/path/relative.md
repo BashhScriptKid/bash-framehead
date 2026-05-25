@@ -23,14 +23,14 @@ Get path relative to a base
 
 ```bash
 fs::path::relative() {
-    local target="$1" base="$2"
-    # Strip common prefix
-    while [[ "$target" == "$base"* && "$base" != "/" ]]; do
-        target="${target#$base}"
-        target="${target#/}"
-        break
-    done
-    echo "$target"
+		local target="$1" base="$2"
+		# Strip common prefix
+		while [[ "$target" == "$base"* && "$base" != "/" ]]; do
+				target="${target#"$base"}"
+				target="${target#/}"
+				break
+		done
+		echo "$target"
 }
 ```
 

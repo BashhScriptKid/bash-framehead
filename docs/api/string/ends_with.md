@@ -21,9 +21,9 @@ Check if string ends with suffix
 
 ```bash
 string::ends_with() {
-  local input
-  if [[ ! -t 0 ]]; then input=$(cat); else input="$1"; shift; fi
-  [[ "$input" == *"$1" ]]
+	local input
+	if [[ $# -ge 2 ]]; then input="$1"; shift; else input=$(cat); fi
+	[[ "$input" == *"$1" ]]
 }
 ```
 

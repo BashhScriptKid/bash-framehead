@@ -15,7 +15,7 @@ Scroll up n lines
 
 ```bash
 terminal::scroll::up() {
-    printf '\033[%sS' "${1:-1}"
+		printf '\033[%sS' "${1:-1}"
 }
 ```
 

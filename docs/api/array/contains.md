@@ -23,12 +23,12 @@ Check if array contains a value
 
 ```bash
 array::contains() {
-    local needle="$1"; shift
-    local el
-    for el in "$@"; do
-        [[ "$el" == "$needle" ]] && return 0
-    done
-    return 1
+		local needle="$1"; shift
+		local el
+		for el in "$@"; do
+				[[ "$el" == "$needle" ]] && return 0
+		done
+		return 1
 }
 ```
 

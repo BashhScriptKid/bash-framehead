@@ -20,10 +20,10 @@ Stopwatch — stop, returns elapsed ms
 
 ```bash
 timedate::time::stopwatch::stop() {
-    local start="$1"
-    local now
-    now=$(timedate::timestamp::unix_ms)
-    echo $(( now - start ))
+		local start="$1"
+		local now
+		now=$(timedate::timestamp::unix_ms)
+		echo $(( now - start ))
 }
 ```
 

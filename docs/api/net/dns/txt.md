@@ -20,7 +20,7 @@ Get TXT records (useful for SPF, DKIM etc.)
 
 ```bash
 net::dns::txt() {
-    net::dns::records "$1" TXT
+		net::dns::records "$1" TXT
 }
 ```
 

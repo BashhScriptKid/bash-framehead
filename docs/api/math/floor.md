@@ -8,7 +8,7 @@
 
 ## Description
 
-Floor — largest integer ≤ n
+--- FLOATING POINT (requires bc) ---
 
 ## Parameters
 
@@ -20,9 +20,9 @@ Floor — largest integer ≤ n
 
 ```bash
 math::floor() {
-  local n
-  if [[ ! -t 0 ]]; then n=$(cat); else n="$1"; fi
-    math::bc "scale=0; $n / 1"
+	local n
+	if [[ $# -ge 1 ]]; then n="$1"; else n=$(cat); fi
+		math::bc "scale=0; $n / 1"
 }
 ```
 

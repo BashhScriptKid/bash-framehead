@@ -15,7 +15,7 @@ Sort elements in reverse
 
 ```bash
 array::sort::reverse() {
-    printf '%s\n' "$@" | sort -r
+		printf '%s\n' "$@" | sort -r
 }
 ```
 

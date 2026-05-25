@@ -8,7 +8,7 @@
 
 ## Description
 
-Split a string by delimiter into lines (one element per line)
+--- SPLITTING / JOINING ---
 
 ## Parameters
 
@@ -21,15 +21,15 @@ Split a string by delimiter into lines (one element per line)
 
 ```bash
 string::split() {
-  local input delim
-  if [[ ! -t 0 ]]; then
-    input=$(cat); delim="$1"
-  else
-    input="$1"; delim="$2"
-  fi
-  local IFS="$delim"
-  set -- $input
-  printf '%s\n' "$@"
+	local input delim
+	if [[ $# -ge 2 ]]; then
+		input="$1"; delim="$2"
+	else
+		input=$(cat); delim="$1"
+	fi
+	local IFS="$delim"
+	set -- $input
+	printf '%s\n' "$@"
 }
 ```
 

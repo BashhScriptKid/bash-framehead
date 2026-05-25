@@ -15,7 +15,7 @@ _No description available._
 
 ```bash
 git::is_stashed() {
-    git rev-parse --verify refs/stash >/dev/null 2>&1
+		git rev-parse --verify refs/stash >/dev/null 2>&1
 }
 ```
 

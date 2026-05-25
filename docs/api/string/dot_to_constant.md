@@ -15,9 +15,9 @@ dot.case → CONSTANT_CASE
 
 ```bash
 string::dot_to_constant() {
-  local input; _string::read_input input "$@"
-  local s="${input//./_}"
-  echo "${s^^}"
+	local input; _string::read_input input "$@"
+	local _str="${input//./_}"
+	echo "${s^^}"
 }
 ```
 

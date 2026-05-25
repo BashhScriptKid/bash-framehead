@@ -21,8 +21,8 @@ Sigmoid — single value escape hatch
 
 ```bash
 math::sigmoid::singleton() {
-    local scale="${2:-$MATH_SCALE}"
-    math::bc "1 / (1 + e(-($1)))" "$scale"
+		local scale="${2:-$MATH_SCALE}"
+		math::bc "1 / (1 + e(-($1)))" "$scale"
 }
 ```
 

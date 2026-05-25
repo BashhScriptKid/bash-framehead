@@ -15,7 +15,7 @@ Get day of week (1=Monday, 7=Sunday, ISO 8601)
 
 ```bash
 timedate::date::day_of_week() {
-    date +%u
+		date +%u
 }
 ```
 

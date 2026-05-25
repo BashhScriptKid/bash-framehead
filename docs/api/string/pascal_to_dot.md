@@ -15,8 +15,8 @@ PascalCase → dot.case
 
 ```bash
 string::pascal_to_dot() {
-  local input; _string::read_input input "$@"
-  string::camel_to_dot "$input"
+	local input; _string::read_input input "$@"
+	string::camel_to_dot "$input"
 }
 ```
 

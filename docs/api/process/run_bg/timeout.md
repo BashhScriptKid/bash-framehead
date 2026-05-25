@@ -22,14 +22,14 @@ Run a command in the background with a timeout
 
 ```bash
 process::run_bg::timeout() {
-    local timeout="$1"; shift
-    (
-        "$@" &
-        local pid=$!
-        sleep "$timeout"
-        process::kill::graceful "$pid"
-    ) &
-    echo $!
+		local timeout="$1"; shift
+		(
+				"$@" &
+				local pid=$!
+				sleep "$timeout"
+				process::kill::graceful "$pid"
+		) &
+		echo $!
 }
 ```
 

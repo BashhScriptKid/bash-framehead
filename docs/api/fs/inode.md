@@ -20,7 +20,7 @@ Inode number
 
 ```bash
 fs::inode() {
-    stat -c '%i' "$1" 2>/dev/null
+		stat -c '%i' "$1" 2>/dev/null
 }
 ```
 

@@ -15,7 +15,7 @@ Disable terminal echo (e.g. for password input)
 
 ```bash
 terminal::echo::off() {
-    stty -echo 2>/dev/null
+		stty -echo 2>/dev/null
 }
 ```
 

@@ -20,7 +20,7 @@ Owner username
 
 ```bash
 fs::owner() {
-    stat -c '%U' "$1" 2>/dev/null
+		stat -c '%U' "$1" 2>/dev/null
 }
 ```
 

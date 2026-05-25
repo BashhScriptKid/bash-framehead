@@ -20,7 +20,7 @@ Creation time (unix timestamp) — not available on all filesystems
 
 ```bash
 fs::created() {
-    stat -c '%W' "$1" 2>/dev/null
+		stat -c '%W' "$1" 2>/dev/null
 }
 ```
 

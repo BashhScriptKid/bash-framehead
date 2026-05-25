@@ -23,8 +23,8 @@ Append elements (print existing + new)
 
 ```bash
 array::push() {
-    local new="$1"; shift
-    printf '%s\n' "$@" "$new"
+		local new="$1"; shift
+		printf '%s\n' "$@" "$new"
 }
 ```
 

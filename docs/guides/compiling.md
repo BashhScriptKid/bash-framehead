@@ -37,7 +37,7 @@ For day-to-day development, `OPTIMIZE=0 MINIFY=0` is fast and sufficient.
 
 ## Custom subset
 
-You might not need all 16 modules in every project. A smaller file means faster source time and less memory in constrained environments.
+You might not need all 21 modules in every project. A smaller file means faster source time and less memory in constrained environments.
 
 To exclude modules, remove their `.sh` file from the `src/` directory before compiling, or edit the compile list in `main.sh`. `runtime.sh` must stay — it is required.
 
@@ -71,6 +71,16 @@ Tradeoff: more setup for contributors, but staying current is one `git pull` awa
 
 Vendoring is the right default for most projects. Use a submodule if you expect to track upstream closely.
 
+## Bare-minimum (call‑graph tracing)
+
+For the smallest possible build containing only the functions needed for a specific pattern, use `compile_bare`:
+
+```bash
+./main.sh compile_bare "json::*" json_bare.sh && source ./json_bare.sh
+```
+
+This command traces the call graph for the given pattern and emits only the required functions and globals—ideal for constrained environments.
+
 ## Verifying the build
 
 ```bash
@@ -86,7 +96,7 @@ string        204
 fs            74
 ...
 
-Total: 1117 functions
+Total: ~1,300 functions
 Load time: 0.12s
 ```
 

@@ -20,7 +20,7 @@ Exponential e^n
 
 ```bash
 math::exp() {
-    math::bc "e($1)"
+		math::bc "e($1)"
 }
 ```
 

@@ -15,11 +15,11 @@ path/case → kebab-case
 
 ```bash
 string::path_to_kebab() {
-  local input; _string::read_input input "$@"
-  local path="$input"
-  path="${path//\\/-}"  # Replace backslashes
-  path="${path//\//-}"  # Replace forward slashes
-  echo "$path"
+	local input; _string::read_input input "$@"
+	local path="$input"
+	path="${path//\\/-}"  # Replace backslashes
+	path="${path//\//-}"  # Replace forward slashes
+	echo "$path"
 }
 ```
 

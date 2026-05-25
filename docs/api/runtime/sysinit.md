@@ -15,7 +15,7 @@ _No description available._
 
 ```bash
 runtime::sysinit() {
-  ps -p 1 -o comm=
+	ps -p 1 -o comm=
 }
 ```
 

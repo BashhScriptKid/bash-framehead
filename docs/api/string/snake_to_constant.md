@@ -15,8 +15,8 @@ snake_case → CONSTANT_CASE
 
 ```bash
 string::snake_to_constant() {
-  local input; _string::read_input input "$@"
-  echo "${input^^}"
+	local input; _string::read_input input "$@"
+	echo "${input^^}"
 }
 ```
 

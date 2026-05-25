@@ -8,7 +8,7 @@
 
 ## Description
 
-Create a temporary file, print its path
+--- TEMP FILES ---
 
 ## Parameters
 
@@ -21,8 +21,8 @@ Create a temporary file, print its path
 
 ```bash
 fs::temp::file() {
-    local prefix="${1:-fsbshf}"
-    mktemp "/tmp/${prefix}.XXXXXX"
+		local prefix="${1:-fsbshf}"
+		mktemp "/tmp/${prefix}.XXXXXX"
 }
 ```
 

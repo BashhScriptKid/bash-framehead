@@ -22,7 +22,7 @@ Replace string in file (in-place)
 
 ```bash
 fs::replace() {
-    sed -i "s|${2}|${3}|g" "$1"
+		sed -i "s|${2}|${3}|g" "$1"
 }
 ```
 

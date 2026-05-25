@@ -15,7 +15,7 @@ Clear from cursor to beginning of screen
 
 ```bash
 terminal::clear::to_start() {
-    printf '\033[1J'
+		printf '\033[1J'
 }
 ```
 

@@ -20,7 +20,7 @@ Check if array is empty
 
 ```bash
 array::is_empty() {
-    [[ "$#" -eq 0 ]]
+		[[ "$#" -eq 0 ]]
 }
 ```
 

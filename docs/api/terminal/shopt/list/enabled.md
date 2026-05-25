@@ -21,7 +21,7 @@ List all enabled shopt options
 
 ```bash
 terminal::shopt::list::enabled() {
-    shopt | awk '$2 == "on" {print $1}'
+		shopt | awk '$2 == "on" {print $1}'
 }
 ```
 

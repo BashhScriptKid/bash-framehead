@@ -20,7 +20,7 @@ Check if device is a loop device
 
 ```bash
 device::is_loop() {
-    [[ "$1" == /dev/loop* ]]
+		[[ "$1" == /dev/loop* ]]
 }
 ```
 

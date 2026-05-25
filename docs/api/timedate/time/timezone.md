@@ -15,7 +15,7 @@ Get timezone abbreviation
 
 ```bash
 timedate::time::timezone() {
-    date +%Z
+		date +%Z
 }
 ```
 

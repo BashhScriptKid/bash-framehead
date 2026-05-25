@@ -15,8 +15,8 @@ Convert to lowercase (Bash 3 compatible)
 
 ```bash
 string::lower::legacy() {
-  local input; _string::read_input input "$@"
-  echo "$input" | tr '[:upper:]' '[:lower:]'
+	local input; _string::read_input input "$@"
+	echo "$input" | tr '[:upper:]' '[:lower:]'
 }
 ```
 

@@ -20,7 +20,7 @@ Count characters in a file
 
 ```bash
 fs::char_count() {
-    wc -c < "$1"
+		wc -c < "$1"
 }
 ```
 

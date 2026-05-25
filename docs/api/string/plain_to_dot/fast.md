@@ -21,9 +21,9 @@ Fast variant using nameref
 
 ```bash
 string::plain_to_dot::fast() {
-  local -n _string_plain_to_dot_result="$1"
-  _string_plain_to_dot_result="${2// /.}"
-  _string_plain_to_dot_result="${_string_plain_to_dot_result,,}"
+	local -n _string_plain_to_dot_result="$1"
+	_string_plain_to_dot_result="${2// /.}"
+	_string_plain_to_dot_result="${_string_plain_to_dot_result,,}"
 }
 ```
 

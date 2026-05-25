@@ -21,18 +21,18 @@ Index of first occurrence of substring (-1 if not found)
 
 ```bash
 string::index_of() {
-  local input needle
-  if [[ ! -t 0 ]]; then
-    input=$(cat); needle="$1"
-  else
-    input="$1"; needle="$2"
-  fi
-  local before="${input%%"$needle"*}"
-  if [[ "$before" == "$input" ]]; then
-    echo -1
-  else
-    echo "${#before}"
-  fi
+	local input needle
+	if [[ $# -ge 2 ]]; then
+		input="$1"; needle="$2"
+	else
+		input=$(cat); needle="$1"
+	fi
+	local before="${input%%"$needle"*}"
+	if [[ "$before" == "$input" ]]; then
+		echo -1
+	else
+		echo "${#before}"
+	fi
 }
 ```
 

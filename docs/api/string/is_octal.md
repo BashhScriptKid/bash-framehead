@@ -15,8 +15,8 @@ _No description available._
 
 ```bash
 string::is_octal() {
-  local input; _string::read_input input "$@"
-  [[ "$input" =~ ^0[0-7]+$ ]]
+	local input; _string::read_input input "$@"
+	[[ "$input" =~ ^0[0-7]+$ ]]
 }
 ```
 

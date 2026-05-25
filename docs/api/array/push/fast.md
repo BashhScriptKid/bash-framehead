@@ -24,9 +24,9 @@ Fast variant using nameref
 
 ```bash
 array::push::fast() {
-    local -n _array_push_result="$1"
-    local new="$2"; shift 2
-    _array_push_result=("$@" "$new")
+		local -n _array_push_result="$1"
+		local new="$2"; shift 2
+		_array_push_result=("$@" "$new")
 }
 ```
 

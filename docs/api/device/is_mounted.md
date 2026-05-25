@@ -20,8 +20,8 @@ Check if a block device is mounted
 
 ```bash
 device::is_mounted() {
-    grep -q "^$1 " /proc/mounts 2>/dev/null \
-        || grep -q " $1 " /proc/mounts 2>/dev/null
+		grep -q "^$1 " /proc/mounts 2>/dev/null \
+				|| grep -q " $1 " /proc/mounts 2>/dev/null
 }
 ```
 

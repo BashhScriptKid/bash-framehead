@@ -20,7 +20,7 @@ Suspend a process (SIGSTOP)
 
 ```bash
 process::suspend() {
-    kill -STOP "$1" 2>/dev/null
+		kill -STOP "$1" 2>/dev/null
 }
 ```
 

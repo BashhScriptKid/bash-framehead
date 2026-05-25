@@ -20,8 +20,8 @@ Check if a lock is held
 
 ```bash
 process::lock::is_locked() {
-    local lockfile="/tmp/fsbshf_${1}.lock"
-    [[ -f "$lockfile" ]] && process::is_running "$(cat "$lockfile" 2>/dev/null)"
+		local lockfile="/tmp/fsbshf_${1}.lock"
+		[[ -f "$lockfile" ]] && process::is_running "$(cat "$lockfile" 2>/dev/null)"
 }
 ```
 

@@ -21,11 +21,11 @@ Get number of threads for a PID
 
 ```bash
 process::thread_count() {
-    if [[ -f "/proc/$1/status" ]]; then
-        awk '/^Threads:/{print $2}' "/proc/$1/status"
-    else
-        ps -o nlwp= -p "$1" 2>/dev/null | tr -d ' '
-    fi
+		if [[ -f "/proc/$1/status" ]]; then
+				awk '/^Threads:/{print $2}' "/proc/$1/status"
+		else
+				ps -o nlwp= -p "$1" 2>/dev/null | tr -d ' '
+		fi
 }
 ```
 

@@ -22,7 +22,7 @@ Check if two vec2 vectors are equal
 
 ```bash
 math::vec2::eq() {
-    [[ "$1" == "$2" ]]
+		[[ "$1" == "$2" ]]
 }
 ```
 

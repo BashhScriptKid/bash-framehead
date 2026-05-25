@@ -15,7 +15,7 @@ Get day of year (001-366)
 
 ```bash
 timedate::date::day_of_year() {
-    date +%j
+		date +%j
 }
 ```
 

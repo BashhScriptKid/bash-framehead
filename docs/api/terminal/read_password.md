@@ -21,14 +21,14 @@ Read a password (no echo)
 
 ```bash
 terminal::read_password() {
-    local _var="$1" _prompt="${2:-Password: }"
-    local _pass
-    printf '%s' "$_prompt"
-    terminal::echo::off
-    IFS= read -r _pass
-    terminal::echo::on
-    printf '\n'
-    printf -v "$_var" '%s' "$_pass"
+		local _var="$1" _prompt="${2:-Password: }"
+		local _pass
+		printf '%s' "$_prompt"
+		terminal::echo::off
+		IFS= read -r _pass
+		terminal::echo::on
+		printf '\n'
+		printf -v "$_var" '%s' "$_pass"
 }
 ```
 

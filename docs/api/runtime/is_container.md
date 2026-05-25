@@ -15,11 +15,11 @@ _No description available._
 
 ```bash
 runtime::is_container() {
-  [[ -f /.dockerenv ]] ||
-  [[ -f /run/.containerenv ]] ||
-  grep -q "docker\|lxc\|kubepods" /proc/1/cgroup 2>/dev/null ||
-  [[ -n "$CONTAINER" ]] ||
-  [[ -n "$KUBERNETES_SERVICE_HOST" ]]
+	[[ -f /.dockerenv ]] ||
+	[[ -f /run/.containerenv ]] ||
+	grep -q "docker\|lxc\|kubepods" /proc/1/cgroup 2>/dev/null ||
+	[[ -n "$CONTAINER" ]] ||
+	[[ -n "$KUBERNETES_SERVICE_HOST" ]]
 }
 ```
 

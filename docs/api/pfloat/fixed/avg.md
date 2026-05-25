@@ -15,15 +15,15 @@ _No description available._
 
 ```bash
 pfloat::fixed::avg() {
-  local count=$#
-  ((count == 0)) && {
-    echo "pfloat::fixed::avg: no arguments" >&2
-    return 1
-  }
+	local count=$#
+	((count == 0)) && {
+		echo "pfloat::fixed::avg: no arguments" >&2
+		return 1
+	}
 
-  local total
-  total=$(pfloat::fixed::sum "$@")
-  pfloat::fixed::div "$total" "$count"
+	local total
+	total=$(pfloat::fixed::sum "$@")
+	pfloat::fixed::div "$total" "$count"
 }
 ```
 

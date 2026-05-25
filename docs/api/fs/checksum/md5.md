@@ -8,7 +8,7 @@
 
 ## Description
 
-_No description available._
+--- CHECKSUMS ---
 
 ## Parameters
 
@@ -20,11 +20,11 @@ _No description available._
 
 ```bash
 fs::checksum::md5() {
-    if runtime::has_command md5sum; then
-        md5sum "$1" | awk '{print $1}'
-    elif runtime::has_command md5; then
-        md5 -q "$1"
-    fi
+		if runtime::has_command md5sum; then
+				md5sum "$1" | awk '{print $1}'
+		elif runtime::has_command md5; then
+				md5 -q "$1"
+		fi
 }
 ```
 

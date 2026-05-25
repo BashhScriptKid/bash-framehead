@@ -15,7 +15,7 @@ Get day of week name
 
 ```bash
 timedate::date::day_name() {
-    date +%A
+		date +%A
 }
 ```
 

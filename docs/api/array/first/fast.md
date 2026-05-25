@@ -23,9 +23,9 @@ Fast variant using nameref
 
 ```bash
 array::first::fast() {
-    local -n _array_first_result="$1"
-    shift
-    _array_first_result="$1"
+		local -n _array_first_result="$1"
+		shift
+		_array_first_result="$1"
 }
 ```
 

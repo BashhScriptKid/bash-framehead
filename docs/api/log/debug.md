@@ -8,7 +8,7 @@
 
 ## Description
 
-Log a debug message
+--- PUBLIC API ---
 
 ## Parameters
 
@@ -26,7 +26,7 @@ Example:
 
 ```bash
 log::debug() {
-    _log::emit "DEBUG" $LOG_DEBUG "$*" "${BASH_LINENO[0]}" "${FUNCNAME[1]}"
+		_log::emit "DEBUG" $LOG_DEBUG "$*" "${BASH_LINENO[0]}" "${FUNCNAME[1]}"
 }
 ```
 

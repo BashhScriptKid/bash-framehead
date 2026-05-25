@@ -20,7 +20,7 @@ Check if a string is a valid IPv6 address (basic check)
 
 ```bash
 net::ip::is_valid_v6() {
-    [[ "$1" =~ ^([0-9a-fA-F]{0,4}:){2,7}[0-9a-fA-F]{0,4}$ ]]
+		[[ "$1" =~ ^([0-9a-fA-F]{0,4}:){2,7}[0-9a-fA-F]{0,4}$ ]]
 }
 ```
 

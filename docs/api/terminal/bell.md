@@ -15,7 +15,7 @@ Ring the terminal bell
 
 ```bash
 terminal::bell() {
-    printf '\007'
+		printf '\007'
 }
 ```
 

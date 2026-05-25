@@ -15,8 +15,8 @@ snake_case → PascalCase
 
 ```bash
 string::snake_to_pascal() {
-  local input; _string::read_input input "$@"
-  string::plain_to_pascal "${input//_/ }"
+	local input; _string::read_input input "$@"
+	string::plain_to_pascal "${input//_/ }"
 }
 ```
 

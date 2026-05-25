@@ -23,9 +23,9 @@ plain (space-separated) → snake_case
 
 ```bash
 string::plain_to_snake() {
-  local input; _string::read_input input "$@"
-  local s="${input// /_}"
-  echo "${s,,}"
+	local input; _string::read_input input "$@"
+	local _str="${input// /_}"
+	echo "${s,,}"
 }
 ```
 

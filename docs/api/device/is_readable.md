@@ -20,7 +20,7 @@ Check if device is readable
 
 ```bash
 device::is_readable() {
-    [[ -r "$1" ]]
+		[[ -r "$1" ]]
 }
 ```
 

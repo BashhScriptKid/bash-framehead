@@ -8,7 +8,7 @@
 
 ## Description
 
-_No description available._
+IEEE 754: Check if value is finite (not NaN, not Inf)
 
 ## Parameters
 
@@ -20,8 +20,8 @@ _No description available._
 
 ```bash
 pfloat::ieee754::is_finite() {
-  local exp=$(_ieee754::get_exp "$1")
-  ((exp < 2047))
+	local exp=$(_ieee754::get_exp "$1")
+	((exp < 2047))
 }
 ```
 

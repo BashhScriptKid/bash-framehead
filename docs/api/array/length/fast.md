@@ -23,9 +23,9 @@ Fast variant using nameref
 
 ```bash
 array::length::fast() {
-    local -n _array_length_result="$1"
-    shift
-    _array_length_result=$#
+		local -n _array_length_result="$1"
+		shift
+		_array_length_result=$#
 }
 ```
 

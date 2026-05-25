@@ -15,8 +15,8 @@ Check if string is a valid integer
 
 ```bash
 string::is_integer() {
-  local input; _string::read_input input "$@"
-  [[ "$input" =~ ^-?[0-9]+$ ]]
+	local input; _string::read_input input "$@"
+	[[ "$input" =~ ^-?[0-9]+$ ]]
 }
 ```
 

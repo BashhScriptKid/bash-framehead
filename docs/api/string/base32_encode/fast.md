@@ -21,15 +21,15 @@ Fast variant using nameref
 
 ```bash
 string::base32_encode::fast() {
-    local -n _string_base32_encode_result="$1"
-    if runtime::has_command base32; then
-        _string_base32_encode_result=$(echo -n "$2" | base32)
-    elif runtime::has_command gbase32; then
-        _string_base32_encode_result=$(echo -n "$2" | gbase32)
-    else
-        echo "string::base32_encode::fast: requires base32 (GNU coreutils)" >&2
-        return 1
-    fi
+		local -n _string_base32_encode_result="$1"
+		if runtime::has_command base32; then
+				_string_base32_encode_result=$(echo -n "$2" | base32)
+		elif runtime::has_command gbase32; then
+				_string_base32_encode_result=$(echo -n "$2" | gbase32)
+		else
+				echo "string::base32_encode::fast: requires base32 (GNU coreutils)" >&2
+				return 1
+		fi
 }
 ```
 

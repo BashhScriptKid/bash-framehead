@@ -21,9 +21,9 @@ Rename just the filename, keeping directory
 
 ```bash
 fs::rename() {
-    local dir
-    dir="$(fs::path::dirname "$1")"
-    mv "$1" "$dir/$2"
+		local dir
+		dir="$(fs::path::dirname "$1")"
+		mv "$1" "$dir/$2"
 }
 ```
 

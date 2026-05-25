@@ -20,7 +20,7 @@ Last modified time (unix timestamp)
 
 ```bash
 fs::modified() {
-    stat -c '%Y' "$1" 2>/dev/null
+		stat -c '%Y' "$1" 2>/dev/null
 }
 ```
 

@@ -25,12 +25,12 @@ Zip two arrays together — pairs elements by index
 
 ```bash
 array::zip() {
-    local -a a=($1) b=($2)
-    local len=$(( ${#a[@]} < ${#b[@]} ? ${#a[@]} : ${#b[@]} ))
-    local i
-    for (( i=0; i<len; i++ )); do
-        echo "${a[$i]} ${b[$i]}"
-    done
+		local -a a=($1) b=($2)
+		local len=$(( ${#a[@]} < ${#b[@]} ? ${#a[@]} : ${#b[@]} ))
+		local i
+		for (( i=0; i<len; i++ )); do
+				echo "${a[$i]} ${b[$i]}"
+		done
 }
 ```
 

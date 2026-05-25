@@ -15,7 +15,7 @@ _No description available._
 
 ```bash
 runtime::debug_trapped() {
-    [[ -n "$(trap -p DEBUG)" ]]
+		[[ -n "$(trap -p DEBUG)" ]]
 }
 ```
 

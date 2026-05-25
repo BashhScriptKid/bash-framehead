@@ -21,8 +21,8 @@ Create a temporary directory, print its path
 
 ```bash
 fs::temp::dir() {
-    local prefix="${1:-fsbshf}"
-    mktemp -d "/tmp/${prefix}.XXXXXX"
+		local prefix="${1:-fsbshf}"
+		mktemp -d "/tmp/${prefix}.XXXXXX"
 }
 ```
 

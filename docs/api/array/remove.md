@@ -23,10 +23,10 @@ Remove all occurrences of a value
 
 ```bash
 array::remove() {
-    local target="$1"; shift
-    for el in "$@"; do
-        [[ "$el" != "$target" ]] && echo "$el"
-    done
+		local target="$1"; shift
+		for el in "$@"; do
+				[[ "$el" != "$target" ]] && echo "$el"
+		done
 }
 ```
 

@@ -8,7 +8,7 @@
 
 ## Description
 
-Multiply every element of a matrix by a scalar
+--- math::matrix::scale — Scalar multiplication ---
 
 ## Parameters
 
@@ -22,17 +22,17 @@ Multiply every element of a matrix by a scalar
 
 ```bash
 math::matrix::scale() {
-    local scalar=$2 rows cols
-    _math::matrix::dim "$1" rows cols
-    local size=$(( rows * cols ))
-    local -a _a
-    _math::matrix::unpack _a "$size" "${@:3}"
-    local -a _result=()
-    local i
-    for (( i = 0; i < size; i++ )); do
-        _result+=("$(( _a[$i] * scalar ))")
-    done
-    echo "${_result[@]}"
+		local scalar=$2 rows cols
+		_math::matrix::dim "$1" rows cols
+		local size=$(( rows * cols ))
+		local -a _a
+		_math::matrix::unpack _a "$size" "${@:3}"
+		local -a _result=()
+		local i
+		for (( i = 0; i < size; i++ )); do
+				_result+=("$(( _a[$i] * scalar ))")
+		done
+		echo "${_result[@]}"
 }
 ```
 

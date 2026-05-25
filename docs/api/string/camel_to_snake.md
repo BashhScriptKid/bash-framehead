@@ -15,10 +15,10 @@ camelCase → snake_case
 
 ```bash
 string::camel_to_snake() {
-  local input; _string::read_input input "$@"
-  local words
-  words=$(_string::to_words "$input")
-  echo "${words// /_}"
+	local input; _string::read_input input "$@"
+	local words
+	words=$(_string::to_words "$input")
+	echo "${words// /_}"
 }
 ```
 

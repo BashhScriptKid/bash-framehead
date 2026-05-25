@@ -21,7 +21,7 @@ Check if two paths resolve to the same file (inode comparison)
 
 ```bash
 fs::is_same() {
-    [[ "$(stat -c '%d:%i' "$1" 2>/dev/null)" == "$(stat -c '%d:%i' "$2" 2>/dev/null)" ]]
+		[[ "$(stat -c '%d:%i' "$1" 2>/dev/null)" == "$(stat -c '%d:%i' "$2" 2>/dev/null)" ]]
 }
 ```
 

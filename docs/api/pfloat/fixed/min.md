@@ -21,14 +21,14 @@ _No description available._
 
 ```bash
 pfloat::fixed::min() {
-  local a b
-  a=$(_pfloat::_to_scaled "$1")
-  b=$(_pfloat::_to_scaled "$2")
-  if ((a < b)); then
-    _pfloat::_from_scaled "$a"
-  else
-    _pfloat::_from_scaled "$b"
-  fi
+	local a b
+	a=$(_pfloat::_to_scaled "$1")
+	b=$(_pfloat::_to_scaled "$2")
+	if ((a < b)); then
+		_pfloat::_from_scaled "$a"
+	else
+		_pfloat::_from_scaled "$b"
+	fi
 }
 ```
 

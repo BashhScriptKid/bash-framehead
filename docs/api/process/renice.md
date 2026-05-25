@@ -21,7 +21,7 @@ Change process priority (nice value, -20 to 19)
 
 ```bash
 process::renice() {
-    renice -n "$2" -p "$1" 2>/dev/null
+		renice -n "$2" -p "$1" 2>/dev/null
 }
 ```
 

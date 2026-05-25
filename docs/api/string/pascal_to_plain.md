@@ -15,8 +15,8 @@ PascalCase → plain
 
 ```bash
 string::pascal_to_plain() {
-  local input; _string::read_input input "$@"
-  _string::to_words "$input"
+	local input; _string::read_input input "$@"
+	_string::to_words "$input"
 }
 ```
 

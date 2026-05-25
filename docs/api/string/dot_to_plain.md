@@ -15,8 +15,8 @@ dot.case → plain
 
 ```bash
 string::dot_to_plain() {
-  local input; _string::read_input input "$@"
-  echo "${input//./ }"
+	local input; _string::read_input input "$@"
+	echo "${input//./ }"
 }
 ```
 

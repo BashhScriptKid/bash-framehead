@@ -21,9 +21,9 @@ Scale a vec2 by a scalar with floating point precision
 
 ```bash
 math::vec2::scalef() {
-    local scale=$1 x y
-    _math::vec2::unpack2 x y "$2"
-    echo "$(math::bc "$x * $3" "$scale"),$(math::bc "$y * $3" "$scale")"
+		local scale=$1 x y
+		_math::vec2::unpack2 x y "$2"
+		echo "$(math::bc "$x * $3" "$scale"),$(math::bc "$y * $3" "$scale")"
 }
 ```
 

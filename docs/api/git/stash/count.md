@@ -15,7 +15,7 @@ _No description available._
 
 ```bash
 git::stash::count() {
-    git rev-list --count refs/stash 2>/dev/null || echo 0
+		git rev-list --count refs/stash 2>/dev/null || echo 0
 }
 ```
 

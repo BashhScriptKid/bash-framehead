@@ -15,9 +15,9 @@ Check if currently evening (18:00-23:59)
 
 ```bash
 timedate::time::is_evening() {
-    local hour
-    hour=$(( 10#$(date +%H) ))
-    (( hour >= 18 ))
+		local hour
+		hour=$(( 10#$(date +%H) ))
+		(( hour >= 18 ))
 }
 ```
 

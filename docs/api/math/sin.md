@@ -8,7 +8,7 @@
 
 ## Description
 
-_No description available._
+TRIGONOMETRY (requires bc)
 
 ## Parameters
 
@@ -20,7 +20,7 @@ _No description available._
 
 ```bash
 math::sin() {
-    math::bc "s($1)"
+		math::bc "s($1)"
 }
 ```
 

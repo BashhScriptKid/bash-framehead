@@ -8,7 +8,7 @@
 
 ## Description
 
-Replace first occurrence of search with replace
+--- MANIPULATION ---
 
 ## Parameters
 
@@ -22,9 +22,9 @@ Replace first occurrence of search with replace
 
 ```bash
 string::replace() {
-  local input
-  if [[ ! -t 0 ]]; then input=$(cat); else input="$1"; shift; fi
-  echo "${input/"$1"/"$2"}"
+	local input
+	if [[ $# -ge 2 ]]; then input="$1"; shift; else input=$(cat); fi
+	echo "${input/"$1"/"$2"}"
 }
 ```
 

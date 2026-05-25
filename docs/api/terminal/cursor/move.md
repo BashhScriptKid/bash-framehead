@@ -21,7 +21,7 @@ Move cursor to row, col (1-indexed)
 
 ```bash
 terminal::cursor::move() {
-    printf '\033[%s;%sH' "$1" "$2"
+		printf '\033[%s;%sH' "$1" "$2"
 }
 ```
 

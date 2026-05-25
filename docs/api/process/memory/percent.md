@@ -20,7 +20,7 @@ Get memory usage as percentage
 
 ```bash
 process::memory::percent() {
-    ps -o pmem= -p "$1" 2>/dev/null | tr -d ' '
+		ps -o pmem= -p "$1" 2>/dev/null | tr -d ' '
 }
 ```
 

@@ -15,7 +15,7 @@ Count items in directory
 
 ```bash
 fs::dir::count() {
-    find "${1:-.}" -maxdepth 1 -not -path "${1:-.}" 2>/dev/null | wc -l
+		find "${1:-.}" -maxdepth 1 -not -path "${1:-.}" 2>/dev/null | wc -l
 }
 ```
 

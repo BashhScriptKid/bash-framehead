@@ -21,9 +21,9 @@ Fast variant using nameref
 
 ```bash
 string::path_to_constant::fast() {
-  local -n _string_path_to_constant_result="$1"
-  _string_path_to_constant_result="${2//\//_}"
-  _string_path_to_constant_result="${_string_path_to_constant_result^^}"
+	local -n _string_path_to_constant_result="$1"
+	_string_path_to_constant_result="${2//\//_}"
+	_string_path_to_constant_result="${_string_path_to_constant_result^^}"
 }
 ```
 

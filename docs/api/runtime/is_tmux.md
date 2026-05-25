@@ -15,7 +15,7 @@ _No description available._
 
 ```bash
 runtime::is_tmux() {
-  [[ -n "$TMUX" ]]
+	[[ -n "$TMUX" ]]
 }
 ```
 

@@ -20,14 +20,14 @@ IEEE 754: Sign (-1, 0, or 1)
 
 ```bash
 pfloat::ieee754::sign() {
-  local bits="$1"
-  if _ieee754::is_zero "$bits"; then
-    echo 0
-  elif [[ $(_ieee754::get_sign "$bits") -eq 1 ]]; then
-    echo -1
-  else
-    echo 1
-  fi
+	local bits="$1"
+	if _ieee754::is_zero "$bits"; then
+		echo 0
+	elif [[ $(_ieee754::get_sign "$bits") -eq 1 ]]; then
+		echo -1
+	else
+		echo 1
+	fi
 }
 ```
 

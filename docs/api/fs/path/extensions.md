@@ -22,8 +22,8 @@ Get all extensions for multi-part extensions
 
 ```bash
 fs::path::extensions() {
-    local base="${1##*/}"
-    [[ "$base" == *.* ]] && echo "${base#*.}" || echo ""
+		local base="${1##*/}"
+		[[ "$base" == *.* ]] && echo "${base#*.}" || echo ""
 }
 ```
 

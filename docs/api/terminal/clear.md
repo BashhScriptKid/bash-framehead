@@ -8,15 +8,15 @@
 
 ## Description
 
-Clear entire screen
+--- SCREEN ---
 
 
 ## Source
 
 ```bash
 terminal::clear() {
-    printf '\033[2J'
-    terminal::cursor::home
+		printf '\033[2J'
+		terminal::cursor::home
 }
 ```
 

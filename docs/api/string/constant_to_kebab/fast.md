@@ -21,9 +21,9 @@ Fast variant using nameref
 
 ```bash
 string::constant_to_kebab::fast() {
-  local -n _string_constant_to_kebab_result="$1"
-  _string_constant_to_kebab_result="${2//_/-}"
-  _string_constant_to_kebab_result="${_string_constant_to_kebab_result,,}"
+	local -n _string_constant_to_kebab_result="$1"
+	_string_constant_to_kebab_result="${2//_/-}"
+	_string_constant_to_kebab_result="${_string_constant_to_kebab_result,,}"
 }
 ```
 

@@ -15,8 +15,8 @@ Print text in colour followed by newline
 
 ```bash
 colour::println() {
-  colour::print "$@"
-  printf '\n'
+	colour::print "$@"
+	printf '\n'
 }
 ```
 

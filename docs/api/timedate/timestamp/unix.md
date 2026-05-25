@@ -8,14 +8,14 @@
 
 ## Description
 
-Current unix timestamp (seconds since epoch)
+--- TIMESTAMP ---
 
 
 ## Source
 
 ```bash
 timedate::timestamp::unix() {
-    date +%s
+		date +%s
 }
 ```
 

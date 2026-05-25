@@ -8,7 +8,7 @@
 
 ## Description
 
-Number of elements
+--- INSPECTION ---
 
 ## Parameters
 
@@ -22,7 +22,7 @@ Number of elements
 
 ```bash
 array::length() {
-    echo "$#"
+		echo "$#"
 }
 ```
 

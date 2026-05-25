@@ -15,7 +15,7 @@ _No description available._
 
 ```bash
 runtime::is_subshell() {
-    [[ "$BASH_SUBSHELL" -gt 0 ]]
+		[[ "$BASH_SUBSHELL" -gt 0 ]]
 }
 ```
 

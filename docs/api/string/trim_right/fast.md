@@ -21,8 +21,8 @@ Fast variant using nameref
 
 ```bash
 string::trim_right::fast() {
-  local -n _string_trim_right_result="$1"
-  _string_trim_right_result="${2%"${2##*[![:space:]]}"}"
+	local -n _string_trim_right_result="$1"
+	_string_trim_right_result="${2%"${2##*[![:space:]]}"}"
 }
 ```
 

@@ -15,7 +15,7 @@ Scroll down n lines
 
 ```bash
 terminal::scroll::down() {
-    printf '\033[%sT' "${1:-1}"
+		printf '\033[%sT' "${1:-1}"
 }
 ```
 

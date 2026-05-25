@@ -20,10 +20,10 @@ Absolute value (float) — Usage: math::absf n [scale]
 
 ```bash
 math::absf() {
-  local n scale
-  if [[ ! -t 0 ]]; then n=$(cat); scale="${1:-$MATH_SCALE}"
-  else n="$1"; scale="${2:-$MATH_SCALE}"; fi
-  math::bc "if ($n < 0) { -($n) } else { $n }" "$scale"
+	local n scale
+	if [[ $# -ge 1 ]]; then n="$1"; scale="${2:-$MATH_SCALE}"
+	else n=$(cat); scale="${1:-$MATH_SCALE}"; fi
+	math::bc "if ($n < 0) { -($n) } else { $n }" "$scale"
 }
 ```
 

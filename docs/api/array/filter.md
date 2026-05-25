@@ -8,7 +8,7 @@
 
 ## Description
 
-Filter elements matching a regex
+--- FILTERING ---
 
 ## Parameters
 
@@ -23,10 +23,10 @@ Filter elements matching a regex
 
 ```bash
 array::filter() {
-    local regex="$1"; shift
-    for el in "$@"; do
-        [[ "$el" =~ $regex ]] && echo "$el"
-    done
+		local regex="$1"; shift
+		for el in "$@"; do
+				[[ "$el" =~ $regex ]] && echo "$el"
+		done
 }
 ```
 

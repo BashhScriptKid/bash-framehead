@@ -24,9 +24,9 @@ Fast variant using nameref
 
 ```bash
 array::unshift::fast() {
-    local -n _array_unshift_result="$1"
-    local new="$2"; shift 2
-    _array_unshift_result=("$new" "$@")
+		local -n _array_unshift_result="$1"
+		local new="$2"; shift 2
+		_array_unshift_result=("$new" "$@")
 }
 ```
 

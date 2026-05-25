@@ -20,9 +20,9 @@ Check if a string contains any ANSI escape codes
 
 ```bash
 colour::has_colour() {
-  local input
-  if [[ ! -t 0 ]]; then input=$(cat); else input="$1"; fi
-  [[ "$input" =~ $'\033'\[ ]]
+	local input
+	if [[ $# -ge 1 ]]; then input="$1"; else input=$(cat); fi
+	[[ "$input" =~ $'\033'\[ ]]
 }
 ```
 

@@ -22,10 +22,10 @@ Normalise a vec3 to unit length — requires bc
 
 ```bash
 math::vec3::normalise() {
-    local x y z mag
-    _math::vec3::unpack3 x y z "$1"
-    mag=$(math::bc "sqrt($x*$x + $y*$y + $z*$z)")
-    echo "$(math::bc "$x / $mag"),$(math::bc "$y / $mag"),$(math::bc "$z / $mag")"
+		local x y z mag
+		_math::vec3::unpack3 x y z "$1"
+		mag=$(math::bc "sqrt($x*$x + $y*$y + $z*$z)")
+		echo "$(math::bc "$x / $mag"),$(math::bc "$y / $mag"),$(math::bc "$z / $mag")"
 }
 ```
 

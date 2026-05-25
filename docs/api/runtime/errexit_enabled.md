@@ -15,7 +15,7 @@ _No description available._
 
 ```bash
 runtime::errexit_enabled() {
-    [[ "$-" == *e* ]]
+		[[ "$-" == *e* ]]
 }
 ```
 

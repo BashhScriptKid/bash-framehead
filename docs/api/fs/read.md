@@ -8,7 +8,7 @@
 
 ## Description
 
-Read entire file contents
+--- READING / WRITING ---
 
 ## Parameters
 
@@ -20,7 +20,7 @@ Read entire file contents
 
 ```bash
 fs::read() {
-    cat "$1"
+		cat "$1"
 }
 ```
 

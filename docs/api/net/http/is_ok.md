@@ -20,7 +20,7 @@ Check if a URL returns 200 OK
 
 ```bash
 net::http::is_ok() {
-    [[ "$(net::http::status "$1")" == "200" ]]
+		[[ "$(net::http::status "$1")" == "200" ]]
 }
 ```
 

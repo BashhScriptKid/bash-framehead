@@ -15,8 +15,8 @@ Check if string is empty
 
 ```bash
 string::is_empty() {
-  local input; _string::read_input input "$@"
-  [[ -z "$input" ]]
+	local input; _string::read_input input "$@"
+	[[ -z "$input" ]]
 }
 ```
 

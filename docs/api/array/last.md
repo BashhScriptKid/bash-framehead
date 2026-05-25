@@ -22,7 +22,7 @@ Return last element
 
 ```bash
 array::last() {
-    eval echo "\${$#}"
+		eval echo "\${$#}"
 }
 ```
 

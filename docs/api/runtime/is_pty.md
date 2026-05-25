@@ -15,8 +15,8 @@ _No description available._
 
 ```bash
 runtime::is_pty() {
-  # Check if we're in a pseudo-terminal
-  [[ "$(tty)" =~ ^/dev/pts/[0-9]+ ]]
+	# Check if we're in a pseudo-terminal
+	[[ "$(tty)" =~ ^/dev/pts/[0-9]+ ]]
 }
 ```
 

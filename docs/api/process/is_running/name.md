@@ -20,7 +20,7 @@ Check if a process is running by name
 
 ```bash
 process::is_running::name() {
-    pgrep -x "$1" >/dev/null 2>&1
+		pgrep -x "$1" >/dev/null 2>&1
 }
 ```
 

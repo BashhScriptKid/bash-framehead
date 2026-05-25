@@ -20,7 +20,7 @@ _No description available._
 
 ```bash
 math::tan() {
-    math::bc "s($1) / c($1)"
+		math::bc "s($1) / c($1)"
 }
 ```
 

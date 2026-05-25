@@ -15,7 +15,7 @@ Get day of week short name
 
 ```bash
 timedate::date::day_name::short() {
-    date +%a
+		date +%a
 }
 ```
 

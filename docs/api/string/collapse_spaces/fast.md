@@ -21,8 +21,8 @@ Fast variant using nameref (requires tr)
 
 ```bash
 string::collapse_spaces::fast() {
-  local -n _string_collapse_spaces_result="$1"
-  _string_collapse_spaces_result=$(echo "$2" | tr -s ' ')
+	local -n _string_collapse_spaces_result="$1"
+	_string_collapse_spaces_result=$(echo "$2" | tr -s ' ')
 }
 ```
 

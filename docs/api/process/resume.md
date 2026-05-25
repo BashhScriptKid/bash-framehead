@@ -20,7 +20,7 @@ Resume a suspended process (SIGCONT)
 
 ```bash
 process::resume() {
-    kill -CONT "$1" 2>/dev/null
+		kill -CONT "$1" 2>/dev/null
 }
 ```
 

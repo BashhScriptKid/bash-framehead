@@ -8,7 +8,7 @@
 
 ## Description
 
-_No description available._
+IEEE 754: Check if value is Infinity
 
 ## Parameters
 
@@ -20,7 +20,7 @@ _No description available._
 
 ```bash
 pfloat::ieee754::is_inf() {
-  _ieee754::is_inf "$1"
+	_ieee754::is_inf "$1"
 }
 ```
 

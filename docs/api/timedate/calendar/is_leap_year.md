@@ -8,7 +8,7 @@
 
 ## Description
 
-Check if a year is a leap year
+--- CALENDAR ---
 
 ## Parameters
 
@@ -20,8 +20,8 @@ Check if a year is a leap year
 
 ```bash
 timedate::calendar::is_leap_year() {
-    local year="$1"
-    (( year % 4 == 0 && (year % 100 != 0 || year % 400 == 0) ))
+		local year="$1"
+		(( year % 4 == 0 && (year % 100 != 0 || year % 400 == 0) ))
 }
 ```
 

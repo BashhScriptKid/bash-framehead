@@ -20,11 +20,11 @@ Get ISO week number for a date
 
 ```bash
 timedate::calendar::iso_week() {
-    if _timedate::has_gnu_date; then
-        date -d "$1" +%V 2>/dev/null
-    else
-        date -j -f "%Y-%m-%d" "$1" +%V 2>/dev/null
-    fi
+		if _timedate::has_gnu_date; then
+				date -d "$1" +%V 2>/dev/null
+		else
+				date -j -f "%Y-%m-%d" "$1" +%V 2>/dev/null
+		fi
 }
 ```
 

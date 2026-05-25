@@ -20,7 +20,7 @@ Count lines in a file
 
 ```bash
 fs::line_count() {
-    wc -l < "$1"
+		wc -l < "$1"
 }
 ```
 

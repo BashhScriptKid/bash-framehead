@@ -21,8 +21,8 @@ Fast variant using nameref (requires awk)
 
 ```bash
 string::title::fast() {
-  local -n _string_title_result="$1"
-  _string_title_result=$(echo "$2" | awk '{for(i=1;i<=NF;i++) $i=toupper(substr($i,1,1)) tolower(substr($i,2)); print}')
+	local -n _string_title_result="$1"
+	_string_title_result=$(echo "$2" | awk '{for(i=1;i<=NF;i++) $i=toupper(substr($i,1,1)) tolower(substr($i,2)); print}')
 }
 ```
 

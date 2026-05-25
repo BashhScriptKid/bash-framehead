@@ -21,11 +21,11 @@ Fast variant using nameref
 
 ```bash
 string::constant_to_pascal::fast() {
-  local -n _string_constant_to_pascal_result="$1"
-  local result="" words="${2,,}"
-  words="${words//_/ }"
-  for word in $words; do result+="${word^}"; done
-  _string_constant_to_pascal_result="$result"
+	local -n _string_constant_to_pascal_result="$1"
+	local result="" words="${2,,}"
+	words="${words//_/ }"
+	for word in $words; do result+="${word^}"; done
+	_string_constant_to_pascal_result="$result"
 }
 ```
 

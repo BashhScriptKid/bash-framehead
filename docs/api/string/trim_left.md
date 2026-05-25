@@ -8,7 +8,7 @@
 
 ## Description
 
-Trim leading whitespace
+--- TRIMMING ---
 
 ## Parameters
 
@@ -20,9 +20,9 @@ Trim leading whitespace
 
 ```bash
 string::trim_left() {
-  local input; _string::read_input input "$@"
-  input="${input#"${input%%[![:space:]]*}"}"
-  echo "$input"
+	local input; _string::read_input input "$@"
+	input="${input#"${input%%[![:space:]]*}"}"
+	echo "$input"
 }
 ```
 

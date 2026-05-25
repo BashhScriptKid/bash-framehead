@@ -20,10 +20,11 @@ Create a temp dir and register cleanup on EXIT
 
 ```bash
 fs::temp::dir::auto() {
-    local tmp
-    tmp=$(fs::temp::dir "$1")
-    trap "rm -rf '$tmp'" EXIT
-    echo "$tmp"
+		local tmp
+		tmp=$(fs::temp::dir "$1")
+		# shellcheck disable=SC2064
+		trap "rm -rf '$tmp'" EXIT
+		echo "$tmp"
 }
 ```
 

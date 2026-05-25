@@ -8,7 +8,7 @@
 
 ## Description
 
-Basic whois lookup
+--- WHOIS / GEO ---
 
 ## Parameters
 
@@ -20,12 +20,12 @@ Basic whois lookup
 
 ```bash
 net::whois() {
-    if runtime::has_command whois; then
-        whois "$1" 2>/dev/null
-    else
-        echo "net::whois: requires whois" >&2
-        return 1
-    fi
+		if runtime::has_command whois; then
+				whois "$1" 2>/dev/null
+		else
+				echo "net::whois: requires whois" >&2
+				return 1
+		fi
 }
 ```
 

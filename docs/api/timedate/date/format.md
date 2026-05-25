@@ -21,8 +21,8 @@ Current date in a custom format
 
 ```bash
 timedate::date::format() {
-    local fmt="${1:-%Y-%m-%d}" ts="${2:-}"
-    _timedate::format "$fmt" "$ts"
+		local fmt="${1:-%Y-%m-%d}" _timestamp="${2:-}"
+		_timedate::format "$fmt" "$_timestamp"
 }
 ```
 

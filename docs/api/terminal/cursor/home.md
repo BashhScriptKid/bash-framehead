@@ -15,7 +15,7 @@ Move cursor to top-left (home)
 
 ```bash
 terminal::cursor::home() {
-    printf '\033[H'
+		printf '\033[H'
 }
 ```
 

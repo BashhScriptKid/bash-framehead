@@ -20,12 +20,12 @@ Get command line of a process
 
 ```bash
 process::cmdline() {
-    local pid="${1:-$$}"
-    if [[ -f "/proc/$pid/cmdline" ]]; then
-        tr '\0' ' ' < "/proc/$pid/cmdline"
-    else
-        ps -o args= -p "$pid" 2>/dev/null
-    fi
+		local pid="${1:-$$}"
+		if [[ -f "/proc/$pid/cmdline" ]]; then
+				tr '\0' ' ' < "/proc/$pid/cmdline"
+		else
+				ps -o args= -p "$pid" 2>/dev/null
+		fi
 }
 ```
 

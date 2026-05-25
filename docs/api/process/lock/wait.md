@@ -21,13 +21,13 @@ Wait for a lock to become available
 
 ```bash
 process::lock::wait() {
-    local name="$1" timeout="${2:-30}" elapsed=0
-    while ! process::lock::acquire "$name"; do
-        sleep 1
-        (( elapsed++ ))
-        (( elapsed >= timeout )) && return 1
-    done
-    return 0
+		local name="$1" timeout="${2:-30}" elapsed=0
+		while ! process::lock::acquire "$name"; do
+				sleep 1
+				(( elapsed++ ))
+				(( elapsed >= timeout )) && return 1
+		done
+		return 0
 }
 ```
 

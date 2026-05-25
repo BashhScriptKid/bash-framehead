@@ -21,12 +21,12 @@ Number of permutations P(n, k)
 
 ```bash
 math::permute() {
-    local n="$1" k="$2" result=1 i
-    _math::is_float "$n" || _math::is_float "$k" && { echo "math::permute: float input — permute is integer-only" >&2; return 1; }
-    for (( i=0; i<k; i++ )); do
-        result=$(( result * (n - i) ))
-    done
-    echo "$result"
+		local n="$1" k="$2" result=1 i
+		_math::is_float "$n" || _math::is_float "$k" && { echo "math::permute: float input — permute is integer-only" >&2; return 1; }
+		for (( i=0; i<k; i++ )); do
+				result=$(( result * (n - i) ))
+		done
+		echo "$result"
 }
 ```
 

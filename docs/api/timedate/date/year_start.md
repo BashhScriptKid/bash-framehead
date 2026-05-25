@@ -15,7 +15,7 @@ Get start of current year
 
 ```bash
 timedate::date::year_start() {
-    date +%Y-01-01
+		date +%Y-01-01
 }
 ```
 

@@ -8,7 +8,7 @@
 
 ## Description
 
-_No description available._
+IEEE 754: Less-than-or-equal comparison
 
 ## Parameters
 
@@ -21,8 +21,8 @@ _No description available._
 
 ```bash
 pfloat::ieee754::le() {
-  local a="$1" b="$2"
-  pfloat::ieee754::lt "$a" "$b" || pfloat::ieee754::eq "$a" "$b"
+	local a="$1" b="$2"
+	pfloat::ieee754::lt "$a" "$b" || pfloat::ieee754::eq "$a" "$b"
 }
 ```
 

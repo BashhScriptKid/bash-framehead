@@ -24,10 +24,10 @@ Sum of a sequence of floats
 
 ```bash
 math::sumf() {
-    local scale=$1; shift
-    local total="0"
-    for n in "$@"; do total=$(math::bc "$total + $n" "$scale"); done
-    echo "$total"
+		local scale=$1; shift
+		local total="0"
+		for n in "$@"; do total=$(math::bc "$total + $n" "$scale"); done
+		echo "$total"
 }
 ```
 

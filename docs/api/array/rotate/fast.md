@@ -24,12 +24,12 @@ Fast variant using nameref
 
 ```bash
 array::rotate::fast() {
-    local -n _array_rotate_result="$1"
-    local n="$2"; shift 2
-    local -a _arr=("$@")
-    local len="${#_arr[@]}"
-    n=$(( n % len ))
-    _array_rotate_result=("${_arr[@]:$n}" "${_arr[@]:0:$n}")
+		local -n _array_rotate_result="$1"
+		local _rot="$2"; shift 2
+		local -a _arr=("$@")
+		local len="${#_arr[@]}"
+		_rot=$(( _rot % len ))
+		_array_rotate_result=("${_arr[@]:$_rot}" "${_arr[@]:0:$_rot}")
 }
 ```
 

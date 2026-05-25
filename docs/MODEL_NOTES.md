@@ -9,7 +9,7 @@ Read this first — carries context forward so each Claude instance picks up whe
 | Field | Value |
 |-------|-------|
 | **Date** | 2026-05-25 |
-| **Base commit** | `70c0e78` — "add compile_bare + implementation reference pitch to README" |
+| **Base commit** | `5107904` — "update AI docs for styling overhaul, compile_bare, and variable naming" |
 | **Branch** | `master` |
 | **API functions** | ~1,300 functions across 21 modules |
 | **Style guide** | [STYLING.md](../STYLING.md) — authoritative; supersedes inline comments |

@@ -21,8 +21,8 @@ Fast variant using nameref
 
 ```bash
 string::snake_to_plain::fast() {
-  local -n _string_snake_to_plain_result="$1"
-  _string_snake_to_plain_result="${2//_/ }"
+	local -n _string_snake_to_plain_result="$1"
+	_string_snake_to_plain_result="${2//_/ }"
 }
 ```
 

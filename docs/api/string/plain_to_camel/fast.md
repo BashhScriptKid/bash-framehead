@@ -22,15 +22,15 @@ Fast variant using nameref
 
 ```bash
 string::plain_to_camel::fast() {
-  local -n _string_plain_to_camel_result="$1"
-  local result="" first=true
-  for word in $2; do
-    if $first; then
-      result+="${word,,}"
-      first=false
-    else result+="${word^}"; fi
-  done
-  _string_plain_to_camel_result="$result"
+	local -n _string_plain_to_camel_result="$1"
+	local result="" first=true
+	for word in $2; do
+		if $first; then
+			result+="${word,,}"
+			first=false
+		else result+="${word^}"; fi
+	done
+	_string_plain_to_camel_result="$result"
 }
 ```
 

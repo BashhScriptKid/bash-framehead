@@ -21,10 +21,10 @@ Number of days between two dates
 
 ```bash
 timedate::date::days_between() {
-    local ts1 ts2
-    ts1=$(timedate::timestamp::from_human "$1 00:00:00")
-    ts2=$(timedate::timestamp::from_human "$2 00:00:00")
-    echo $(( (ts2 - ts1) / 86400 ))
+		local _timestamp1 _timestamp2
+		_timestamp1=$(timedate::timestamp::from_human "$1 00:00:00")
+		_timestamp2=$(timedate::timestamp::from_human "$2 00:00:00")
+		echo $(( (_timestamp2 - _timestamp1) / 86400 ))
 }
 ```
 

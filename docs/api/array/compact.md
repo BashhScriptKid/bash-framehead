@@ -22,9 +22,9 @@ Return only elements that are non-empty
 
 ```bash
 array::compact() {
-    for el in "$@"; do
-        [[ -n "$el" ]] && echo "$el"
-    done
+		for el in "$@"; do
+				[[ -n "$el" ]] && echo "$el"
+		done
 }
 ```
 

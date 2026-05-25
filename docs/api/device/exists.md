@@ -20,7 +20,7 @@ Check if device exists (block or character)
 
 ```bash
 device::exists() {
-    [[ -b "$1" || -c "$1" ]]
+		[[ -b "$1" || -c "$1" ]]
 }
 ```
 

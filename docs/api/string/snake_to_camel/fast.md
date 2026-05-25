@@ -21,16 +21,16 @@ Fast variant using nameref
 
 ```bash
 string::snake_to_camel::fast() {
-  local -n _string_snake_to_camel_result="$1"
-  local words="${2//_/ }"
-  local result="" first=true
-  for word in $words; do
-    if $first; then
-      result+="${word,,}"
-      first=false
-    else result+="${word^}"; fi
-  done
-  _string_snake_to_camel_result="$result"
+	local -n _string_snake_to_camel_result="$1"
+	local words="${2//_/ }"
+	local result="" first=true
+	for word in $words; do
+		if $first; then
+			result+="${word,,}"
+			first=false
+		else result+="${word^}"; fi
+	done
+	_string_snake_to_camel_result="$result"
 }
 ```
 

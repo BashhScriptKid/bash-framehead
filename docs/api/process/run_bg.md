@@ -8,7 +8,7 @@
 
 ## Description
 
-Run a command in the background, print its PID
+--- BACKGROUND JOBS ---
 
 ## Parameters
 
@@ -21,8 +21,8 @@ Run a command in the background, print its PID
 
 ```bash
 process::run_bg() {
-    "$@" &
-    echo $!
+		"$@" &
+		echo $!
 }
 ```
 

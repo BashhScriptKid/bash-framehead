@@ -20,7 +20,7 @@ List timezones filtered by region
 
 ```bash
 timedate::tz::list::region() {
-    timedate::tz::list | grep "^${1}/"
+		timedate::tz::list | grep "^${1}/"
 }
 ```
 

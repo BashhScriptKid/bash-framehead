@@ -21,9 +21,9 @@ Remove first occurrence of a substring
 
 ```bash
 string::remove_first() {
-  local input
-  if [[ ! -t 0 ]]; then input=$(cat); else input="$1"; shift; fi
-  echo "${input/"$1"/}"
+	local input
+	if [[ $# -ge 2 ]]; then input="$1"; shift; else input=$(cat); fi
+	echo "${input/"$1"/}"
 }
 ```
 

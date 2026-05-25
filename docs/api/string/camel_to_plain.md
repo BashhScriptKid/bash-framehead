@@ -15,8 +15,8 @@ camelCase → plain
 
 ```bash
 string::camel_to_plain() {
-  local input; _string::read_input input "$@"
-  _string::to_words "$input"
+	local input; _string::read_input input "$@"
+	_string::to_words "$input"
 }
 ```
 

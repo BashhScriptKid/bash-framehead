@@ -20,8 +20,8 @@ Get directory from path (like dirname)
 
 ```bash
 fs::path::dirname() {
-    local p="${1%/*}"
-    [[ "$p" == "$1" ]] && echo "." || echo "$p"
+		local _path="${1%/*}"
+		[[ "$_path" == "$1" ]] && echo "." || echo "$_path"
 }
 ```
 

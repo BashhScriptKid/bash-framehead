@@ -21,8 +21,8 @@ Maximum of two values (float) — Usage: math::maxf a b [scale]
 
 ```bash
 math::maxf() {
-    local scale="${3:-$MATH_SCALE}"
-    math::bc "if ($1 > $2) { $1 } else { $2 }" "$scale"
+		local scale="${3:-$MATH_SCALE}"
+		math::bc "if ($1 > $2) { $1 } else { $2 }" "$scale"
 }
 ```
 

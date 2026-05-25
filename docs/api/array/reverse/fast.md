@@ -23,14 +23,14 @@ Fast variant using nameref
 
 ```bash
 array::reverse::fast() {
-    local -n _array_reverse_result="$1"
-    shift
-    local -a _arr=("$@")
-    local i
-    _array_reverse_result=()
-    for (( i=${#_arr[@]}-1; i>=0; i-- )); do
-        _array_reverse_result+=("${_arr[$i]}")
-    done
+		local -n _array_reverse_result="$1"
+		shift
+		local -a _arr=("$@")
+		local i
+		_array_reverse_result=()
+		for (( i=${#_arr[@]}-1; i>=0; i-- )); do
+				_array_reverse_result+=("${_arr[$i]}")
+		done
 }
 ```
 

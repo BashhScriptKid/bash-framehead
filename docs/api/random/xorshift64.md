@@ -8,7 +8,7 @@
 
 ## Description
 
-Returns: next state (also the output value)
+XORSHIFT64
 
 ## Parameters
 
@@ -20,11 +20,11 @@ Returns: next state (also the output value)
 
 ```bash
 random::xorshift64() {
-    local x="$1"
-    x=$(( x ^ (x << 13) ))
-    x=$(( x ^ (x >> 7)  ))
-    x=$(( x ^ (x << 17) ))
-    echo "$x"
+		local x="$1"
+		x=$(( x ^ (x << 13) ))
+		x=$(( x ^ (x >> 7)  ))
+		x=$(( x ^ (x << 17) ))
+		echo "$x"
 }
 ```
 

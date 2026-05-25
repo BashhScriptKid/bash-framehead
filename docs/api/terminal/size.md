@@ -15,7 +15,7 @@ Get both as "cols rows"
 
 ```bash
 terminal::size() {
-    echo "$(terminal::width) $(terminal::height)"
+		echo "$(terminal::width) $(terminal::height)"
 }
 ```
 

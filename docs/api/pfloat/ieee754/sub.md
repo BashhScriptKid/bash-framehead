@@ -1,6 +1,6 @@
 # `pfloat::ieee754::sub`
 
-**Signature:** `pfloat::ieee754::sub(arg1, arg2)`
+**Signature:** `pfloat::ieee754::sub(bits_a, bits_b)`
 
 **Module:** [`pfloat`](../../pfloat.md) — [Guide](../../guide/index.md)
 
@@ -14,17 +14,17 @@ IEEE 754: Subtraction (uses addition with negated operand)
 
 | Name | Type | Required | Description |
 |------|------|----------|-------------|
-| `arg1` | string | Yes | |
-| `arg2` | string | Yes | |
+| `bits_a` | string | Yes | |
+| `bits_b` | string | Yes | |
 
 ## Source
 
 ```bash
 pfloat::ieee754::sub() {
-  local a="$1" b="$2"
-  # Flip sign bit of b and add
-  local neg_b=$((b ^ 9223372036854775808))
-  pfloat::ieee754::add "$a" "$neg_b"
+	local a="$1" b="$2"
+	# Flip sign bit of b and add
+	local neg_b=$((b ^ 9223372036854775808))
+	pfloat::ieee754::add "$a" "$neg_b"
 }
 ```
 

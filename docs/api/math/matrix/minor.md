@@ -8,7 +8,7 @@
 
 ## Description
 
-Compute the minor of a matrix — submatrix with row i and col j removed
+--- math::matrix::minor ---
 
 ## Parameters
 
@@ -23,22 +23,22 @@ Compute the minor of a matrix — submatrix with row i and col j removed
 
 ```bash
 math::matrix::minor() {
-    local rows cols
-    _math::matrix::dim "$1" rows cols
-    local skip_row=$2 skip_col=$3
-    local size=$(( rows * cols ))
-    local -a _a
-    _math::matrix::unpack _a "$size" "${@:4}"
-    local -a _result=()
-    local i j
-    for (( i = 0; i < rows; i++ )); do
-        (( i == skip_row )) && continue
-        for (( j = 0; j < cols; j++ )); do
-            (( j == skip_col )) && continue
-            _result+=("${_a[$i * $cols + $j]}")
-        done
-    done
-    echo "${_result[@]}"
+		local rows cols
+		_math::matrix::dim "$1" rows cols
+		local skip_row=$2 skip_col=$3
+		local size=$(( rows * cols ))
+		local -a _a
+		_math::matrix::unpack _a "$size" "${@:4}"
+		local -a _result=()
+		local i j
+		for (( i = 0; i < rows; i++ )); do
+				(( i == skip_row )) && continue
+				for (( j = 0; j < cols; j++ )); do
+						(( j == skip_col )) && continue
+						_result+=("${_a[$i * $cols + $j]}")
+				done
+		done
+		echo "${_result[@]}"
 }
 ```
 

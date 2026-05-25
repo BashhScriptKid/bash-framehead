@@ -15,7 +15,7 @@ Get the fully qualified domain name
 
 ```bash
 net::hostname::fqdn() {
-    hostname -f 2>/dev/null
+		hostname -f 2>/dev/null
 }
 ```
 

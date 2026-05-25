@@ -22,19 +22,19 @@ Transpose a matrix, writing into output array
 
 ```bash
 math::matrix::transpose::fast() {
-    local -n _out="$1"; shift
-    local rows cols
-    _math::matrix::dim "$1" rows cols
-    local size=$(( rows * cols ))
-    local -a _a
-    _math::matrix::unpack _a "$size" "${@:2}"
-    _out=()
-    local i j
-    for (( j = 0; j < cols; j++ )); do
-        for (( i = 0; i < rows; i++ )); do
-            _out+=("${_a[$i * $cols + $j]}")
-        done
-    done
+		local -n _out="$1"; shift
+		local rows cols
+		_math::matrix::dim "$1" rows cols
+		local size=$(( rows * cols ))
+		local -a _a
+		_math::matrix::unpack _a "$size" "${@:2}"
+		_out=()
+		local i j
+		for (( j = 0; j < cols; j++ )); do
+				for (( i = 0; i < rows; i++ )); do
+						_out+=("${_a[$i * $cols + $j]}")
+				done
+		done
 }
 ```
 

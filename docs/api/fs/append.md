@@ -21,7 +21,7 @@ Append content to file
 
 ```bash
 fs::append() {
-    printf '%s' "$2" >> "$1"
+		printf '%s' "$2" >> "$1"
 }
 ```
 

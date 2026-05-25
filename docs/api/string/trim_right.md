@@ -20,9 +20,9 @@ Trim trailing whitespace
 
 ```bash
 string::trim_right() {
-  local input; _string::read_input input "$@"
-  input="${input%"${input##*[![:space:]]}"}"
-  echo "$input"
+	local input; _string::read_input input "$@"
+	input="${input%"${input##*[![:space:]]}"}"
+	echo "$input"
 }
 ```
 

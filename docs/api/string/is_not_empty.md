@@ -15,8 +15,8 @@ Check if string is non-empty
 
 ```bash
 string::is_not_empty() {
-  local input; _string::read_input input "$@"
-  [[ -n "$input" ]]
+	local input; _string::read_input input "$@"
+	[[ -n "$input" ]]
 }
 ```
 

@@ -20,7 +20,7 @@ Touch a file (create or update timestamp)
 
 ```bash
 fs::touch() {
-    touch "$1"
+		touch "$1"
 }
 ```
 

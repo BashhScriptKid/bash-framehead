@@ -22,7 +22,7 @@ Return first element
 
 ```bash
 array::first() {
-    echo "$1"
+		echo "$1"
 }
 ```
 

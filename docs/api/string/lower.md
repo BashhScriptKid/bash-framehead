@@ -20,8 +20,8 @@ Convert to lowercase
 
 ```bash
 string::lower() {
-  local input; _string::read_input input "$@"
-  echo "${input,,}"
+	local input; _string::read_input input "$@"
+	echo "${input,,}"
 }
 ```
 

@@ -15,11 +15,11 @@ _No description available._
 
 ```bash
 pfloat::fixed::sum() {
-  local total="0"
-  for n in "$@"; do
-    total=$(pfloat::fixed::add "$total" "$n")
-  done
-  echo "$total"
+	local total="0"
+	for n in "$@"; do
+		total=$(pfloat::fixed::add "$total" "$n")
+	done
+	echo "$total"
 }
 ```
 

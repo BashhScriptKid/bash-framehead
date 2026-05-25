@@ -8,7 +8,7 @@
 
 ## Description
 
-Check if two matrices are equal element-wise
+--- math::matrix::eq ---
 
 ## Parameters
 
@@ -22,16 +22,16 @@ Check if two matrices are equal element-wise
 
 ```bash
 math::matrix::eq() {
-    local rows cols
-    _math::matrix::dim "$1" rows cols
-    local size=$(( rows * cols ))
-    local -a _a _b
-    _math::matrix::unpack2 _a _b "$size" "$size" "${@:2}"
-    local i
-    for (( i = 0; i < size; i++ )); do
-        [[ "${_a[$i]}" != "${_b[$i]}" ]] && return 1
-    done
-    return 0
+		local rows cols
+		_math::matrix::dim "$1" rows cols
+		local size=$(( rows * cols ))
+		local -a _a _b
+		_math::matrix::unpack2 _a _b "$size" "$size" "${@:2}"
+		local i
+		for (( i = 0; i < size; i++ )); do
+				[[ "${_a[$i]}" != "${_b[$i]}" ]] && return 1
+		done
+		return 0
 }
 ```
 

@@ -15,7 +15,7 @@ Clear from cursor to end of screen
 
 ```bash
 terminal::clear::to_end() {
-    printf '\033[0J'
+		printf '\033[0J'
 }
 ```
 

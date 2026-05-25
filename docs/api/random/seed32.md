@@ -15,7 +15,7 @@ Seed from /dev/urandom — returns a 32-bit unsigned integer
 
 ```bash
 random::seed32() {
-    od -An -N4 -tu4 /dev/urandom 2>/dev/null | tr -d ' \n' || echo "$RANDOM"
+		od -An -N4 -tu4 /dev/urandom 2>/dev/null | tr -d ' \n' || echo "$RANDOM"
 }
 ```
 

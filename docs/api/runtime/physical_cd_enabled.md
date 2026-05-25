@@ -15,7 +15,7 @@ _No description available._
 
 ```bash
 runtime::physical_cd_enabled() {
-    [[ "$-" == *P* ]]
+		[[ "$-" == *P* ]]
 }
 ```
 

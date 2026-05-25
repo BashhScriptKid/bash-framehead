@@ -21,10 +21,10 @@ Check if current time is between two times (HH:MM)
 
 ```bash
 timedate::time::is_between() {
-    local start="$1" end="$2"
-    local current
-    current=$(date +%H:%M)
-    [[ "$current" > "$start" && "$current" < "$end" ]]
+		local start="$1" end="$2"
+		local current
+		current=$(date +%H:%M)
+		[[ "$current" > "$start" && "$current" < "$end" ]]
 }
 ```
 

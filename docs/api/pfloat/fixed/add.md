@@ -21,11 +21,11 @@ _No description available._
 
 ```bash
 pfloat::fixed::add() {
-  local a_scaled b_scaled result
-  a_scaled=$(_pfloat::_to_scaled "$1")
-  b_scaled=$(_pfloat::_to_scaled "$2")
-  result=$((a_scaled + b_scaled))
-  _pfloat::_from_scaled "$result"
+	local a_scaled b_scaled result
+	a_scaled=$(_pfloat::_to_scaled "$1")
+	b_scaled=$(_pfloat::_to_scaled "$2")
+	result=$((a_scaled + b_scaled))
+	_pfloat::_from_scaled "$result"
 }
 ```
 

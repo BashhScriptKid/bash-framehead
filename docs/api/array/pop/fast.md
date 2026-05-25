@@ -23,11 +23,11 @@ Fast variant using nameref
 
 ```bash
 array::pop::fast() {
-    local -n _array_pop_result="$1"
-    shift
-    local -a _arr=("$@")
-    unset '_arr[-1]'
-    _array_pop_result=("${_arr[@]}")
+		local -n _array_pop_result="$1"
+		shift
+		local -a _arr=("$@")
+		unset '_arr[-1]'
+		_array_pop_result=("${_arr[@]}")
 }
 ```
 

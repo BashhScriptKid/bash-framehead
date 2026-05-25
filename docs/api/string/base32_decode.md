@@ -20,15 +20,15 @@ _No description available._
 
 ```bash
 string::base32_decode() {
-    local input; _string::read_input input "$@"
-    if runtime::has_command base32; then
-        echo -n "$input" | base32 --decode
-    elif runtime::has_command gbase32; then
-        echo -n "$1" | gbase32 --decode
-    else
-        echo "string::base32_decode: requires base32 (GNU coreutils)" >&2
-        return 1
-    fi
+		local input; _string::read_input input "$@"
+		if runtime::has_command base32; then
+				echo -n "$input" | base32 --decode
+		elif runtime::has_command gbase32; then
+				echo -n "$1" | gbase32 --decode
+		else
+				echo "string::base32_decode: requires base32 (GNU coreutils)" >&2
+				return 1
+		fi
 }
 ```
 

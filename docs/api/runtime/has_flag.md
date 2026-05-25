@@ -20,8 +20,8 @@ _No description available._
 
 ```bash
 runtime::has_flag() {
-    local flag="$1"
-    [[ "$-" == *"$flag"* ]]
+		local flag="$1"
+		[[ "$-" == *"$flag"* ]]
 }
 ```
 

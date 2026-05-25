@@ -8,7 +8,7 @@
 
 ## Description
 
-Generate a random alphanumeric string of given length
+--- GENERATION ---
 
 ## Parameters
 
@@ -20,12 +20,12 @@ Generate a random alphanumeric string of given length
 
 ```bash
 string::random() {
-  local input; _string::read_input input "$@"
-  local len="${input:-16}"
-  cat /dev/urandom 2>/dev/null |
-    tr -dc 'a-zA-Z0-9' |
-    head -c "$len" ||
-    echo "string::random: /dev/urandom unavailable" >&2
+	local input; _string::read_input input "$@"
+	local len="${input:-16}"
+	cat /dev/urandom 2>/dev/null |
+		tr -dc 'a-zA-Z0-9' |
+		head -c "$len" ||
+		echo "string::random: /dev/urandom unavailable" >&2
 }
 ```
 

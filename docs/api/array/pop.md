@@ -22,9 +22,9 @@ Remove last element
 
 ```bash
 array::pop() {
-    local -a arr=("$@")
-    unset 'arr[-1]'
-    printf '%s\n' "${arr[@]}"
+		local -a arr=("$@")
+		unset 'arr[-1]'
+		printf '%s\n' "${arr[@]}"
 }
 ```
 

@@ -20,7 +20,7 @@ Glibc rand() parameters
 
 ```bash
 random::lcg::glibc() {
-    _random::mask32 $(( $1 * 1103515245 + 12345 ))
+		_random::mask32 $(( $1 * 1103515245 + 12345 ))
 }
 ```
 

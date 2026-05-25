@@ -21,14 +21,14 @@ HMAC-MD5
 
 ```bash
 hash::hmac::md5() {
-    local key="$1" msg="$2"
-    if runtime::has_command openssl; then
-        printf '%s' "$msg" | \
-            openssl dgst -md5 -hmac "$key" 2>/dev/null | awk '{print $NF}'
-    else
-        echo "hash::hmac::md5: requires openssl" >&2
-        return 1
-    fi
+		local key="$1" msg="$2"
+		if runtime::has_command openssl; then
+				printf '%s' "$msg" | \
+						openssl dgst -md5 -hmac "$key" 2>/dev/null | awk '{print $NF}'
+		else
+				echo "hash::hmac::md5: requires openssl" >&2
+				return 1
+		fi
 }
 ```
 

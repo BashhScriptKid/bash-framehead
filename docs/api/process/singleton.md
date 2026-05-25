@@ -22,13 +22,13 @@ Run command only if not already running (singleton)
 
 ```bash
 process::singleton() {
-    local name="$1"; shift
-    if process::lock::acquire "$name"; then
-        "$@"
-    else
-        echo "process::singleton: '$name' is already running" >&2
-        return 1
-    fi
+		local name="$1"; shift
+		if process::lock::acquire "$name"; then
+				"$@"
+		else
+				echo "process::singleton: '$name' is already running" >&2
+				return 1
+		fi
 }
 ```
 

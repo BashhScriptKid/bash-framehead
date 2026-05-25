@@ -20,7 +20,7 @@ Symbolic permissions (e.g. -rwxr-xr-x)
 
 ```bash
 fs::permissions::symbolic() {
-    stat -c '%A' "$1" 2>/dev/null
+		stat -c '%A' "$1" 2>/dev/null
 }
 ```
 

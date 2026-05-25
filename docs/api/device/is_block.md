@@ -1,6 +1,6 @@
 # `device::is_block`
 
-**Signature:** `device::is_block(arg1)`
+**Signature:** `device::is_block()`
 
 **Module:** [`device`](../device.md) — [Guide](../guide/index.md)
 
@@ -8,19 +8,14 @@
 
 ## Description
 
-Check if path is a block device
+Backward-compatible alias
 
-## Parameters
-
-| Name | Type | Required | Description |
-|------|------|----------|-------------|
-| `arg1` | string | Yes | |
 
 ## Source
 
 ```bash
 device::is_block() {
-    [[ -b "$1" ]]
+		device::is_device::block "$@"
 }
 ```
 

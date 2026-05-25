@@ -15,7 +15,7 @@ List all TTY devices
 
 ```bash
 device::list::tty() {
-    find /dev -maxdepth 1 -name 'tty*' -type c 2>/dev/null | sort
+		find /dev -maxdepth 1 -name 'tty*' -type c 2>/dev/null | sort
 }
 ```
 

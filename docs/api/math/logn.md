@@ -21,7 +21,7 @@ Log with arbitrary base
 
 ```bash
 math::logn() {
-    math::bc "l($1) / l($2)"
+		math::bc "l($1) / l($2)"
 }
 ```
 

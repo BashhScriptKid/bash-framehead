@@ -8,15 +8,15 @@
 
 ## Description
 
-_No description available._
+--- COMMIT ---
 
 
 ## Source
 
 ```bash
 git::commit::hash() {
-    local ref="${1:-HEAD}"
-    git rev-parse "${ref}" 2>/dev/null || echo "unknown"
+		local ref="${1:-HEAD}"
+		git rev-parse "${ref}" 2>/dev/null || echo "unknown"
 }
 ```
 

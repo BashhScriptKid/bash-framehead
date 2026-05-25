@@ -8,7 +8,7 @@
 
 ## Description
 
-Sort elements alphabetically
+--- SORTING ---
 
 ## Parameters
 
@@ -22,7 +22,7 @@ Sort elements alphabetically
 
 ```bash
 array::sort() {
-    printf '%s\n' "$@" | sort
+		printf '%s\n' "$@" | sort
 }
 ```
 

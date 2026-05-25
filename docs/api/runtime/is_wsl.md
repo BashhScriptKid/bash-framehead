@@ -15,7 +15,7 @@ _No description available._
 
 ```bash
 runtime::is_wsl() {
-  [[ -f /proc/version ]] && grep -qi "microsoft" /proc/version
+	[[ -f /proc/version ]] && grep -qi "microsoft" /proc/version
 }
 ```
 

@@ -20,7 +20,7 @@ Get total size of directory
 
 ```bash
 fs::dir::size() {
-    du -sb "${1:-.}" 2>/dev/null | awk '{print $1}'
+		du -sb "${1:-.}" 2>/dev/null | awk '{print $1}'
 }
 ```
 

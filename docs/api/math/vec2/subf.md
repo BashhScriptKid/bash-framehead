@@ -22,9 +22,9 @@ Subtract vec2 b from vec2 a with floating point precision
 
 ```bash
 math::vec2::subf() {
-    local scale=$1 x1 y1 x2 y2
-    _math::vec2::unpack4 x1 y1 x2 y2 "$2" "$3"
-    echo "$(math::bc "$x1 - $x2" "$scale"),$(math::bc "$y1 - $y2" "$scale")"
+		local scale=$1 x1 y1 x2 y2
+		_math::vec2::unpack4 x1 y1 x2 y2 "$2" "$3"
+		echo "$(math::bc "$x1 - $x2" "$scale"),$(math::bc "$y1 - $y2" "$scale")"
 }
 ```
 

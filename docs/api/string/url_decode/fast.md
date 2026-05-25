@@ -21,9 +21,9 @@ Fast variant using nameref
 
 ```bash
 string::url_decode::fast() {
-    local -n _string_url_decode_result="$1"
-    local s="${2//+/ }"
-    _string_url_decode_result=$(printf '%b\n' "${s//%/\\x}")
+		local -n _string_url_decode_result="$1"
+		local _str="${2//+/ }"
+		_string_url_decode_result=$(printf '%b\n' "${_str//%/\\x}")
 }
 ```
 

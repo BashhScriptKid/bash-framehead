@@ -21,7 +21,7 @@ List all disabled shopt options
 
 ```bash
 terminal::shopt::list::disabled() {
-    shopt | awk '$2 == "off" {print $1}'
+		shopt | awk '$2 == "off" {print $1}'
 }
 ```
 

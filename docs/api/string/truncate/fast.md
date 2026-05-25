@@ -23,35 +23,35 @@ Fast variant using nameref
 
 ```bash
 string::truncate::fast() {
-  local -n _string_truncate_result="$1"
-  local s="$2" max="$3"
-  local suffix
+	local -n _string_truncate_result="$1"
+	local _str="$2" max="$3"
+	local suffix
 
-  if ((${#s} <= max)); then
-    _string_truncate_result="$s"
-    return 0
-  fi
+	if ((${#s} <= max)); then
+		_string_truncate_result="$_str"
+		return 0
+	fi
 
-  # Handle very small max values
-  if ((max <= 1)); then
-    _string_truncate_result="…"
-    return 0
-  elif ((max == 2)); then
-    _string_truncate_result="${s:0:1}…"
-    return 0
-  fi
+	# Handle very small max values
+	if ((max <= 1)); then
+		_string_truncate_result="…"
+		return 0
+	elif ((max == 2)); then
+		_string_truncate_result="${_str:0:1}…"
+		return 0
+	fi
 
-  # Determine which suffix to use based on available space
-  local available_chars=$((max - 3))
+	# Determine which suffix to use based on available space
+	local available_chars=$((max - 3))
 
-  if ((available_chars < 3)); then
-    suffix="…"
-    available_chars=$((max - 1))
-  else
-    suffix="..."
-  fi
+	if ((available_chars < 3)); then
+		suffix="…"
+		available_chars=$((max - 1))
+	else
+		suffix="..."
+	fi
 
-  _string_truncate_result="${s:0:$available_chars}${suffix}"
+	_string_truncate_result="${_str:0:$available_chars}${suffix}"
 }
 ```
 

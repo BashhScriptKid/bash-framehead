@@ -8,7 +8,7 @@
 
 ## Description
 
-_No description available._
+IEEE 754: Check if value is negative
 
 ## Parameters
 
@@ -20,8 +20,8 @@ _No description available._
 
 ```bash
 pfloat::ieee754::is_negative() {
-  local sign=$(_ieee754::get_sign "$1")
-  ((sign == 1))
+	local sign=$(_ieee754::get_sign "$1")
+	((sign == 1))
 }
 ```
 

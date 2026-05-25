@@ -15,7 +15,7 @@ Find files smaller than n bytes
 
 ```bash
 fs::find::smaller_than() {
-    find "${1:-.}" -type f -size "-${2}c" 2>/dev/null
+		find "${1:-.}" -type f -size "-${2}c" 2>/dev/null
 }
 ```
 

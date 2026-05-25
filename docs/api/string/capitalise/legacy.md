@@ -15,8 +15,8 @@ Capitalise first character (Bash 3 compatible)
 
 ```bash
 string::capitalise::legacy() {
-  local input; _string::read_input input "$@"
-  echo "$(echo "${input:0:1}" | tr '[:lower:]' '[:upper:]')${input:1}"
+	local input; _string::read_input input "$@"
+	echo "$(echo "${input:0:1}" | tr '[:lower:]' '[:upper:]')${input:1}"
 }
 ```
 

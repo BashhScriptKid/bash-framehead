@@ -21,13 +21,13 @@ Compare two dates — returns -1, 0, or 1
 
 ```bash
 timedate::date::compare() {
-    local ts1 ts2
-    ts1=$(timedate::timestamp::from_human "$1 00:00:00")
-    ts2=$(timedate::timestamp::from_human "$2 00:00:00")
-    if (( ts1 < ts2 ));   then echo -1
-    elif (( ts1 > ts2 )); then echo 1
-    else                       echo 0
-    fi
+		local _timestamp1 _timestamp2
+		_timestamp1=$(timedate::timestamp::from_human "$1 00:00:00")
+		_timestamp2=$(timedate::timestamp::from_human "$2 00:00:00")
+		if (( _timestamp1 < _timestamp2 ));   then echo -1
+		elif (( _timestamp1 > _timestamp2 )); then echo 1
+		else                       echo 0
+		fi
 }
 ```
 

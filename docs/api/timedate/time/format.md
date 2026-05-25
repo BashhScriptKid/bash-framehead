@@ -15,8 +15,8 @@ Current time in a custom format
 
 ```bash
 timedate::time::format() {
-    local fmt="${1:-%H:%M:%S}"
-    date +"$fmt"
+		local fmt="${1:-%H:%M:%S}"
+		date +"$fmt"
 }
 ```
 

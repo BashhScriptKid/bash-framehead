@@ -21,10 +21,10 @@ Fast variant using nameref
 
 ```bash
 string::kebab_to_pascal::fast() {
-  local -n _string_kebab_to_pascal_result="$1"
-  local result=""
-  for word in ${2//-/ }; do result+="${word^}"; done
-  _string_kebab_to_pascal_result="$result"
+	local -n _string_kebab_to_pascal_result="$1"
+	local result=""
+	for word in ${2//-/ }; do result+="${word^}"; done
+	_string_kebab_to_pascal_result="$result"
 }
 ```
 

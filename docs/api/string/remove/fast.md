@@ -22,8 +22,8 @@ Fast variant using nameref
 
 ```bash
 string::remove::fast() {
-  local -n _string_remove_result="$1"
-  _string_remove_result="${2//"$3"/}"
+	local -n _string_remove_result="$1"
+	_string_remove_result="${2//"$3"/}"
 }
 ```
 

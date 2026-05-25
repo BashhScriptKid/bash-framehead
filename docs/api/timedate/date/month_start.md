@@ -15,7 +15,7 @@ Get start of current month
 
 ```bash
 timedate::date::month_start() {
-    date +%Y-%m-01
+		date +%Y-%m-01
 }
 ```
 

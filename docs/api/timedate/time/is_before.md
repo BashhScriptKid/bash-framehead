@@ -20,10 +20,10 @@ Check if current time is before a given time
 
 ```bash
 timedate::time::is_before() {
-    local target="$1"
-    local current
-    current=$(date +%H:%M)
-    [[ "$current" < "$target" ]]
+		local target="$1"
+		local current
+		current=$(date +%H:%M)
+		[[ "$current" < "$target" ]]
 }
 ```
 

@@ -8,7 +8,7 @@
 
 ## Description
 
-DJB2 — Daniel J. Bernstein's hash, classic and fast
+NON-CRYPTOGRAPHIC — pure bash implementations
 
 ## Parameters
 
@@ -20,13 +20,13 @@ DJB2 — Daniel J. Bernstein's hash, classic and fast
 
 ```bash
 hash::djb2() {
-  local input; _hash::read_input input "$@"
-    local s="$input" hash=5381 i char
-    for (( i=0; i<${#s}; i++ )); do
-        char=$(printf '%d' "'${s:$i:1}")
-        hash=$(( ((hash << 5) + hash + char) & 0xFFFFFFFF ))
-    done
-    echo "$hash"
+	local input; _hash::read_input input "$@"
+		local _str="$input" hash=5381 i char
+		for (( i=0; i<${#s}; i++ )); do
+				char=$(printf '%d' "'${_str:$i:1}")
+				hash=$(( ((hash << 5) + hash + char) & 0xFFFFFFFF ))
+		done
+		echo "$hash"
 }
 ```
 

@@ -24,10 +24,10 @@ Product of a sequence of floats
 
 ```bash
 math::productf() {
-    local scale=$1; shift
-    local result="1"
-    for n in "$@"; do result=$(math::bc "$result * $n" "$scale"); done
-    echo "$result"
+		local scale=$1; shift
+		local result="1"
+		for n in "$@"; do result=$(math::bc "$result * $n" "$scale"); done
+		echo "$result"
 }
 ```
 

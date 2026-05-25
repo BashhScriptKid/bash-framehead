@@ -23,11 +23,11 @@ Count occurrences of a value
 
 ```bash
 array::count_of() {
-    local needle="$1" count=0; shift
-    for el in "$@"; do
-        [[ "$el" == "$needle" ]] && (( count++ ))
-    done
-    echo "$count"
+		local needle="$1" count=0; shift
+		for el in "$@"; do
+				[[ "$el" == "$needle" ]] && (( count++ ))
+		done
+		echo "$count"
 }
 ```
 

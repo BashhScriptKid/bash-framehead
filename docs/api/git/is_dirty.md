@@ -15,8 +15,8 @@ _No description available._
 
 ```bash
 git::is_dirty() {
-    git::is_repo || return 1
-    ! git diff --quiet 2>/dev/null
+		git::is_repo || return 1
+		! git diff --quiet 2>/dev/null
 }
 ```
 

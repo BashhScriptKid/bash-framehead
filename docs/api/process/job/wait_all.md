@@ -15,7 +15,7 @@ Wait for all background jobs to finish
 
 ```bash
 process::job::wait_all() {
-    wait
+		wait
 }
 ```
 

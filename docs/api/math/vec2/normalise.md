@@ -21,10 +21,10 @@ Normalise a vec2 to unit length — requires bc
 
 ```bash
 math::vec2::normalise() {
-    local x y mag
-    _math::vec2::unpack2 x y "$1"
-    mag=$(math::bc "sqrt($x * $x + $y * $y)")
-    echo "$(math::bc "$x / $mag"),$(math::bc "$y / $mag")"
+		local x y mag
+		_math::vec2::unpack2 x y "$1"
+		mag=$(math::bc "sqrt($x * $x + $y * $y)")
+		echo "$(math::bc "$x / $mag"),$(math::bc "$y / $mag")"
 }
 ```
 

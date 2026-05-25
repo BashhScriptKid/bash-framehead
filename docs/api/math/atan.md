@@ -20,7 +20,7 @@ _No description available._
 
 ```bash
 math::atan() {
-    math::bc "a($1)"
+		math::bc "a($1)"
 }
 ```
 

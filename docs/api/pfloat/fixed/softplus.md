@@ -20,18 +20,18 @@ _No description available._
 
 ```bash
 pfloat::fixed::softplus() {
-  local x="$1"
-  local exp_val one_plus_exp
+	local x="$1"
+	local exp_val one_plus_exp
 
-  if pfloat::fixed::lt "$x" "-10"; then
-    echo "0"
-    return
-  fi
+	if pfloat::fixed::lt "$x" "-10"; then
+		echo "0"
+		return
+	fi
 
-  exp_val=$(pfloat::fixed::_exp_approx "$x")
-  one_plus_exp=$(pfloat::fixed::add "1" "$exp_val")
+	exp_val=$(_pfloat::_exp_approx "$x")
+	one_plus_exp=$(pfloat::fixed::add "1" "$exp_val")
 
-  pfloat::fixed::_ln_approx "$one_plus_exp"
+	_pfloat::_ln_approx "$one_plus_exp"
 }
 ```
 

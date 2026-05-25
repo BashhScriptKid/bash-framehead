@@ -20,8 +20,8 @@ Remove all whitespace
 
 ```bash
 string::strip_spaces() {
-  local input; _string::read_input input "$@"
-  echo "${input//[[:space:]]/}"
+	local input; _string::read_input input "$@"
+	echo "${input//[[:space:]]/}"
 }
 ```
 

@@ -21,13 +21,13 @@ Sigmoid — array-primary, operates in one awk pass
 
 ```bash
 math::sigmoid() {
-    local -n _sig_in="$1"
-    local scale="${2:-$MATH_SCALE}"
-    local -a _result=()
-    for x in "${_sig_in[@]}"; do
-        _result+=("$(math::bc "1 / (1 + e(-($x)))" "$scale")")
-    done
-    echo "${_result[@]}"
+		local -n _sig_in="$1"
+		local scale="${2:-$MATH_SCALE}"
+		local -a _result=()
+		for x in "${_sig_in[@]}"; do
+				_result+=("$(math::bc "1 / (1 + e(-($x)))" "$scale")")
+		done
+		echo "${_result[@]}"
 }
 ```
 

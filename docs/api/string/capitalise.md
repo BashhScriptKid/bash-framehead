@@ -20,8 +20,8 @@ Capitalise first character only
 
 ```bash
 string::capitalise() {
-  local input; _string::read_input input "$@"
-  echo "${input^}"
+	local input; _string::read_input input "$@"
+	echo "${input^}"
 }
 ```
 

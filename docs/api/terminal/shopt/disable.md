@@ -20,7 +20,7 @@ Disable a shopt option
 
 ```bash
 terminal::shopt::disable() {
-    shopt -u "$1" 2>/dev/null
+		shopt -u "$1" 2>/dev/null
 }
 ```
 

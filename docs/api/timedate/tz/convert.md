@@ -8,7 +8,7 @@
 
 ## Description
 
-Convert a timestamp to a different timezone
+--- TIMEZONE ---
 
 ## Parameters
 
@@ -27,12 +27,12 @@ timedate::tz::convert 1700000000 "America/New_York"
 
 ```bash
 timedate::tz::convert() {
-    local ts="$1" tz="$2"
-    if _timedate::has_gnu_date; then
-        TZ="$tz" date -d "@$ts" "+%Y-%m-%d %H:%M:%S %Z" 2>/dev/null
-    else
-        TZ="$tz" date -r "$ts" "+%Y-%m-%d %H:%M:%S %Z" 2>/dev/null
-    fi
+		local _timestamp="$1" tz="$2"
+		if _timedate::has_gnu_date; then
+				TZ="$tz" date -d "@$_timestamp" "+%Y-%m-%d %H:%M:%S %Z" 2>/dev/null
+		else
+				TZ="$tz" date -r "$_timestamp" "+%Y-%m-%d %H:%M:%S %Z" 2>/dev/null
+		fi
 }
 ```
 

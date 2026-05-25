@@ -20,11 +20,11 @@ Base64 decode
 
 ```bash
 string::base64_decode() {
-    local input; _string::read_input input "$@"
-    case "$(runtime::os)" in
-    darwin) echo -n "$input" | base64 -D ;;
-    *)      echo -n "$input" | base64 --decode ;;
-    esac
+		local input; _string::read_input input "$@"
+		case "$(runtime::os)" in
+		darwin) echo -n "$input" | base64 -D ;;
+		*)      echo -n "$input" | base64 --decode ;;
+		esac
 }
 ```
 

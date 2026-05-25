@@ -8,7 +8,7 @@
 
 ## Description
 
-Check if path is a character device
+!/usr/bin/env bash
 
 ## Parameters
 
@@ -20,7 +20,7 @@ Check if path is a character device
 
 ```bash
 device::is_device() {
-    [[ -c "$1" ]]
+		[[ -b "$1" || -c "$1" ]]
 }
 ```
 

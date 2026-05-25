@@ -24,10 +24,10 @@ Fast variant using nameref
 
 ```bash
 array::get::fast() {
-    local -n _array_get_result="$1"
-    local idx="$2"; shift 2
-    local -a _arr=("$@")
-    _array_get_result="${_arr[$idx]}"
+		local -n _array_get_result="$1"
+		local idx="$2"; shift 2
+		local -a _arr=("$@")
+		_array_get_result="${_arr[$idx]}"
 }
 ```
 

@@ -15,9 +15,9 @@ Check if currently morning (00:00-11:59)
 
 ```bash
 timedate::time::is_morning() {
-    local hour
-    hour=$(( 10#$(date +%H) ))
-    (( hour < 12 ))
+		local hour
+		hour=$(( 10#$(date +%H) ))
+		(( hour < 12 ))
 }
 ```
 

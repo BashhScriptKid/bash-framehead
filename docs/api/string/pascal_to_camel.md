@@ -15,10 +15,10 @@ PascalCase → camelCase
 
 ```bash
 string::pascal_to_camel() {
-  local input; _string::read_input input "$@"
-  local words
-  words=$(_string::to_words "$input")
-  string::plain_to_camel "$words"
+	local input; _string::read_input input "$@"
+	local words
+	words=$(_string::to_words "$input")
+	string::plain_to_camel "$words"
 }
 ```
 

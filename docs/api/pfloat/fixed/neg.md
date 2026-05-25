@@ -20,9 +20,9 @@ _No description available._
 
 ```bash
 pfloat::fixed::neg() {
-  local a_scaled
-  a_scaled=$(_pfloat::_to_scaled "$1")
-  _pfloat::_from_scaled "$((-a_scaled))"
+	local a_scaled
+	a_scaled=$(_pfloat::_to_scaled "$1")
+	_pfloat::_from_scaled "$((-a_scaled))"
 }
 ```
 

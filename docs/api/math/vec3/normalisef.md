@@ -22,10 +22,10 @@ Normalise a vec3 with explicit scale
 
 ```bash
 math::vec3::normalisef() {
-    local scale=$1 x y z mag
-    _math::vec3::unpack3 x y z "$2"
-    mag=$(math::bc "sqrt($x*$x + $y*$y + $z*$z)" "$scale")
-    echo "$(math::bc "$x / $mag" "$scale"),$(math::bc "$y / $mag" "$scale"),$(math::bc "$z / $mag" "$scale")"
+		local scale=$1 x y z mag
+		_math::vec3::unpack3 x y z "$2"
+		mag=$(math::bc "sqrt($x*$x + $y*$y + $z*$z)" "$scale")
+		echo "$(math::bc "$x / $mag" "$scale"),$(math::bc "$y / $mag" "$scale"),$(math::bc "$z / $mag" "$scale")"
 }
 ```
 

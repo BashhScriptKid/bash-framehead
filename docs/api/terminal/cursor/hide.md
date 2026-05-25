@@ -15,7 +15,7 @@ _No description available._
 
 ```bash
 terminal::cursor::hide() {
-    printf '\033[?25l'
+		printf '\033[?25l'
 }
 ```
 

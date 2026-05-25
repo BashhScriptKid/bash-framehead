@@ -15,7 +15,7 @@ List current shell's background jobs
 
 ```bash
 process::job::list() {
-    jobs -l
+		jobs -l
 }
 ```
 

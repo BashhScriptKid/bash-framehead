@@ -21,7 +21,7 @@ Check if a date is before another
 
 ```bash
 timedate::date::is_before() {
-    [[ "$(timedate::date::compare "$1" "$2")" == "-1" ]]
+		[[ "$(timedate::date::compare "$1" "$2")" == "-1" ]]
 }
 ```
 

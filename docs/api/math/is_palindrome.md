@@ -15,10 +15,10 @@ Check if integer is a palindrome
 
 ```bash
 math::is_palindrome() {
-    local n="${1#-}"
-    local rev
-    rev=$(math::digit_reverse "$n")
-    (( n == rev ))
+		local n="${1#-}"
+		local rev
+		rev=$(math::digit_reverse "$n")
+		(( n == rev ))
 }
 ```
 

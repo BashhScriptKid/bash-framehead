@@ -20,7 +20,7 @@ Check if a path is absolute
 
 ```bash
 fs::path::is_absolute() {
-    [[ "$1" == /* ]]
+		[[ "$1" == /* ]]
 }
 ```
 

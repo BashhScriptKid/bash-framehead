@@ -23,13 +23,13 @@ Fast variant using nameref
 
 ```bash
 array::sum::fast() {
-    local -n _array_sum_result="$1"
-    shift
-    local total=0
-    for el in "$@"; do
-        total=$(( total + el ))
-    done
-    _array_sum_result=$total
+		local -n _array_sum_result="$1"
+		shift
+		local total=0
+		for el in "$@"; do
+				total=$(( total + el ))
+		done
+		_array_sum_result=$total
 }
 ```
 

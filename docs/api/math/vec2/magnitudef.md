@@ -21,9 +21,9 @@ Magnitude with explicit scale
 
 ```bash
 math::vec2::magnitudef() {
-    local scale=$1 x y
-    _math::vec2::unpack2 x y "$2"
-    math::bc "sqrt($x * $x + $y * $y)" "$scale"
+		local scale=$1 x y
+		_math::vec2::unpack2 x y "$2"
+		math::bc "sqrt($x * $x + $y * $y)" "$scale"
 }
 ```
 

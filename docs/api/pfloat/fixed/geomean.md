@@ -21,10 +21,10 @@ _No description available._
 
 ```bash
 pfloat::fixed::geomean() {
-  local a="$1" b="$2"
-  local prod
-  prod=$(pfloat::fixed::mul "$a" "$b")
-  pfloat::fixed::sqrt "$prod"
+	local a="$1" b="$2"
+	local prod
+	prod=$(pfloat::fixed::mul "$a" "$b")
+	pfloat::fixed::sqrt "$prod"
 }
 ```
 

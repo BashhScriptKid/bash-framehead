@@ -21,13 +21,13 @@ Sleep with a progress indicator
 
 ```bash
 timedate::time::sleep() {
-    local secs="$1" msg="${2:-Waiting}"
-    local i
-    for (( i=secs; i>0; i-- )); do
-        printf '\r%s... %ds ' "$msg" "$i"
-        sleep 1
-    done
-    printf '\r%s... done\n' "$msg"
+		local secs="$1" msg="${2:-Waiting}"
+		local i
+		for (( i=secs; i>0; i-- )); do
+				printf '\r%s... %ds ' "$msg" "$i"
+				sleep 1
+		done
+		printf '\r%s... done\n' "$msg"
 }
 ```
 

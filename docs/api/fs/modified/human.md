@@ -20,7 +20,7 @@ Last modified time (human readable)
 
 ```bash
 fs::modified::human() {
-    stat -c '%y' "$1" 2>/dev/null
+		stat -c '%y' "$1" 2>/dev/null
 }
 ```
 

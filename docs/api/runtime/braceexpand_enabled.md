@@ -15,7 +15,7 @@ _No description available._
 
 ```bash
 runtime::braceexpand_enabled() {
-    [[ "$-" == *B* ]]
+		[[ "$-" == *B* ]]
 }
 ```
 

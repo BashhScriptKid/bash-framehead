@@ -20,7 +20,7 @@ Force kill a process (SIGKILL)
 
 ```bash
 process::kill::force() {
-    kill -KILL "$1" 2>/dev/null
+		kill -KILL "$1" 2>/dev/null
 }
 ```
 

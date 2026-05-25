@@ -21,7 +21,7 @@ _No description available._
 
 ```bash
 math::atan2() {
-    math::bc "a($1 / $2)"
+		math::bc "a($1 / $2)"
 }
 ```
 

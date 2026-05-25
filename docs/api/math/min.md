@@ -21,8 +21,8 @@ Minimum of two values (integer)
 
 ```bash
 math::min() {
-    _math::is_float "$1" || _math::is_float "$2" && { echo "math::min: float input — use math::minf" >&2; return 1; }
-    echo $(( $1 < $2 ? $1 : $2 ))
+		_math::is_float "$1" || _math::is_float "$2" && { echo "math::min: float input — use math::minf" >&2; return 1; }
+		echo $(( $1 < $2 ? $1 : $2 ))
 }
 ```
 

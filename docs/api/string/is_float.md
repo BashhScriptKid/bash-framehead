@@ -15,8 +15,8 @@ Check if string is a valid float
 
 ```bash
 string::is_float() {
-  local input; _string::read_input input "$@"
-  [[ "$input" =~ ^-?[0-9]+(\.[0-9]+)?([Ee][+-]?[0-9]+)?$ ]]
+	local input; _string::read_input input "$@"
+	[[ "$input" =~ ^-?[0-9]+(\.[0-9]+)?([Ee][+-]?[0-9]+)?$ ]]
 }
 ```
 

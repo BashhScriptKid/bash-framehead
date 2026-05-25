@@ -24,11 +24,11 @@ Replace element at index with new value
 
 ```bash
 array::set() {
-    local idx="$1" val="$2" i=0; shift 2
-    for el in "$@"; do
-        [[ "$i" -eq "$idx" ]] && echo "$val" || echo "$el"
-        (( i++ ))
-    done
+		local idx="$1" val="$2" i=0; shift 2
+		for el in "$@"; do
+				[[ "$i" -eq "$idx" ]] && echo "$val" || echo "$el"
+				(( i++ ))
+		done
 }
 ```
 

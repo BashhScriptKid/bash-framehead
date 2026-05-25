@@ -8,7 +8,7 @@
 
 ## Description
 
-Add two matrices element-wise
+--- math::matrix::add — Element-wise addition ---
 
 ## Parameters
 
@@ -22,17 +22,17 @@ Add two matrices element-wise
 
 ```bash
 math::matrix::add() {
-    local rows cols
-    _math::matrix::dim "$1" rows cols
-    local size=$(( rows * cols ))
-    local -a _a _b
-    _math::matrix::unpack2 _a _b "$size" "$size" "${@:2}"
-    local -a _result=()
-    local i
-    for (( i = 0; i < size; i++ )); do
-        _result+=("$(( _a[$i] + _b[$i] ))")
-    done
-    echo "${_result[@]}"
+		local rows cols
+		_math::matrix::dim "$1" rows cols
+		local size=$(( rows * cols ))
+		local -a _a _b
+		_math::matrix::unpack2 _a _b "$size" "$size" "${@:2}"
+		local -a _result=()
+		local i
+		for (( i = 0; i < size; i++ )); do
+				_result+=("$(( _a[$i] + _b[$i] ))")
+		done
+		echo "${_result[@]}"
 }
 ```
 

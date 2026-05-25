@@ -20,7 +20,7 @@ IEEE 754: Convert to decimal string
 
 ```bash
 pfloat::ieee754::to_string() {
-  _ieee754::to_string "$1"
+	_ieee754::to_string "$1"
 }
 ```
 

@@ -15,8 +15,8 @@ _No description available._
 
 ```bash
 git::untracked::count() {
-    git::is_repo || { echo 0; return; }
-    git ls-files --others --exclude-standard 2>/dev/null | wc -l | xargs
+		git::is_repo || { echo 0; return; }
+		git ls-files --others --exclude-standard 2>/dev/null | wc -l | xargs
 }
 ```
 

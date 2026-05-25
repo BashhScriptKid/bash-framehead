@@ -15,7 +15,7 @@ _No description available._
 
 ```bash
 runtime::is_root() {
-  [[ $EUID -eq 0 ]]
+	[[ $EUID -eq 0 ]]
 }
 ```
 

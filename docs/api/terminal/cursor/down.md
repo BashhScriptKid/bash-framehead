@@ -15,7 +15,7 @@ Move cursor down n rows
 
 ```bash
 terminal::cursor::down() {
-    printf '\033[%sB' "${1:-1}"
+		printf '\033[%sB' "${1:-1}"
 }
 ```
 

@@ -1,6 +1,6 @@
 # `pfloat::ieee754::abs`
 
-**Signature:** `pfloat::ieee754::abs(arg1)`
+**Signature:** `pfloat::ieee754::abs(bits)`
 
 **Module:** [`pfloat`](../../pfloat.md) — [Guide](../../guide/index.md)
 
@@ -14,13 +14,13 @@ IEEE 754: Absolute value
 
 | Name | Type | Required | Description |
 |------|------|----------|-------------|
-| `arg1` | string | Yes | |
+| `bits` | integer | Yes | |
 
 ## Source
 
 ```bash
 pfloat::ieee754::abs() {
-  echo $(( $1 & ~9223372036854775808 ))
+	echo $(( $1 & ~9223372036854775808 ))
 }
 ```
 

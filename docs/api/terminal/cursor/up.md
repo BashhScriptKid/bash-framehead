@@ -15,7 +15,7 @@ Move cursor up n rows
 
 ```bash
 terminal::cursor::up() {
-    printf '\033[%sA' "${1:-1}"
+		printf '\033[%sA' "${1:-1}"
 }
 ```
 

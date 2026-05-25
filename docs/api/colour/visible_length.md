@@ -20,11 +20,11 @@ Return the visible length of a string (excluding escape codes)
 
 ```bash
 colour::visible_length() {
-  local input
-  if [[ ! -t 0 ]]; then input=$(cat); else input="$1"; fi
-  local stripped
-  stripped=$(colour::strip "$input")
-  echo "${#stripped}"
+	local input
+	if [[ $# -ge 1 ]]; then input="$1"; else input=$(cat); fi
+	local stripped
+	stripped=$(colour::strip "$input")
+	echo "${#stripped}"
 }
 ```
 

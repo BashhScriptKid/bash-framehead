@@ -8,7 +8,7 @@
 
 ## Description
 
-Extract substring
+--- SUBSTRINGS ---
 
 ## Parameters
 
@@ -22,17 +22,17 @@ Extract substring
 
 ```bash
 string::substr() {
-  local input start len
-  if [[ ! -t 0 ]]; then
-    input=$(cat); start="$1"; len="${2:-}"
-  else
-    input="$1"; start="$2"; len="${3:-}"
-  fi
-  if [[ -n "$len" ]]; then
-    echo "${input:$start:$len}"
-  else
-    echo "${input:$start}"
-  fi
+	local input start len
+	if [[ $# -ge 2 ]]; then
+		input="$1"; start="$2"; len="${3:-}"
+	else
+		input=$(cat); start="$1"; len="${2:-}"
+	fi
+	if [[ -n "$len" ]]; then
+		echo "${input:$start:$len}"
+	else
+		echo "${input:$start}"
+	fi
 }
 ```
 

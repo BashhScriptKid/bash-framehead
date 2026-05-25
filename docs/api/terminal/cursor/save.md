@@ -15,7 +15,7 @@ Save cursor position
 
 ```bash
 terminal::cursor::save() {
-    printf '\033[s'
+		printf '\033[s'
 }
 ```
 

@@ -21,10 +21,10 @@ Fast variant using nameref
 
 ```bash
 string::dot_to_pascal::fast() {
-  local -n _string_dot_to_pascal_result="$1"
-  local result=""
-  for word in ${2//./ }; do result+="${word^}"; done
-  _string_dot_to_pascal_result="$result"
+	local -n _string_dot_to_pascal_result="$1"
+	local result=""
+	for word in ${2//./ }; do result+="${word^}"; done
+	_string_dot_to_pascal_result="$result"
 }
 ```
 

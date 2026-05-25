@@ -23,11 +23,11 @@ Flatten one level — splits each element by whitespace
 
 ```bash
 array::flatten() {
-    for el in "$@"; do
-        for word in $el; do
-            echo "$word"
-        done
-    done
+		for el in "$@"; do
+				for word in $el; do
+						echo "$word"
+				done
+		done
 }
 ```
 

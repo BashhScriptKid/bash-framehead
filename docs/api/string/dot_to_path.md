@@ -15,8 +15,8 @@ dot.case → path/case
 
 ```bash
 string::dot_to_path() {
-  local input; _string::read_input input "$@"
-  echo "${input//.//}"
+	local input; _string::read_input input "$@"
+	echo "${input//.//}"
 }
 ```
 

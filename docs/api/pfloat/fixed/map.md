@@ -24,10 +24,10 @@ _No description available._
 
 ```bash
 pfloat::fixed::map() {
-  local v="$1" imin="$2" imax="$3" omin="$4" omax="$5"
-  local t
-  t=$(pfloat::fixed::inv_lerp "$v" "$imin" "$imax")
-  pfloat::fixed::lerp "$omin" "$omax" "$t"
+	local v="$1" imin="$2" imax="$3" omin="$4" omax="$5"
+	local t
+	t=$(pfloat::fixed::inv_lerp "$v" "$imin" "$imax")
+	pfloat::fixed::lerp "$omin" "$omax" "$t"
 }
 ```
 

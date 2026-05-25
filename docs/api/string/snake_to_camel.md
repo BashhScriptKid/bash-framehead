@@ -15,8 +15,8 @@ snake_case → camelCase
 
 ```bash
 string::snake_to_camel() {
-  local input; _string::read_input input "$@"
-  string::plain_to_camel "${input//_/ }"
+	local input; _string::read_input input "$@"
+	string::plain_to_camel "${input//_/ }"
 }
 ```
 

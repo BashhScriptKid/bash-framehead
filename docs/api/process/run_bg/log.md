@@ -22,9 +22,9 @@ Run a command in the background, redirect output to a log file
 
 ```bash
 process::run_bg::log() {
-    local logfile="$1"; shift
-    "$@" >> "$logfile" 2>&1 &
-    echo $!
+		local logfile="$1"; shift
+		"$@" >> "$logfile" 2>&1 &
+		echo $!
 }
 ```
 

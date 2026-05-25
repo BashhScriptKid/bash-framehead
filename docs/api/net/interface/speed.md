@@ -15,10 +15,10 @@ Get interface speed in Mbps
 
 ```bash
 net::interface::speed() {
-    local iface="${1:-eth0}"
-    if [[ -f "/sys/class/net/$iface/speed" ]]; then
-        cat "/sys/class/net/$iface/speed" > /dev/null 2>&1 || echo "Unknown"
-    fi
+		local iface="${1:-eth0}"
+		if [[ -f "/sys/class/net/$iface/speed" ]]; then
+				cat "/sys/class/net/$iface/speed" > /dev/null 2>&1 || echo "Unknown"
+		fi
 }
 ```
 

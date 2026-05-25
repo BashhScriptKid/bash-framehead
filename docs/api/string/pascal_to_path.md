@@ -15,8 +15,8 @@ PascalCase → path/case
 
 ```bash
 string::pascal_to_path() {
-  local input; _string::read_input input "$@"
-  string::camel_to_path "$input"
+	local input; _string::read_input input "$@"
+	string::camel_to_path "$input"
 }
 ```
 

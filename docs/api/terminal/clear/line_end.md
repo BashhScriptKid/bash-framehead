@@ -15,7 +15,7 @@ Clear from cursor to end of line
 
 ```bash
 terminal::clear::line_end() {
-    printf '\033[0K'
+		printf '\033[0K'
 }
 ```
 

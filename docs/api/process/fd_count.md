@@ -20,7 +20,7 @@ Get number of open file descriptors for a PID
 
 ```bash
 process::fd_count() {
-    ls "/proc/$1/fd" 2>/dev/null | wc -l
+		ls "/proc/$1/fd" 2>/dev/null | wc -l
 }
 ```
 

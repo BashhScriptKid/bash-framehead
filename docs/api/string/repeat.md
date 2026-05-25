@@ -21,17 +21,15 @@ Repeat a string n times
 
 ```bash
 string::repeat() {
-  local input n
-  if [[ ! -t 0 ]]; then
-    input=$(cat)
-    n="$1"
-  else
-    input="$1"
-    n="$2"
-  fi
-  local result=""
-  for ((i = 0; i < n; i++)); do result+="$input"; done
-  echo "$result"
+	local input n
+	if [[ $# -ge 2 ]]; then
+		input="$1"; n="$2"
+	else
+		input=$(cat); n="$1"
+	fi
+	local result=""
+	for ((i = 0; i < n; i++)); do result+="$input"; done
+	echo "$result"
 }
 ```
 

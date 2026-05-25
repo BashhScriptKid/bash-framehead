@@ -22,9 +22,9 @@ Add two vec2 vectors
 
 ```bash
 math::vec2::add() {
-    local x1 y1 x2 y2
-    _math::vec2::unpack4 x1 y1 x2 y2 "$1" "$2"
-    echo "$(( x1 + x2 )),$(( y1 + y2 ))"
+		local x1 y1 x2 y2
+		_math::vec2::unpack4 x1 y1 x2 y2 "$1" "$2"
+		echo "$(( x1 + x2 )),$(( y1 + y2 ))"
 }
 ```
 

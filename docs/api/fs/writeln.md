@@ -21,7 +21,7 @@ Write with newline
 
 ```bash
 fs::writeln() {
-    printf '%s\n' "$2" > "$1"
+		printf '%s\n' "$2" > "$1"
 }
 ```
 

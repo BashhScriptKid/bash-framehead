@@ -20,7 +20,7 @@ Kill all processes matching a name
 
 ```bash
 process::kill::name() {
-    pkill -x "$1" 2>/dev/null
+		pkill -x "$1" 2>/dev/null
 }
 ```
 

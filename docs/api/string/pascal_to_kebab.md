@@ -15,8 +15,8 @@ PascalCase → kebab-case
 
 ```bash
 string::pascal_to_kebab() {
-  local input; _string::read_input input "$@"
-  string::camel_to_kebab "$input"
+	local input; _string::read_input input "$@"
+	string::camel_to_kebab "$input"
 }
 ```
 

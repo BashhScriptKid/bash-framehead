@@ -21,11 +21,11 @@ IEEE 754: Comparison (returns 0 for true, 1 for false)
 
 ```bash
 pfloat::ieee754::eq() {
-  local a="$1" b="$2"
-  # Handle signed zero
-  local abs_a=$((a & ~9223372036854775808))
-  local abs_b=$((b & ~9223372036854775808))
-  ((abs_a == abs_b))
+	local a="$1" b="$2"
+	# Handle signed zero
+	local abs_a=$((a & ~9223372036854775808))
+	local abs_b=$((b & ~9223372036854775808))
+	((abs_a == abs_b))
 }
 ```
 

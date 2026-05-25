@@ -8,7 +8,7 @@
 
 ## Description
 
-_No description available._
+IEEE 754: Greater-than comparison
 
 ## Parameters
 
@@ -21,8 +21,8 @@ _No description available._
 
 ```bash
 pfloat::ieee754::gt() {
-  local a="$1" b="$2"
-  ! pfloat::ieee754::le "$a" "$b"
+	local a="$1" b="$2"
+	! pfloat::ieee754::le "$a" "$b"
 }
 ```
 

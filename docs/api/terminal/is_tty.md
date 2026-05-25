@@ -8,14 +8,14 @@
 
 ## Description
 
-Check if stdout is a terminal
+!/usr/bin/env bash
 
 
 ## Source
 
 ```bash
 terminal::is_tty() {
-    [[ -t 1 ]]
+		[[ -t 1 ]]
 }
 ```
 

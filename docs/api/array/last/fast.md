@@ -23,10 +23,10 @@ Fast variant using nameref
 
 ```bash
 array::last::fast() {
-    local -n _array_last_result="$1"
-    shift
-    local -a _arr=("$@")
-    _array_last_result="${_arr[-1]}"
+		local -n _array_last_result="$1"
+		shift
+		local -a _arr=("$@")
+		_array_last_result="${_arr[-1]}"
 }
 ```
 

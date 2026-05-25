@@ -15,13 +15,13 @@ SDBM hash — used in the SDBM database library
 
 ```bash
 hash::sdbm() {
-  local input; _hash::read_input input "$@"
-    local s="$input" hash=0 i char
-    for (( i=0; i<${#s}; i++ )); do
-        char=$(printf '%d' "'${s:$i:1}")
-        hash=$(( (char + (hash << 6) + (hash << 16) - hash) & 0xFFFFFFFF ))
-    done
-    echo "$hash"
+	local input; _hash::read_input input "$@"
+		local _str="$input" hash=0 i char
+		for (( i=0; i<${#s}; i++ )); do
+				char=$(printf '%d' "'${_str:$i:1}")
+				hash=$(( (char + (hash << 6) + (hash << 16) - hash) & 0xFFFFFFFF ))
+		done
+		echo "$hash"
 }
 ```
 

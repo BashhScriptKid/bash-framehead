@@ -15,7 +15,7 @@ _No description available._
 
 ```bash
 runtime::is_login() {
-  shopt -q login_shell
+	shopt -q login_shell
 }
 ```
 

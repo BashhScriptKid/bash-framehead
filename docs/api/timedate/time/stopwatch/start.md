@@ -20,7 +20,7 @@ Stopwatch — start, returns a token
 
 ```bash
 timedate::time::stopwatch::start() {
-    timedate::timestamp::unix_ms
+		timedate::timestamp::unix_ms
 }
 ```
 

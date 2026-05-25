@@ -15,7 +15,7 @@ _No description available._
 
 ```bash
 hardware::cpu::thread_count() {
-    hardware::cpu::core_count::logical
+		hardware::cpu::core_count::logical
 }
 ```
 

@@ -20,7 +20,7 @@ Check if a path is relative
 
 ```bash
 fs::path::is_relative() {
-    [[ "$1" != /* ]]
+		[[ "$1" != /* ]]
 }
 ```
 

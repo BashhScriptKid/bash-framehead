@@ -15,7 +15,7 @@ _No description available._
 
 ```bash
 runtime::screen_session() {
-  echo "${STY:-${TMUX:-none}}"
+	echo "${STY:-${TMUX:-none}}"
 }
 ```
 

@@ -15,8 +15,8 @@ Strip extension from filename
 
 ```bash
 fs::path::stem() {
-    local base="${1##*/}"
-    [[ "$base" == *.* ]] && echo "${base%.*}" || echo "$base"
+		local base="${1##*/}"
+		[[ "$base" == *.* ]] && echo "${base%.*}" || echo "$base"
 }
 ```
 

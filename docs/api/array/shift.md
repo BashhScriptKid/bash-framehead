@@ -22,8 +22,8 @@ Remove first element
 
 ```bash
 array::shift() {
-    shift
-    printf '%s\n' "$@"
+		shift
+		printf '%s\n' "$@"
 }
 ```
 

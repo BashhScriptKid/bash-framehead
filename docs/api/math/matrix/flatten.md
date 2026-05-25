@@ -8,7 +8,7 @@
 
 ## Description
 
-Flatten a matrix to a newline-separated list (one element per line)
+--- math::matrix::flatten ---
 
 ## Parameters
 
@@ -21,12 +21,12 @@ Flatten a matrix to a newline-separated list (one element per line)
 
 ```bash
 math::matrix::flatten() {
-    local rows cols
-    _math::matrix::dim "$1" rows cols
-    local size=$(( rows * cols ))
-    local -a _a
-    _math::matrix::unpack _a "$size" "${@:2}"
-    printf '%s\n' "${_a[@]}"
+		local rows cols
+		_math::matrix::dim "$1" rows cols
+		local size=$(( rows * cols ))
+		local -a _a
+		_math::matrix::unpack _a "$size" "${@:2}"
+		printf '%s\n' "${_a[@]}"
 }
 ```
 

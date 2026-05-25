@@ -15,15 +15,15 @@ plain → camelCase
 
 ```bash
 string::plain_to_camel() {
-  local input; _string::read_input input "$@"
-  local result="" first=true
-  for word in $input; do
-    if $first; then
-      result+="${word,,}"
-      first=false
-    else result+="${word^}"; fi
-  done
-  echo "$result"
+	local input; _string::read_input input "$@"
+	local result="" first=true
+	for word in $input; do
+		if $first; then
+			result+="${word,,}"
+			first=false
+		else result+="${word^}"; fi
+	done
+	echo "$result"
 }
 ```
 

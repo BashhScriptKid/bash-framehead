@@ -15,7 +15,7 @@ Find files modified within n minutes
 
 ```bash
 fs::find::recent() {
-    find "${1:-.}" -type f -mmin "-${2:-60}" 2>/dev/null
+		find "${1:-.}" -type f -mmin "-${2:-60}" 2>/dev/null
 }
 ```
 

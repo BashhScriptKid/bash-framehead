@@ -24,9 +24,9 @@ Subtract vec3 b from vec3 a
 
 ```bash
 math::vec3::sub() {
-    local x1 y1 z1 x2 y2 z2
-    _math::vec3::unpack6 x1 y1 z1 x2 y2 z2 "$1" "$2"
-    echo "$(( x1 - x2 )),$(( y1 - y2 )),$(( z1 - z2 ))"
+		local x1 y1 z1 x2 y2 z2
+		_math::vec3::unpack6 x1 y1 z1 x2 y2 z2 "$1" "$2"
+		echo "$(( x1 - x2 )),$(( y1 - y2 )),$(( z1 - z2 ))"
 }
 ```
 

@@ -20,7 +20,7 @@ Check if device is writable
 
 ```bash
 device::is_writeable() {
-    [[ -w "$1" ]]
+		[[ -w "$1" ]]
 }
 ```
 

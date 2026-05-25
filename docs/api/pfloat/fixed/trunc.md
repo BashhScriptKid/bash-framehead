@@ -20,14 +20,14 @@ _No description available._
 
 ```bash
 pfloat::fixed::trunc() {
-  local a="$1"
+	local a="$1"
 
-  if [[ "$a" == *.* ]]; then
-    a="${a%%.*}"
-  fi
+	if [[ "$a" == *.* ]]; then
+		a="${a%%.*}"
+	fi
 
-  [[ -z "$a" ]] && a="0"
-  echo "$a"
+	[[ -z "$a" ]] && a="0"
+	echo "$a"
 }
 ```
 

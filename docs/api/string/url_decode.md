@@ -15,9 +15,9 @@ _No description available._
 
 ```bash
 string::url_decode() {
-    local input; _string::read_input input "$@"
-    local s="${input//+/ }"  # replace + with space first
-    printf '%b\n' "${s//%/\\x}"
+		local input; _string::read_input input "$@"
+		local _str="${input//+/ }"  # replace + with space first
+		printf '%b\n' "${_str//%/\\x}"
 }
 ```
 

@@ -8,14 +8,14 @@
 
 ## Description
 
-Current time in HH:MM:SS
+--- TIME ---
 
 
 ## Source
 
 ```bash
 timedate::time::now() {
-    date +%H:%M:%S
+		date +%H:%M:%S
 }
 ```
 

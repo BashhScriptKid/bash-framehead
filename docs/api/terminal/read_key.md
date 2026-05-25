@@ -8,7 +8,7 @@
 
 ## Description
 
-Read a single keypress without requiring Enter
+--- INPUT ---
 
 ## Parameters
 
@@ -20,10 +20,10 @@ Read a single keypress without requiring Enter
 
 ```bash
 terminal::read_key() {
-    local _var="${1:-_TERMINAL_KEY}"
-    local _key
-    IFS= read -r -s -n1 _key
-    printf -v "$_var" '%s' "$_key"
+		local _var="${1:-_TERMINAL_KEY}"
+		local _key
+		IFS= read -r -s -n1 _key
+		printf -v "$_var" '%s' "$_key"
 }
 ```
 

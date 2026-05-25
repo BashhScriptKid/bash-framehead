@@ -15,8 +15,9 @@ List only files
 
 ```bash
 fs::ls::files() {
-    find "${1:-.}" -maxdepth 1 -type f -printf '%f\n' 2>/dev/null || \
-    ls -1p "${1:-.}" | grep -v '/$'
+		# shellcheck disable=SC2010
+		find "${1:-.}" -maxdepth 1 -type f -printf '%f\n' 2>/dev/null || \
+		ls -1p "${1:-.}" | grep -v '/$'
 }
 ```
 

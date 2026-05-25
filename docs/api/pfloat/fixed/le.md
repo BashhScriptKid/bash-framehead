@@ -21,10 +21,10 @@ _No description available._
 
 ```bash
 pfloat::fixed::le() {
-  local a b
-  a=$(_pfloat::_to_scaled "$1")
-  b=$(_pfloat::_to_scaled "$2")
-  ((a <= b))
+	local a b
+	a=$(_pfloat::_to_scaled "$1")
+	b=$(_pfloat::_to_scaled "$2")
+	((a <= b))
 }
 ```
 

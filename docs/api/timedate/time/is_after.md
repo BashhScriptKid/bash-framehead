@@ -20,10 +20,10 @@ Check if current time is after a given time
 
 ```bash
 timedate::time::is_after() {
-    local target="$1"
-    local current
-    current=$(date +%H:%M)
-    [[ "$current" > "$target" ]]
+		local target="$1"
+		local current
+		current=$(date +%H:%M)
+		[[ "$current" > "$target" ]]
 }
 ```
 

@@ -22,9 +22,9 @@ Magnitude with explicit scale
 
 ```bash
 math::vec3::magnitudef() {
-    local scale=$1 x y z
-    _math::vec3::unpack3 x y z "$2"
-    math::bc "sqrt($x*$x + $y*$y + $z*$z)" "$scale"
+		local scale=$1 x y z
+		_math::vec3::unpack3 x y z "$2"
+		math::bc "sqrt($x*$x + $y*$y + $z*$z)" "$scale"
 }
 ```
 

@@ -8,7 +8,7 @@
 
 ## Description
 
-Extract diagonal elements as a flat list
+--- math::matrix::diagonal ---
 
 ## Parameters
 
@@ -21,17 +21,17 @@ Extract diagonal elements as a flat list
 
 ```bash
 math::matrix::diagonal() {
-    local rows cols
-    _math::matrix::dim "$1" rows cols
-    local size=$(( rows * cols ))
-    local -a _a
-    _math::matrix::unpack _a "$size" "${@:2}"
-    local -a _result=()
-    local i
-    for (( i = 0; i < rows; i++ )); do
-        _result+=("${_a[$i * $cols + $i]}")
-    done
-    echo "${_result[@]}"
+		local rows cols
+		_math::matrix::dim "$1" rows cols
+		local size=$(( rows * cols ))
+		local -a _a
+		_math::matrix::unpack _a "$size" "${@:2}"
+		local -a _result=()
+		local i
+		for (( i = 0; i < rows; i++ )); do
+				_result+=("${_a[$i * $cols + $i]}")
+		done
+		echo "${_result[@]}"
 }
 ```
 

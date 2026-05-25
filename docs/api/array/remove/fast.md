@@ -24,12 +24,12 @@ Fast variant using nameref
 
 ```bash
 array::remove::fast() {
-    local -n _array_remove_result="$1"
-    local target="$2"; shift 2
-    _array_remove_result=()
-    for el in "$@"; do
-        [[ "$el" != "$target" ]] && _array_remove_result+=("$el")
-    done
+		local -n _array_remove_result="$1"
+		local target="$2"; shift 2
+		_array_remove_result=()
+		for el in "$@"; do
+				[[ "$el" != "$target" ]] && _array_remove_result+=("$el")
+		done
 }
 ```
 

@@ -21,7 +21,7 @@ Recursive find by name pattern
 
 ```bash
 fs::find() {
-    find "${1:-.}" -name "$2" 2>/dev/null
+		find "${1:-.}" -name "$2" 2>/dev/null
 }
 ```
 

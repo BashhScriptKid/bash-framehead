@@ -21,11 +21,11 @@ Enter alternate screen, run a command, return to normal screen
 
 ```bash
 terminal::screen::wrap() {
-    terminal::screen::alternate
-    "$@"
-    local ret=$?
-    terminal::screen::normal
-    return $ret
+		terminal::screen::alternate
+		"$@"
+		local ret=$?
+		terminal::screen::normal
+		return $ret
 }
 ```
 

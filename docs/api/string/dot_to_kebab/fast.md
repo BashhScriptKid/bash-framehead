@@ -21,8 +21,8 @@ Fast variant using nameref
 
 ```bash
 string::dot_to_kebab::fast() {
-  local -n _string_dot_to_kebab_result="$1"
-  _string_dot_to_kebab_result="${2//./-}"
+	local -n _string_dot_to_kebab_result="$1"
+	_string_dot_to_kebab_result="${2//./-}"
 }
 ```
 

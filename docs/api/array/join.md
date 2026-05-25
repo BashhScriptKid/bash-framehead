@@ -8,7 +8,7 @@
 
 ## Description
 
-Join elements with a delimiter
+--- AGGREGATION ---
 
 ## Parameters
 
@@ -23,12 +23,12 @@ Join elements with a delimiter
 
 ```bash
 array::join() {
-    local delim="$1" result="" first=true; shift
-    for el in "$@"; do
-        if $first; then result="$el"; first=false
-        else result+="${delim}${el}"; fi
-    done
-    echo "$result"
+		local delim="$1" result="" first=true; shift
+		for el in "$@"; do
+				if $first; then result="$el"; first=false
+				else result+="${delim}${el}"; fi
+		done
+		echo "$result"
 }
 ```
 

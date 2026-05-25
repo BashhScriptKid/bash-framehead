@@ -24,15 +24,15 @@ Fast variant using nameref
 
 ```bash
 array::index_of::fast() {
-    local -n _array_index_of_result="$1"
-    local needle="$2"; shift 2
-    local i=0
-    for el in "$@"; do
-        [[ "$el" == "$needle" ]] && { _array_index_of_result=$i; return 0; }
-        (( i++ ))
-    done
-    _array_index_of_result=-1
-    return 1
+		local -n _array_index_of_result="$1"
+		local needle="$2"; shift 2
+		local i=0
+		for el in "$@"; do
+				[[ "$el" == "$needle" ]] && { _array_index_of_result=$i; return 0; }
+				(( i++ ))
+		done
+		_array_index_of_result=-1
+		return 1
 }
 ```
 

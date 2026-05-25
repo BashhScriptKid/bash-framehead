@@ -8,7 +8,7 @@
 
 ## Description
 
-Join path components
+!/usr/bin/env bash
 
 ## Parameters
 
@@ -22,12 +22,12 @@ Join path components
 
 ```bash
 fs::path::join() {
-    local result="$1"; shift
-    for part in "$@"; do
-        part="${part#/}"   # strip leading slash from each part
-        result="${result%/}/$part"
-    done
-    echo "$result"
+		local result="$1"; shift
+		for part in "$@"; do
+				part="${part#/}"   # strip leading slash from each part
+				result="${result%/}/$part"
+		done
+		echo "$result"
 }
 ```
 

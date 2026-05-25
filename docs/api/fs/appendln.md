@@ -21,7 +21,7 @@ Append with newline
 
 ```bash
 fs::appendln() {
-    printf '%s\n' "$2" >> "$1"
+		printf '%s\n' "$2" >> "$1"
 }
 ```
 

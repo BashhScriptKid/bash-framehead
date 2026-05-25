@@ -24,9 +24,9 @@ Slice a subarray
 
 ```bash
 array::slice() {
-    local start="$1" len="$2"; shift 2
-    local -a arr=("$@")
-    printf '%s\n' "${arr[@]:$start:$len}"
+		local start="$1" len="$2"; shift 2
+		local -a arr=("$@")
+		printf '%s\n' "${arr[@]:$start:$len}"
 }
 ```
 

@@ -20,10 +20,10 @@ Trim both leading and trailing whitespace
 
 ```bash
 string::trim() {
-  local input; _string::read_input input "$@"
-  input="${input#"${input%%[![:space:]]*}"}"
-  input="${input%"${input##*[![:space:]]}"}"
-  echo "$input"
+	local input; _string::read_input input "$@"
+	input="${input#"${input%%[![:space:]]*}"}"
+	input="${input%"${input##*[![:space:]]}"}"
+	echo "$input"
 }
 ```
 

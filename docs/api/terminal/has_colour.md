@@ -15,7 +15,7 @@ Check if terminal supports colours
 
 ```bash
 terminal::has_colour() {
-    [[ -t 1 ]] && (( $(tput colors 2>/dev/null) >= 8 ))
+		[[ -t 1 ]] && (( $(tput colors 2>/dev/null) >= 8 ))
 }
 ```
 

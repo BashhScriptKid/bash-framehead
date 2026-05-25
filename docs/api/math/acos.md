@@ -20,7 +20,7 @@ _No description available._
 
 ```bash
 math::acos() {
-    math::bc "a(sqrt(1 - $1^2) / $1)"
+		math::bc "a(sqrt(1 - $1^2) / $1)"
 }
 ```
 

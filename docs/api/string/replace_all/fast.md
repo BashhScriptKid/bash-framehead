@@ -23,8 +23,8 @@ Fast variant using nameref
 
 ```bash
 string::replace_all::fast() {
-  local -n _string_replace_all_result="$1"
-  _string_replace_all_result="${2//"$3"/"$4"}"
+	local -n _string_replace_all_result="$1"
+	_string_replace_all_result="${2//"$3"/"$4"}"
 }
 ```
 

@@ -20,7 +20,7 @@ Natural logarithm
 
 ```bash
 math::log() {
-    math::bc "l($1)"
+		math::bc "l($1)"
 }
 ```
 

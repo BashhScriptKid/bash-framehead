@@ -15,7 +15,7 @@ _No description available._
 
 ```bash
 runtime::is_multiplexer() {
-  [[ -n "$STY" ]] || [[ -n "$TMUX" ]]
+	[[ -n "$STY" ]] || [[ -n "$TMUX" ]]
 }
 ```
 

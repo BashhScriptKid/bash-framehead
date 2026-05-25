@@ -21,18 +21,18 @@ Prompt with a default choice shown
 
 ```bash
 terminal::confirm::default() {
-    local default="${1:-yes}" prompt="${2:-Are you sure?}"
-    local label
-    [[ "$default" == "yes" ]] && label="[Y/n]" || label="[y/N]"
-    printf '%s %s ' "$prompt" "$label"
-    local key
-    terminal::read_key key
-    printf '\n'
-    if [[ -z "$key" ]]; then
-        [[ "$default" == "yes" ]]
-    else
-        [[ "${key,,}" == "y" ]]
-    fi
+		local default="${1:-yes}" prompt="${2:-Are you sure?}"
+		local label
+		[[ "$default" == "yes" ]] && label="[Y/n]" || label="[y/N]"
+		printf '%s %s ' "$prompt" "$label"
+		local key
+		terminal::read_key key
+		printf '\n'
+		if [[ -z "$key" ]]; then
+				[[ "$default" == "yes" ]]
+		else
+				[[ "${key,,}" == "y" ]]
+		fi
 }
 ```
 

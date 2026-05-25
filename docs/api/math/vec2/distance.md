@@ -22,9 +22,9 @@ Distance between two vec2 points — requires bc
 
 ```bash
 math::vec2::distance() {
-    local x1 y1 x2 y2
-    _math::vec2::unpack4 x1 y1 x2 y2 "$1" "$2"
-    math::bc "sqrt(($x1-$x2)*($x1-$x2) + ($y1-$y2)*($y1-$y2))"
+		local x1 y1 x2 y2
+		_math::vec2::unpack4 x1 y1 x2 y2 "$1" "$2"
+		math::bc "sqrt(($x1-$x2)*($x1-$x2) + ($y1-$y2)*($y1-$y2))"
 }
 ```
 

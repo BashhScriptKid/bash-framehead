@@ -23,11 +23,11 @@ Rotate array left by n positions
 
 ```bash
 array::rotate() {
-    local n="$1"; shift
-    local -a arr=("$@")
-    local len="${#arr[@]}"
-    n=$(( n % len ))
-    printf '%s\n' "${arr[@]:$n}" "${arr[@]:0:$n}"
+		local _rot="$1"; shift
+		local -a arr=("$@")
+		local len="${#arr[@]}"
+		_rot=$(( _rot % len ))
+		printf '%s\n' "${arr[@]:$_rot}" "${arr[@]:0:$_rot}"
 }
 ```
 

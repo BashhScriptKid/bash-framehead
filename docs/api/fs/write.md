@@ -21,7 +21,7 @@ Write content to file (overwrites)
 
 ```bash
 fs::write() {
-    printf '%s' "$2" > "$1"
+		printf '%s' "$2" > "$1"
 }
 ```
 

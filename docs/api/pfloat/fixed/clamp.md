@@ -22,18 +22,18 @@ _No description available._
 
 ```bash
 pfloat::fixed::clamp() {
-  local val lo hi val_s lo_s hi_s
-  val_s=$(_pfloat::_to_scaled "$1")
-  lo_s=$(_pfloat::_to_scaled "$2")
-  hi_s=$(_pfloat::_to_scaled "$3")
+	local val lo hi val_s lo_s hi_s
+	val_s=$(_pfloat::_to_scaled "$1")
+	lo_s=$(_pfloat::_to_scaled "$2")
+	hi_s=$(_pfloat::_to_scaled "$3")
 
-  if ((val_s < lo_s)); then
-    _pfloat::_from_scaled "$lo_s"
-  elif ((val_s > hi_s)); then
-    _pfloat::_from_scaled "$hi_s"
-  else
-    _pfloat::_from_scaled "$val_s"
-  fi
+	if ((val_s < lo_s)); then
+		_pfloat::_from_scaled "$lo_s"
+	elif ((val_s > hi_s)); then
+		_pfloat::_from_scaled "$hi_s"
+	else
+		_pfloat::_from_scaled "$val_s"
+	fi
 }
 ```
 

@@ -15,7 +15,7 @@ Check if terminal supports 256 colours
 
 ```bash
 terminal::has_256colour() {
-    [[ -t 1 ]] && (( $(tput colors 2>/dev/null) >= 256 ))
+		[[ -t 1 ]] && (( $(tput colors 2>/dev/null) >= 256 ))
 }
 ```
 

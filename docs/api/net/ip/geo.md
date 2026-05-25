@@ -24,9 +24,9 @@ Get geolocation info for an IP (uses ip-api.com free tier)
 
 ```bash
 net::ip::geo() {
-    local ip="${1:-}"
-    local url="http://ip-api.com/json/${ip}"
-    net::fetch "$url" 2>/dev/null
+		local ip="${1:-}"
+		local url="http://ip-api.com/json/${ip}"
+		net::fetch "$url" 2>/dev/null
 }
 ```
 

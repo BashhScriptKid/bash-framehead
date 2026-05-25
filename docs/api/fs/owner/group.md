@@ -20,7 +20,7 @@ Owner group
 
 ```bash
 fs::owner::group() {
-    stat -c '%G' "$1" 2>/dev/null
+		stat -c '%G' "$1" 2>/dev/null
 }
 ```
 

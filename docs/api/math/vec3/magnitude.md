@@ -22,9 +22,9 @@ Magnitude (length) of a vec3 — requires bc
 
 ```bash
 math::vec3::magnitude() {
-    local x y z
-    _math::vec3::unpack3 x y z "$1"
-    math::bc "sqrt($x*$x + $y*$y + $z*$z)"
+		local x y z
+		_math::vec3::unpack3 x y z "$1"
+		math::bc "sqrt($x*$x + $y*$y + $z*$z)"
 }
 ```
 

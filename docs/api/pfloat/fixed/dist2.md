@@ -23,14 +23,14 @@ _No description available._
 
 ```bash
 pfloat::fixed::dist2() {
-  local x1="$1" y1="$2" x2="$3" y2="$4"
-  local dx dy dx2 dy2 sum
-  dx=$(pfloat::fixed::sub "$x1" "$x2")
-  dy=$(pfloat::fixed::sub "$y1" "$y2")
-  dx2=$(pfloat::fixed::mul "$dx" "$dx")
-  dy2=$(pfloat::fixed::mul "$dy" "$dy")
-  sum=$(pfloat::fixed::add "$dx2" "$dy2")
-  pfloat::fixed::sqrt "$sum"
+	local x1="$1" y1="$2" x2="$3" y2="$4"
+	local dx dy dx2 dy2 sum
+	dx=$(pfloat::fixed::sub "$x1" "$x2")
+	dy=$(pfloat::fixed::sub "$y1" "$y2")
+	dx2=$(pfloat::fixed::mul "$dx" "$dx")
+	dy2=$(pfloat::fixed::mul "$dy" "$dy")
+	sum=$(pfloat::fixed::add "$dx2" "$dy2")
+	pfloat::fixed::sqrt "$sum"
 }
 ```
 

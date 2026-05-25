@@ -8,7 +8,7 @@
 
 ## Description
 
-Check if a matrix is square (rows == cols)
+--- math::matrix::is_square ---
 
 ## Parameters
 
@@ -20,9 +20,9 @@ Check if a matrix is square (rows == cols)
 
 ```bash
 math::matrix::is_square() {
-    local rows cols
-    _math::matrix::dim "$1" rows cols
-    (( rows == cols ))
+		local rows cols
+		_math::matrix::dim "$1" rows cols
+		(( rows == cols ))
 }
 ```
 

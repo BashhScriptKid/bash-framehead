@@ -21,8 +21,8 @@ Check if a specific host is reachable
 
 ```bash
 net::can_reach() {
-    local host="$1" timeout="${2:-2}"
-    ping -c 1 -W "$timeout" "$host" >/dev/null 2>&1
+		local host="$1" timeout="${2:-2}"
+		ping -c 1 -W "$timeout" "$host" >/dev/null 2>&1
 }
 ```
 

@@ -22,8 +22,8 @@ Percentage change from old to new
 
 ```bash
 math::percent_change() {
-    local old="$1" new="$2" scale="${3:-2}"
-    math::bc "(($new - $old) / $old) * 100" "$scale"
+		local old="$1" new="$2" scale="${3:-2}"
+		math::bc "(($new - $old) / $old) * 100" "$scale"
 }
 ```
 

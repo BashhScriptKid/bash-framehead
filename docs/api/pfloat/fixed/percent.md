@@ -21,10 +21,10 @@ _No description available._
 
 ```bash
 pfloat::fixed::percent() {
-  local part="$1" total="$2"
-  local ratio
-  ratio=$(pfloat::fixed::div "$part" "$total")
-  pfloat::fixed::mul "$ratio" "100"
+	local part="$1" total="$2"
+	local ratio
+	ratio=$(pfloat::fixed::div "$part" "$total")
+	pfloat::fixed::mul "$ratio" "100"
 }
 ```
 

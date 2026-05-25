@@ -21,8 +21,8 @@ Maximum of two values (integer)
 
 ```bash
 math::max() {
-    _math::is_float "$1" || _math::is_float "$2" && { echo "math::max: float input — use math::maxf" >&2; return 1; }
-    echo $(( $1 > $2 ? $1 : $2 ))
+		_math::is_float "$1" || _math::is_float "$2" && { echo "math::max: float input — use math::maxf" >&2; return 1; }
+		echo $(( $1 > $2 ? $1 : $2 ))
 }
 ```
 

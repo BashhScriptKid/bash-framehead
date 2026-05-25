@@ -15,7 +15,7 @@ _No description available._
 
 ```bash
 runtime::is_bash() {
-  [[ -n "$BASH_VERSION" ]]
+	[[ -n "$BASH_VERSION" ]]
 }
 ```
 

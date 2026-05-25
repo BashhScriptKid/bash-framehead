@@ -20,10 +20,10 @@ Square root
 
 ```bash
 math::sqrt() {
-  local n
-  if [[ ! -t 0 ]]; then n=$(cat); else n="$1"; fi
-    local scale="${2:-$MATH_SCALE}"
-    math::bc "sqrt($n)" "$scale"
+	local n
+	if [[ $# -ge 1 ]]; then n="$1"; else n=$(cat); fi
+		local scale="${2:-$MATH_SCALE}"
+		math::bc "sqrt($n)" "$scale"
 }
 ```
 

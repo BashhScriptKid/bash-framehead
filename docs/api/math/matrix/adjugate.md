@@ -8,7 +8,7 @@
 
 ## Description
 
-Compute the adjugate (transpose of cofactor matrix) — requires bc
+--- math::matrix::adjugate ---
 
 ## Parameters
 
@@ -22,15 +22,15 @@ Compute the adjugate (transpose of cofactor matrix) — requires bc
 
 ```bash
 math::matrix::adjugate() {
-    local scale=$1 dim=$2
-    local rows cols
-    _math::matrix::dim "$dim" rows cols
-    local size=$(( rows * cols ))
-    local -a _a
-    _math::matrix::unpack _a "$size" "${@:3}"
-    local -a cof
-    read -ra cof <<< "$(math::matrix::cofactor "$scale" "$dim" "${_a[@]}")"
-    math::matrix::transpose "$dim" "${cof[@]}"
+		local scale=$1 dim=$2
+		local rows cols
+		_math::matrix::dim "$dim" rows cols
+		local size=$(( rows * cols ))
+		local -a _a
+		_math::matrix::unpack _a "$size" "${@:3}"
+		local -a cof
+		read -ra cof <<< "$(math::matrix::cofactor "$scale" "$dim" "${_a[@]}")"
+		math::matrix::transpose "$dim" "${_cof_matrix_cofactor[@]}"
 }
 ```
 

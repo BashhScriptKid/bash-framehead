@@ -20,7 +20,7 @@ _No description available._
 
 ```bash
 math::asin() {
-    math::bc "a($1 / sqrt(1 - $1^2))"
+		math::bc "a($1 / sqrt(1 - $1^2))"
 }
 ```
 

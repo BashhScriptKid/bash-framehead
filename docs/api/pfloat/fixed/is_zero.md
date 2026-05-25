@@ -20,9 +20,9 @@ _No description available._
 
 ```bash
 pfloat::fixed::is_zero() {
-  local a
-  a=$(_pfloat::_to_scaled "$1")
-  ((a == 0))
+	local a
+	a=$(_pfloat::_to_scaled "$1")
+	((a == 0))
 }
 ```
 

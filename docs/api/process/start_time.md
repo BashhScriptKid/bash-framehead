@@ -20,10 +20,10 @@ Get process start time (unix timestamp)
 
 ```bash
 process::start_time() {
-    local pid="$1"
-    if runtime::has_command ps; then
-        ps -o lstart= -p "$pid" 2>/dev/null
-    fi
+		local pid="$1"
+		if runtime::has_command ps; then
+				ps -o lstart= -p "$pid" 2>/dev/null
+		fi
 }
 ```
 

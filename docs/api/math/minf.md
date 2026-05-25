@@ -21,8 +21,8 @@ Minimum of two values (float) — Usage: math::minf a b [scale]
 
 ```bash
 math::minf() {
-    local scale="${3:-$MATH_SCALE}"
-    math::bc "if ($1 < $2) { $1 } else { $2 }" "$scale"
+		local scale="${3:-$MATH_SCALE}"
+		math::bc "if ($1 < $2) { $1 } else { $2 }" "$scale"
 }
 ```
 

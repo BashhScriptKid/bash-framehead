@@ -20,11 +20,11 @@ MIME type
 
 ```bash
 fs::mime_type() {
-    if runtime::has_command file; then
-        file --mime-type -b "$1" 2>/dev/null
-    else
-        echo "unknown"
-    fi
+		if runtime::has_command file; then
+				file --mime-type -b "$1" 2>/dev/null
+		else
+				echo "unknown"
+		fi
 }
 ```
 

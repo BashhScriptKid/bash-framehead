@@ -1,6 +1,6 @@
 # `git::tag::exists`
 
-**Signature:** `git::tag::exists(arg1)`
+**Signature:** `git::tag::exists()`
 
 **Module:** [`git`](../../git.md) — [Guide](../../guide/index.md)
 
@@ -10,19 +10,14 @@
 
 _No description available._
 
-## Parameters
-
-| Name | Type | Required | Description |
-|------|------|----------|-------------|
-| `arg1` | string | Yes | |
 
 ## Source
 
 ```bash
 git::tag::exists() {
-    local tag="$1"
-    git::is_repo || return 1
-    git show-ref --verify --quiet "refs/tags/${tag}" 2>/dev/null
+		local tag="$1"
+		git::is_repo || return 1
+		git show-ref --verify --quiet "refs/tags/${tag}" 2>/dev/null
 }
 ```
 

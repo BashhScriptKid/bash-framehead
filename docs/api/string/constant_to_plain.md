@@ -15,9 +15,9 @@ CONSTANT_CASE → plain
 
 ```bash
 string::constant_to_plain() {
-  local input; _string::read_input input "$@"
-  local s="${input//_/ }"
-  echo "${s,,}"
+	local input; _string::read_input input "$@"
+	local _str="${input//_/ }"
+	echo "${s,,}"
 }
 ```
 

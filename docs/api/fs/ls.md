@@ -8,14 +8,14 @@
 
 ## Description
 
-List directory contents (one per line)
+--- DIRECTORY OPERATIONS ---
 
 
 ## Source
 
 ```bash
 fs::ls() {
-    ls -1 "${1:-.}"
+		ls -1 "${1:-.}"
 }
 ```
 

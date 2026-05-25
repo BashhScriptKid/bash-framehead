@@ -21,7 +21,7 @@ Create a symlink
 
 ```bash
 fs::symlink() {
-    ln -s "$1" "$2"
+		ln -s "$1" "$2"
 }
 ```
 

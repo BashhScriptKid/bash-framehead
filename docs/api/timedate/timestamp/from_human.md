@@ -21,11 +21,11 @@ Convert human-readable date to unix timestamp
 
 ```bash
 timedate::timestamp::from_human() {
-    if _timedate::has_gnu_date; then
-        date -d "$1" +%s 2>/dev/null
-    else
-        date -j -f "%Y-%m-%d %H:%M:%S" "$1" +%s 2>/dev/null
-    fi
+		if _timedate::has_gnu_date; then
+				date -d "$1" +%s 2>/dev/null
+		else
+				date -j -f "%Y-%m-%d %H:%M:%S" "$1" +%s 2>/dev/null
+		fi
 }
 ```
 

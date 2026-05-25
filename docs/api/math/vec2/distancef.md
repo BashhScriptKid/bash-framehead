@@ -22,9 +22,9 @@ Distance between two vec2 points with explicit scale
 
 ```bash
 math::vec2::distancef() {
-    local scale=$1 x1 y1 x2 y2
-    _math::vec2::unpack4 x1 y1 x2 y2 "$2" "$3"
-    math::bc "sqrt(($x1-$x2)*($x1-$x2) + ($y1-$y2)*($y1-$y2))" "$scale"
+		local scale=$1 x1 y1 x2 y2
+		_math::vec2::unpack4 x1 y1 x2 y2 "$2" "$3"
+		math::bc "sqrt(($x1-$x2)*($x1-$x2) + ($y1-$y2)*($y1-$y2))" "$scale"
 }
 ```
 

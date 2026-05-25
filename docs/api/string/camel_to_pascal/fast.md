@@ -22,17 +22,17 @@ Fast variant using nameref
 
 ```bash
 string::camel_to_pascal::fast() {
-  local -n _string_camel_to_pascal_result="$1"
-  local s="$2"
-  s="$(echo "$s" | sed 's/\([a-z]\)\([A-Z]\)/\1 \2/g')"
-  s="${s//_/ }"
-  s="${s//-/ }"
-  s="${s//./ }"
-  s="${s//\// }"
-  s="${s,,}"
-  local result=""
-  for word in $s; do result+="${word^}"; done
-  _string_camel_to_pascal_result="$result"
+	local -n _string_camel_to_pascal_result="$1"
+	local _str="$2"
+	_str="$(echo "$_str" | sed 's/\([a-z]\)\([A-Z]\)/\1 \2/g')"
+	_str="${_str//_/ }"
+	_str="${_str//-/ }"
+	_str="${_str//./ }"
+	_str="${_str//\// }"
+	_str="${s,,}"
+	local result=""
+	for word in $s; do result+="${word^}"; done
+	_string_camel_to_pascal_result="$result"
 }
 ```
 

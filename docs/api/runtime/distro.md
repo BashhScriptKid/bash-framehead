@@ -15,11 +15,11 @@ _No description available._
 
 ```bash
 runtime::distro() {
-  if [[ -f /etc/os-release ]]; then
-    (. /etc/os-release && echo "$ID")
-  else
-    echo "unknown"
-  fi
+	if [[ -f /etc/os-release ]]; then
+		(. /etc/os-release && echo "$ID")
+	else
+		echo "unknown"
+	fi
 }
 ```
 

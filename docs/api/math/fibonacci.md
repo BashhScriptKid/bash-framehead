@@ -20,17 +20,17 @@ Fibonacci (nth term, 0-indexed)
 
 ```bash
 math::fibonacci() {
-  local n
-  if [[ ! -t 0 ]]; then n=$(cat); else n="$1"; fi
-    local a=0 b=1 i
-    _math::is_float "$n" && { echo "math::fibonacci: float input — fibonacci is integer-only" >&2; return 1; }
-    (( n == 0 )) && echo 0 && return
-    for (( i=1; i<n; i++ )); do
-        local t=$(( a + b ))
-        a=$b
-        b=$t
-    done
-    echo "$b"
+	local n
+	if [[ $# -ge 1 ]]; then n="$1"; else n=$(cat); fi
+		local a=0 b=1 i
+		_math::is_float "$n" && { echo "math::fibonacci: float input — fibonacci is integer-only" >&2; return 1; }
+		(( n == 0 )) && echo 0 && return
+		for (( i=1; i<n; i++ )); do
+				local t=$(( a + b ))
+				a=$b
+				b=$t
+		done
+		echo "$b"
 }
 ```
 

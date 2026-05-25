@@ -15,7 +15,7 @@ Get timezone offset from UTC (e.g. +0800)
 
 ```bash
 timedate::time::timezone_offset() {
-    date +%z
+		date +%z
 }
 ```
 

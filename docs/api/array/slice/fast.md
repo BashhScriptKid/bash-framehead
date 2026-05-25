@@ -25,10 +25,10 @@ Fast variant using nameref
 
 ```bash
 array::slice::fast() {
-    local -n _array_slice_result="$1"
-    local start="$2" len="$3"; shift 3
-    local -a _arr=("$@")
-    _array_slice_result=("${_arr[@]:$start:$len}")
+		local -n _array_slice_result="$1"
+		local start="$2" len="$3"; shift 3
+		local -a _arr=("$@")
+		_array_slice_result=("${_arr[@]:$start:$len}")
 }
 ```
 

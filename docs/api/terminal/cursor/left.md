@@ -15,7 +15,7 @@ Move cursor left n cols
 
 ```bash
 terminal::cursor::left() {
-    printf '\033[%sD' "${1:-1}"
+		printf '\033[%sD' "${1:-1}"
 }
 ```
 

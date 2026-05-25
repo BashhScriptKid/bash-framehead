@@ -24,12 +24,12 @@ Fast variant using nameref
 
 ```bash
 array::reject::fast() {
-    local -n _array_reject_result="$1"
-    local regex="$2"; shift 2
-    _array_reject_result=()
-    for el in "$@"; do
-        [[ ! "$el" =~ $regex ]] && _array_reject_result+=("$el")
-    done
+		local -n _array_reject_result="$1"
+		local regex="$2"; shift 2
+		_array_reject_result=()
+		for el in "$@"; do
+				[[ ! "$el" =~ $regex ]] && _array_reject_result+=("$el")
+		done
 }
 ```
 

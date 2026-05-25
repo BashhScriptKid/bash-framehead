@@ -20,7 +20,7 @@ Check if a date falls on a weekday
 
 ```bash
 timedate::calendar::is_weekday() {
-    ! timedate::calendar::is_weekend "$1"
+		! timedate::calendar::is_weekend "$1"
 }
 ```
 

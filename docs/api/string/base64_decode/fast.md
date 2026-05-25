@@ -21,11 +21,11 @@ Fast variant using nameref
 
 ```bash
 string::base64_decode::fast() {
-    local -n _string_base64_decode_result="$1"
-    case "$(runtime::os)" in
-    darwin) _string_base64_decode_result=$(echo -n "$2" | base64 -D) ;;
-    *)      _string_base64_decode_result=$(echo -n "$2" | base64 --decode) ;;
-    esac
+		local -n _string_base64_decode_result="$1"
+		case "$(runtime::os)" in
+		darwin) _string_base64_decode_result=$(echo -n "$2" | base64 -D) ;;
+		*)      _string_base64_decode_result=$(echo -n "$2" | base64 --decode) ;;
+		esac
 }
 ```
 

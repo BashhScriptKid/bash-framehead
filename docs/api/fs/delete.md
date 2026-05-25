@@ -20,7 +20,7 @@ Delete file or directory
 
 ```bash
 fs::delete() {
-    rm -rf "$1"
+		rm -rf "$1"
 }
 ```
 

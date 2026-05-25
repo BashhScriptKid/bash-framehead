@@ -15,7 +15,7 @@ Get end of current year
 
 ```bash
 timedate::date::year_end() {
-    date +%Y-12-31
+		date +%Y-12-31
 }
 ```
 

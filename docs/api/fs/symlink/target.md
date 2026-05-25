@@ -20,7 +20,7 @@ Symlink target
 
 ```bash
 fs::symlink::target() {
-    readlink "$1" 2>/dev/null
+		readlink "$1" 2>/dev/null
 }
 ```
 

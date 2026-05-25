@@ -8,7 +8,7 @@
 
 ## Description
 
-Generate an identity matrix of given size
+--- math::matrix::identity ---
 
 ## Parameters
 
@@ -20,16 +20,16 @@ Generate an identity matrix of given size
 
 ```bash
 math::matrix::identity() {
-    local rows cols
-    _math::matrix::dim "$1" rows cols
-    local -a _result=()
-    local i j
-    for (( i = 0; i < rows; i++ )); do
-        for (( j = 0; j < cols; j++ )); do
-            (( i == j )) && _result+=(1) || _result+=(0)
-        done
-    done
-    echo "${_result[@]}"
+		local rows cols
+		_math::matrix::dim "$1" rows cols
+		local -a _result=()
+		local i j
+		for (( i = 0; i < rows; i++ )); do
+				for (( j = 0; j < cols; j++ )); do
+						(( i == j )) && _result+=(1) || _result+=(0)
+				done
+		done
+		echo "${_result[@]}"
 }
 ```
 

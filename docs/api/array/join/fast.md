@@ -24,14 +24,14 @@ Fast variant using nameref
 
 ```bash
 array::join::fast() {
-    local -n _array_join_result="$1"
-    local delim="$2"; shift 2
-    local result="" first=true
-    for el in "$@"; do
-        if $first; then result="$el"; first=false
-        else result+="${delim}${el}"; fi
-    done
-    _array_join_result="$result"
+		local -n _array_join_result="$1"
+		local delim="$2"; shift 2
+		local result="" first=true
+		for el in "$@"; do
+				if $first; then result="$el"; first=false
+				else result+="${delim}${el}"; fi
+		done
+		_array_join_result="$result"
 }
 ```
 

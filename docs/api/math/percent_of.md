@@ -22,8 +22,8 @@ Calculate what value is p% of total
 
 ```bash
 math::percent_of() {
-    local pct="$1" total="$2" scale="${3:-2}"
-    math::bc "($pct / 100) * $total" "$scale"
+		local pct="$1" total="$2" scale="${3:-2}"
+		math::bc "($pct / 100) * $total" "$scale"
 }
 ```
 

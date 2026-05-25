@@ -15,8 +15,8 @@ Check if string is alphabetic only
 
 ```bash
 string::is_alpha() {
-  local input; _string::read_input input "$@"
-  [[ "$input" =~ ^[a-zA-Z]+$ ]]
+	local input; _string::read_input input "$@"
+	[[ "$input" =~ ^[a-zA-Z]+$ ]]
 }
 ```
 

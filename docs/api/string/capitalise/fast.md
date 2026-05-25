@@ -21,8 +21,8 @@ Fast variant using nameref
 
 ```bash
 string::capitalise::fast() {
-  local -n _string_capitalise_result="$1"
-  _string_capitalise_result="${2^}"
+	local -n _string_capitalise_result="$1"
+	_string_capitalise_result="${2^}"
 }
 ```
 

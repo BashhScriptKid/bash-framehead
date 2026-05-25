@@ -15,7 +15,7 @@ _No description available._
 
 ```bash
 runtime::is_interactive() {
-  [[ $- == *i* ]]
+	[[ $- == *i* ]]
 }
 ```
 

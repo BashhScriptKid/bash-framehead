@@ -8,7 +8,7 @@
 
 ## Description
 
-File size in bytes
+--- FILE INFO ---
 
 ## Parameters
 
@@ -20,7 +20,7 @@ File size in bytes
 
 ```bash
 fs::size() {
-    stat -c '%s' "$1" 2>/dev/null || wc -c < "$1" 2>/dev/null
+		stat -c '%s' "$1" 2>/dev/null || wc -c < "$1" 2>/dev/null
 }
 ```
 

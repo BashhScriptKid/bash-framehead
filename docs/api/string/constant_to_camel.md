@@ -15,8 +15,8 @@ CONSTANT_CASE → camelCase
 
 ```bash
 string::constant_to_camel() {
-  local input; _string::read_input input "$@"
-  string::snake_to_camel "${input,,}"
+	local input; _string::read_input input "$@"
+	string::snake_to_camel "${input,,}"
 }
 ```
 

@@ -20,9 +20,9 @@ Build an array from lines of stdin or a string (newline-delimited)
 
 ```bash
 array::from_lines() {
-    local IFS=$'\n'
-    local -a parts=($1)
-    printf '%s\n' "${parts[@]}"
+		local IFS=$'\n'
+		local -a parts=($1)
+		printf '%s\n' "${parts[@]}"
 }
 ```
 

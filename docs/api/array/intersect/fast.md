@@ -26,14 +26,14 @@ Fast variant using nameref
 
 ```bash
 array::intersect::fast() {
-    local -n _array_intersect_result="$1"
-    local -a a=($2) b=($3)
-    _array_intersect_result=()
-    for el in "${a[@]}"; do
-        for other in "${b[@]}"; do
-            [[ "$el" == "$other" ]] && { _array_intersect_result+=("$el"); break; }
-        done
-    done
+		local -n _array_intersect_result="$1"
+		local -a a=($2) b=($3)
+		_array_intersect_result=()
+		for el in "${a[@]}"; do
+				for other in "${b[@]}"; do
+						[[ "$el" == "$other" ]] && { _array_intersect_result+=("$el"); break; }
+				done
+		done
 }
 ```
 

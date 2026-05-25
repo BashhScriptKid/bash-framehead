@@ -24,20 +24,20 @@ Fast variant using nameref
 
 ```bash
 array::chunk::fast() {
-    local -n _array_chunk_result="$1"
-    local size="$2"; shift 2
-    local i=0 chunk=""
-    _array_chunk_result=()
-    for el in "$@"; do
-        if [[ -n "$chunk" ]]; then chunk+=" $el"
-        else chunk="$el"; fi
-        (( i++ ))
-        if (( i % size == 0 )); then
-            _array_chunk_result+=("$chunk")
-            chunk=""
-        fi
-    done
-    [[ -n "$chunk" ]] && _array_chunk_result+=("$chunk")
+		local -n _array_chunk_result="$1"
+		local size="$2"; shift 2
+		local i=0 chunk=""
+		_array_chunk_result=()
+		for el in "$@"; do
+				if [[ -n "$chunk" ]]; then chunk+=" $el"
+				else chunk="$el"; fi
+				(( i++ ))
+				if (( i % size == 0 )); then
+						_array_chunk_result+=("$chunk")
+						chunk=""
+				fi
+		done
+		[[ -n "$chunk" ]] && _array_chunk_result+=("$chunk")
 }
 ```
 

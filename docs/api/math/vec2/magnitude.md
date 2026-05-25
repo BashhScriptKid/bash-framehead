@@ -21,9 +21,9 @@ Magnitude (length) of a vec2 — requires bc
 
 ```bash
 math::vec2::magnitude() {
-    local x y
-    _math::vec2::unpack2 x y "$1"
-    math::bc "sqrt($x * $x + $y * $y)"
+		local x y
+		_math::vec2::unpack2 x y "$1"
+		math::bc "sqrt($x * $x + $y * $y)"
 }
 ```
 

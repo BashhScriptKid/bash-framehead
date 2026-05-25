@@ -15,7 +15,7 @@ _No description available._
 
 ```bash
 runtime::is_desktop() {
-  [ -n "$DISPLAY" ] || [ -n "$WAYLAND_DISPLAY" ]
+	[ -n "$DISPLAY" ] || [ -n "$WAYLAND_DISPLAY" ]
 }
 ```
 

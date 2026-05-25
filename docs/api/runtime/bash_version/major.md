@@ -15,7 +15,7 @@ _No description available._
 
 ```bash
 runtime::bash_version::major() {
-  echo "${BASH_VERSINFO[0]}"
+	echo "${BASH_VERSINFO[0]}"
 }
 ```
 

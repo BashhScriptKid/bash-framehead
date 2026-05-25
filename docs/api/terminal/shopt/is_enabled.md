@@ -20,7 +20,7 @@ Check if a shopt option is enabled
 
 ```bash
 terminal::shopt::is_enabled() {
-    shopt -q "$1" 2>/dev/null
+		shopt -q "$1" 2>/dev/null
 }
 ```
 

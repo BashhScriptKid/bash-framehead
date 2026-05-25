@@ -8,7 +8,7 @@
 
 ## Description
 
-Check if a process is running by PID
+!/usr/bin/env bash
 
 ## Parameters
 
@@ -20,7 +20,7 @@ Check if a process is running by PID
 
 ```bash
 process::is_running() {
-    kill -0 "$1" 2>/dev/null
+		kill -0 "$1" 2>/dev/null
 }
 ```
 

@@ -20,7 +20,7 @@ _No description available._
 
 ```bash
 pfloat::fixed::sqr() {
-  pfloat::fixed::mul "$1" "$1"
+	pfloat::fixed::mul "$1" "$1"
 }
 ```
 

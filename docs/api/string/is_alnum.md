@@ -15,8 +15,8 @@ Check if string is alphanumeric only
 
 ```bash
 string::is_alnum() {
-  local input; _string::read_input input "$@"
-  [[ "$input" =~ ^[a-zA-Z0-9]+$ ]]
+	local input; _string::read_input input "$@"
+	[[ "$input" =~ ^[a-zA-Z0-9]+$ ]]
 }
 ```
 

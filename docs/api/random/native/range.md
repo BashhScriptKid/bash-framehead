@@ -21,8 +21,8 @@ Returns a value in [min, max] inclusive
 
 ```bash
 random::native::range() {
-    local min="$1" max="$2"
-    echo $(( (RANDOM % (max - min + 1)) + min ))
+		local min="$1" max="$2"
+		echo $(( (RANDOM % (max - min + 1)) + min ))
 }
 ```
 

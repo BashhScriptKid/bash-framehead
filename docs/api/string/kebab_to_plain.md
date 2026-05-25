@@ -15,8 +15,8 @@ kebab-case → plain
 
 ```bash
 string::kebab_to_plain() {
-  local input; _string::read_input input "$@"
-  echo "${input//-/ }"
+	local input; _string::read_input input "$@"
+	echo "${input//-/ }"
 }
 ```
 

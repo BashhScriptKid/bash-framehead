@@ -15,7 +15,7 @@ Clear from cursor to start of line
 
 ```bash
 terminal::clear::line_start() {
-    printf '\033[1K'
+		printf '\033[1K'
 }
 ```
 

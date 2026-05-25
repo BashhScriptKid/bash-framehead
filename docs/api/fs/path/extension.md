@@ -22,8 +22,8 @@ Get file extension (without dot)
 
 ```bash
 fs::path::extension() {
-    local base="${1##*/}"
-    [[ "$base" == *.* ]] && echo "${base##*.}" || echo ""
+		local base="${1##*/}"
+		[[ "$base" == *.* ]] && echo "${base##*.}" || echo ""
 }
 ```
 

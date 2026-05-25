@@ -21,11 +21,11 @@ _No description available._
 
 ```bash
 pfloat::fixed::harmean() {
-  local a="$1" b="$2"
-  local sum prod
-  sum=$(pfloat::fixed::add "$a" "$b")
-  prod=$(pfloat::fixed::mul "$a" "$b")
-  pfloat::fixed::div $(pfloat::fixed::mul "2" "$prod") "$sum"
+	local a="$1" b="$2"
+	local sum prod
+	sum=$(pfloat::fixed::add "$a" "$b")
+	prod=$(pfloat::fixed::mul "$a" "$b")
+	pfloat::fixed::div $(pfloat::fixed::mul "2" "$prod") "$sum"
 }
 ```
 

@@ -21,10 +21,10 @@ Prepend content to file
 
 ```bash
 fs::prepend() {
-    local tmp
-    tmp=$(fs::temp::file)
-    printf '%s\n' "$2" | cat - "$1" > "$tmp"
-    mv "$tmp" "$1"
+		local tmp
+		tmp=$(fs::temp::file)
+		printf '%s\n' "$2" | cat - "$1" > "$tmp"
+		mv "$tmp" "$1"
 }
 ```
 

@@ -20,7 +20,7 @@ Get nameservers for a domain
 
 ```bash
 net::dns::ns() {
-    net::dns::records "$1" NS
+		net::dns::records "$1" NS
 }
 ```
 

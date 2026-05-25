@@ -15,7 +15,7 @@ Get PID of current shell
 
 ```bash
 process::self() {
-    echo "$$"
+		echo "$$"
 }
 ```
 

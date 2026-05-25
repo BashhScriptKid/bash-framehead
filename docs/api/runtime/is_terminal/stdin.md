@@ -15,7 +15,7 @@ _No description available._
 
 ```bash
 runtime::is_terminal::stdin() {
-  [[ -t 0 ]]
+	[[ -t 0 ]]
 }
 ```
 

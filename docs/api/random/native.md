@@ -8,14 +8,14 @@
 
 ## Description
 
-_No description available._
+NATIVE
 
 
 ## Source
 
 ```bash
 random::native() {
-    echo "$RANDOM"
+		echo "$RANDOM"
 }
 ```
 

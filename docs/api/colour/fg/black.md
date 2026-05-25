@@ -8,7 +8,7 @@
 
 ## Description
 
-Foreground
+CONVENIENCE — 4-BIT NAMED SHORTCUTS
 
 
 ## Source

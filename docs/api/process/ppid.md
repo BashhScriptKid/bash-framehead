@@ -20,9 +20,9 @@ Get parent PID of a process
 
 ```bash
 process::ppid() {
-    local pid="${1:-$$}"
-    awk '{print $4}' "/proc/$pid/stat" 2>/dev/null || \
-        ps -o ppid= -p "$pid" 2>/dev/null | tr -d ' '
+		local pid="${1:-$$}"
+		awk '{print $4}' "/proc/$pid/stat" 2>/dev/null || \
+				ps -o ppid= -p "$pid" 2>/dev/null | tr -d ' '
 }
 ```
 

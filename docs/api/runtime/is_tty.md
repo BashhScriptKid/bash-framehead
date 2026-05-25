@@ -15,8 +15,8 @@ _No description available._
 
 ```bash
 runtime::is_tty() {
-  # Check if we have a controlling terminal
-  [[ -t 0 ]] && tty -s 2>/dev/null
+	# Check if we have a controlling terminal
+	[[ -t 0 ]] && tty -s 2>/dev/null
 }
 ```
 

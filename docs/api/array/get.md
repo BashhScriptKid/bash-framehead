@@ -23,9 +23,9 @@ Return element at index
 
 ```bash
 array::get() {
-    local idx="$1"; shift
-    local -a arr=("$@")
-    echo "${arr[$idx]}"
+		local idx="$1"; shift
+		local -a arr=("$@")
+		echo "${arr[$idx]}"
 }
 ```
 

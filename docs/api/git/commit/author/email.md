@@ -15,8 +15,8 @@ _No description available._
 
 ```bash
 git::commit::author::email() {
-    local ref="${1:-HEAD}"
-    git log -1 --format="%ae" "${ref}" 2>/dev/null || echo "unknown"
+		local ref="${1:-HEAD}"
+		git log -1 --format="%ae" "${ref}" 2>/dev/null || echo "unknown"
 }
 ```
 

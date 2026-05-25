@@ -15,8 +15,8 @@ kebab-case → snake_case
 
 ```bash
 string::kebab_to_snake() {
-  local input; _string::read_input input "$@"
-  echo "${input//-/_}"
+	local input; _string::read_input input "$@"
+	echo "${input//-/_}"
 }
 ```
 

@@ -20,8 +20,8 @@ Wait for a specific background job by PID
 
 ```bash
 process::job::wait() {
-    wait "$1" 2>/dev/null
-    return $?
+		wait "$1" 2>/dev/null
+		return $?
 }
 ```
 

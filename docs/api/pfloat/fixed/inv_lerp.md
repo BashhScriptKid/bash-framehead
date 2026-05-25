@@ -22,11 +22,11 @@ _No description available._
 
 ```bash
 pfloat::fixed::inv_lerp() {
-  local v="$1" a="$2" b="$3"
-  local num den
-  num=$(pfloat::fixed::sub "$v" "$a")
-  den=$(pfloat::fixed::sub "$b" "$a")
-  pfloat::fixed::div "$num" "$den"
+	local v="$1" a="$2" b="$3"
+	local num den
+	num=$(pfloat::fixed::sub "$v" "$a")
+	den=$(pfloat::fixed::sub "$b" "$a")
+	pfloat::fixed::div "$num" "$den"
 }
 ```
 

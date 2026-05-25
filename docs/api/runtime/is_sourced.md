@@ -15,7 +15,7 @@ _No description available._
 
 ```bash
 runtime::is_sourced() {
-  [[ "${BASH_SOURCE[0]}" != "${0}" ]]
+	[[ "${BASH_SOURCE[0]}" != "${0}" ]]
 }
 ```
 

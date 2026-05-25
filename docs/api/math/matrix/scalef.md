@@ -23,17 +23,17 @@ Multiply every element of a matrix by a scalar with floating point precision
 
 ```bash
 math::matrix::scalef() {
-    local scale=$1 scalar=$3 rows cols
-    _math::matrix::dim "$2" rows cols
-    local size=$(( rows * cols ))
-    local -a _a
-    _math::matrix::unpack _a "$size" "${@:4}"
-    local -a _result=()
-    local i
-    for (( i = 0; i < size; i++ )); do
-        _result+=("$(math::bc "${_a[$i]} * $scalar" "$scale")")
-    done
-    echo "${_result[@]}"
+		local scale=$1 scalar=$3 rows cols
+		_math::matrix::dim "$2" rows cols
+		local size=$(( rows * cols ))
+		local -a _a
+		_math::matrix::unpack _a "$size" "${@:4}"
+		local -a _result=()
+		local i
+		for (( i = 0; i < size; i++ )); do
+				_result+=("$(math::bc "${_a[$i]} * $scalar" "$scale")")
+		done
+		echo "${_result[@]}"
 }
 ```
 

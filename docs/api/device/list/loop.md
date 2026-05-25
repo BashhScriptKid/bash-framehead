@@ -15,7 +15,7 @@ List all loop devices
 
 ```bash
 device::list::loop() {
-    find /dev -maxdepth 1 -name 'loop*' -type b 2>/dev/null | sort
+		find /dev -maxdepth 1 -name 'loop*' -type b 2>/dev/null | sort
 }
 ```
 

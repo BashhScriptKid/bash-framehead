@@ -15,7 +15,7 @@ Get terminal height in rows
 
 ```bash
 terminal::height() {
-    tput lines 2>/dev/null || echo "24"
+		tput lines 2>/dev/null || echo "24"
 }
 ```
 

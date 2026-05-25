@@ -21,7 +21,7 @@ Get current value of a shopt option ("on" or "off")
 
 ```bash
 terminal::shopt::get() {
-    shopt "$1" 2>/dev/null | awk '{print $2}'
+		shopt "$1" 2>/dev/null | awk '{print $2}'
 }
 ```
 

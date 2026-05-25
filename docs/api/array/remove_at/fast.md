@@ -24,14 +24,14 @@ Fast variant using nameref
 
 ```bash
 array::remove_at::fast() {
-    local -n _array_remove_at_result="$1"
-    local idx="$2"; shift 2
-    local i=0
-    _array_remove_at_result=()
-    for el in "$@"; do
-        [[ "$i" -ne "$idx" ]] && _array_remove_at_result+=("$el")
-        (( i++ ))
-    done
+		local -n _array_remove_at_result="$1"
+		local idx="$2"; shift 2
+		local i=0
+		_array_remove_at_result=()
+		for el in "$@"; do
+				[[ "$i" -ne "$idx" ]] && _array_remove_at_result+=("$el")
+				(( i++ ))
+		done
 }
 ```
 

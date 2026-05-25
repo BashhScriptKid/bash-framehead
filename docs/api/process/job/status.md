@@ -20,8 +20,8 @@ Get exit status of last background job
 
 ```bash
 process::job::status() {
-    wait "$1" 2>/dev/null
-    echo $?
+		wait "$1" 2>/dev/null
+		echo $?
 }
 ```
 

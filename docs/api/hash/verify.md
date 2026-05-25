@@ -8,7 +8,7 @@
 
 ## Description
 
-Verify a string against a known hash
+--- UTILITY ---
 
 ## Parameters
 
@@ -28,10 +28,10 @@ hash::verify "hello" "2cf24dba..." sha256
 
 ```bash
 hash::verify() {
-    local s="$1" expected="$2" algo="${3:-sha256}"
-    local actual
-    actual=$(hash::"$algo" "$s" 2>/dev/null) || return 1
-    [[ "$actual" == "$expected" ]]
+		local _str="$1" expected="$2" algo="${3:-sha256}"
+		local actual
+		actual=$(hash::"$algo" "$_str" 2>/dev/null) || return 1
+		[[ "$actual" == "$expected" ]]
 }
 ```
 

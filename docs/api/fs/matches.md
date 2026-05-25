@@ -21,7 +21,7 @@ Check if file matches a regex
 
 ```bash
 fs::matches() {
-    grep -qE "$2" "$1" 2>/dev/null
+		grep -qE "$2" "$1" 2>/dev/null
 }
 ```
 

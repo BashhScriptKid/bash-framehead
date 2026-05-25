@@ -21,10 +21,10 @@ Consistent hashing — map a value to a bucket (0 to n-1)
 
 ```bash
 hash::slot() {
-    local n="$1" value="$2"
-    local h
-    h=$(hash::fnv1a32 "$value")
-    echo $(( h % n ))
+		local n="$1" value="$2"
+		local h
+		h=$(hash::fnv1a32 "$value")
+		echo $(( h % n ))
 }
 ```
 

@@ -23,8 +23,8 @@ Union — all unique elements from both arrays
 
 ```bash
 array::union() {
-    local -a a=($1) b=($2)
-    array::unique "${a[@]}" "${b[@]}"
+		local -a a=($1) b=($2)
+		array::unique "${a[@]}" "${b[@]}"
 }
 ```
 

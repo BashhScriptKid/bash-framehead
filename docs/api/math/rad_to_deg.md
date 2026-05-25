@@ -20,9 +20,9 @@ Convert radians to degrees
 
 ```bash
 math::rad_to_deg() {
-  local n
-  if [[ ! -t 0 ]]; then n=$(cat); else n="$1"; fi
-    math::bc "$n * 180 / $MATH_PI"
+	local n
+	if [[ $# -ge 1 ]]; then n="$1"; else n=$(cat); fi
+		math::bc "$n * 180 / $MATH_PI"
 }
 ```
 

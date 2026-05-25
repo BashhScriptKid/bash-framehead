@@ -25,14 +25,14 @@ Fast variant using nameref
 
 ```bash
 array::set::fast() {
-    local -n _array_set_result="$1"
-    local idx="$2" val="$3"; shift 3
-    local i=0
-    _array_set_result=()
-    for el in "$@"; do
-        [[ "$i" -eq "$idx" ]] && _array_set_result+=("$val") || _array_set_result+=("$el")
-        (( i++ ))
-    done
+		local -n _array_set_result="$1"
+		local idx="$2" val="$3"; shift 3
+		local i=0
+		_array_set_result=()
+		for el in "$@"; do
+				[[ "$i" -eq "$idx" ]] && _array_set_result+=("$val") || _array_set_result+=("$el")
+				(( i++ ))
+		done
 }
 ```
 

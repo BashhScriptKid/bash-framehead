@@ -15,7 +15,7 @@ _No description available._
 
 ```bash
 runtime::is_sudo() {
-  [[ -n "$SUDO_USER" ]]
+	[[ -n "$SUDO_USER" ]]
 }
 ```
 

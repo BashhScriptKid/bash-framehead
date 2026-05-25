@@ -21,8 +21,8 @@ Fast variant using nameref
 
 ```bash
 string::constant_to_snake::fast() {
-  local -n _string_constant_to_snake_result="$1"
-  _string_constant_to_snake_result="${2,,}"
+	local -n _string_constant_to_snake_result="$1"
+	_string_constant_to_snake_result="${2,,}"
 }
 ```
 

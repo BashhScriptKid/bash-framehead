@@ -8,7 +8,7 @@
 
 ## Description
 
-Acquire a lock — returns 1 if already locked
+LOCKING
 
 ## Parameters
 
@@ -20,21 +20,23 @@ Acquire a lock — returns 1 if already locked
 
 ```bash
 process::lock::acquire() {
-    local lockfile="/tmp/fsbshf_${1}.lock"
-    if ( set -o noclobber; echo "$$" > "$lockfile" ) 2>/dev/null; then
-        trap "process::lock::release '${1}'" EXIT
-        return 0
-    fi
-    # Check if the locking process is still alive
-    local locked_pid
-    locked_pid=$(cat "$lockfile" 2>/dev/null)
-    if [[ -n "$locked_pid" ]] && ! process::is_running "$locked_pid"; then
-        rm -f "$lockfile"
-        ( set -o noclobber; echo "$$" > "$lockfile" ) 2>/dev/null
-        trap "process::lock::release '${1}'" EXIT
-        return 0
-    fi
-    return 1
+		local lockfile="/tmp/fsbshf_${1}.lock"
+		if ( set -o noclobber; echo "$$" > "$lockfile" ) 2>/dev/null; then
+				# shellcheck disable=SC2064
+				trap "process::lock::release '${1}'" EXIT
+				return 0
+		fi
+		# Check if the locking process is still alive
+		local locked_pid
+		locked_pid=$(cat "$lockfile" 2>/dev/null)
+		if [[ -n "$locked_pid" ]] && ! process::is_running "$locked_pid"; then
+				rm -f "$lockfile"
+				( set -o noclobber; echo "$$" > "$lockfile" ) 2>/dev/null
+				# shellcheck disable=SC2064
+				trap "process::lock::release '${1}'" EXIT
+				return 0
+		fi
+		return 1
 }
 ```
 

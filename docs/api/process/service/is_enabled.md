@@ -20,9 +20,9 @@ Check if a service is enabled at boot
 
 ```bash
 process::service::is_enabled() {
-    if runtime::has_command systemctl; then
-        systemctl is-enabled --quiet "$1" 2>/dev/null
-    fi
+		if runtime::has_command systemctl; then
+				systemctl is-enabled --quiet "$1" 2>/dev/null
+		fi
 }
 ```
 

@@ -20,9 +20,9 @@ Strip all ANSI escape codes from a string
 
 ```bash
 colour::strip() {
-  local input
-  if [[ ! -t 0 ]]; then input=$(cat); else input="$1"; fi
-  printf '%s\n' "$input" | sed 's/\x1b\[[0-9;]*[mGKHF]//g'
+	local input
+	if [[ $# -ge 1 ]]; then input="$1"; else input=$(cat); fi
+	printf '%s\n' "$input" | sed 's/\x1b\[[0-9;]*[mGKHF]//g'
 }
 ```
 

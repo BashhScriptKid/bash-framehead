@@ -24,9 +24,9 @@ Cross product of two vec3 vectors with floating point precision
 
 ```bash
 math::vec3::crossf() {
-    local scale=$1 x1 y1 z1 x2 y2 z2
-    _math::vec3::unpack6 x1 y1 z1 x2 y2 z2 "$2" "$3"
-    echo "$(math::bc "$y1*$z2 - $z1*$y2" "$scale"),$(math::bc "$z1*$x2 - $x1*$z2" "$scale"),$(math::bc "$x1*$y2 - $y1*$x2" "$scale")"
+		local scale=$1 x1 y1 z1 x2 y2 z2
+		_math::vec3::unpack6 x1 y1 z1 x2 y2 z2 "$2" "$3"
+		echo "$(math::bc "$y1*$z2 - $z1*$y2" "$scale"),$(math::bc "$z1*$x2 - $x1*$z2" "$scale"),$(math::bc "$x1*$y2 - $y1*$x2" "$scale")"
 }
 ```
 

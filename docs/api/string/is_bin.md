@@ -15,8 +15,8 @@ _No description available._
 
 ```bash
 string::is_bin() {
-  local input; _string::read_input input "$@"
-  [[ "$input" =~ ^0b[01]+$ ]]
+	local input; _string::read_input input "$@"
+	[[ "$input" =~ ^0b[01]+$ ]]
 }
 ```
 

@@ -23,16 +23,16 @@ Fast variant using nameref (Bash 5+)
 
 ```bash
 array::unique::fast() {
-    local -n _array_unique_result="$1"
-    shift
-    local -A _seen=()
-    _array_unique_result=()
-    for el in "$@"; do
-        if [[ -z "${_seen[$el]+x}" ]]; then
-            _seen["$el"]=1
-            _array_unique_result+=("$el")
-        fi
-    done
+		local -n _array_unique_result="$1"
+		shift
+		local -A _seen=()
+		_array_unique_result=()
+		for el in "$@"; do
+				if [[ -z "${_seen[$el]+x}" ]]; then
+						_seen["$el"]=1
+						_array_unique_result+=("$el")
+				fi
+		done
 }
 ```
 

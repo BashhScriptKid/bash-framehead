@@ -20,7 +20,7 @@ Find processes matching a pattern (name or cmdline)
 
 ```bash
 process::find() {
-    pgrep -a "$1" 2>/dev/null || ps -eo pid,args | grep "$1" | grep -v grep
+		pgrep -a "$1" 2>/dev/null || ps -eo pid,args | grep "$1" | grep -v grep
 }
 ```
 

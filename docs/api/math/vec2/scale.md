@@ -21,9 +21,9 @@ Scale a vec2 by a scalar
 
 ```bash
 math::vec2::scale() {
-    local x y
-    _math::vec2::unpack2 x y "$1"
-    echo "$(( x * $2 )),$(( y * $2 ))"
+		local x y
+		_math::vec2::unpack2 x y "$1"
+		echo "$(( x * $2 )),$(( y * $2 ))"
 }
 ```
 

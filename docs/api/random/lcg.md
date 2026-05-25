@@ -8,7 +8,7 @@
 
 ## Description
 
-Returns: next state (also the output value)
+LINEAR CONGRUENTIAL GENERATOR (LCG)
 
 ## Parameters
 
@@ -20,7 +20,7 @@ Returns: next state (also the output value)
 
 ```bash
 random::lcg() {
-    _random::mask32 $(( $1 * 1664525 + 1013904223 ))
+		_random::mask32 $(( $1 * 1664525 + 1013904223 ))
 }
 ```
 

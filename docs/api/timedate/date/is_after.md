@@ -21,7 +21,7 @@ Check if a date is after another
 
 ```bash
 timedate::date::is_after() {
-    [[ "$(timedate::date::compare "$1" "$2")" == "1" ]]
+		[[ "$(timedate::date::compare "$1" "$2")" == "1" ]]
 }
 ```
 

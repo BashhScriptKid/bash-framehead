@@ -20,8 +20,8 @@ _No description available._
 
 ```bash
 hardware::partition::freeSpaceMB() {
-    local device="${1:-/}"
-    df -BM "$device" 2>/dev/null | awk 'NR==2 { gsub(/M/,"",$4); print $4 }'
+		local device="${1:-/}"
+		df -BM "$device" 2>/dev/null | awk 'NR==2 { gsub(/M/,"",$4); print $4 }'
 }
 ```
 

@@ -20,7 +20,7 @@ Get MX records for a domain
 
 ```bash
 net::dns::mx() {
-    net::dns::records "$1" MX
+		net::dns::records "$1" MX
 }
 ```
 

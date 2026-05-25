@@ -8,7 +8,7 @@
 
 ## Description
 
-Print text wrapped in colour, auto-reset after
+--- HIGHER-LEVEL HELPERS ---
 
 ## Parameters
 
@@ -23,11 +23,11 @@ Print text wrapped in colour, auto-reset after
 
 ```bash
 colour::print() {
-  local bit="$1" fg_bg="$2" col="$3" text
-  if [[ ! -t 0 ]]; then text=$(cat); else text="$4"; fi
-  colour::esc "$bit" "$fg_bg" "$col"
-  printf '%s' "$text"
-  colour::reset
+	local bit="$1" fg_bg="$2" col="$3" text
+	if [[ $# -ge 4 ]]; then text="$4"; else text=$(cat); fi
+	colour::esc "$bit" "$fg_bg" "$col"
+	printf '%s' "$text"
+	colour::reset
 }
 ```
 

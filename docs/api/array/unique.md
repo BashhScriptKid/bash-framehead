@@ -8,7 +8,7 @@
 
 ## Description
 
-Remove duplicate elements (preserves first occurrence order)
+--- BASH 5+ FEATURES ---
 
 ## Parameters
 
@@ -22,13 +22,13 @@ Remove duplicate elements (preserves first occurrence order)
 
 ```bash
 array::unique() {
-    local -A seen=()
-    for el in "$@"; do
-        if [[ -z "${seen[$el]+x}" ]]; then
-            seen["$el"]=1
-            echo "$el"
-        fi
-    done
+		local -A seen=()
+		for el in "$@"; do
+				if [[ -z "${seen[$el]+x}" ]]; then
+						seen["$el"]=1
+						echo "$el"
+				fi
+		done
 }
 ```
 

@@ -15,9 +15,9 @@ _No description available._
 
 ```bash
 runtime::is_ssh() {
-  [[ -n "$SSH_CLIENT" ]] ||
-  [[ -n "$SSH_TTY" ]] ||
-  [[ -n "$SSH_CONNECTION" ]]
+	[[ -n "$SSH_CLIENT" ]] ||
+	[[ -n "$SSH_TTY" ]] ||
+	[[ -n "$SSH_CONNECTION" ]]
 }
 ```
 

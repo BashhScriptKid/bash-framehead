@@ -8,7 +8,7 @@
 
 ## Description
 
-LU decomposition of a square matrix — requires bc
+--- math::matrix::lu — LU decomposition (requires bc) ---
 
 ## Parameters
 
@@ -24,50 +24,50 @@ LU decomposition of a square matrix — requires bc
 
 ```bash
 math::matrix::lu() {
-    local scale=$1 rows cols
-    _math::matrix::dim "$2" rows cols
-    if (( rows != cols )); then
-        echo "Error: math::matrix::lu: matrix must be square" >&2
-        return 1
-    fi
-    local -n _L="$3" _U="$4"
-    local size=$(( rows * cols ))
-    local -a _a
-    _math::matrix::unpack _a "$size" "${@:5}"
+		local scale=$1 rows cols
+		_math::matrix::dim "$2" rows cols
+		if (( rows != cols )); then
+				echo "Error: math::matrix::lu: matrix must be square" >&2
+				return 1
+		fi
+		local -n _lower="$3" _upper="$4"
+		local size=$(( rows * cols ))
+		local -a _arr
+		_math::matrix::unpack _arr "$size" "${@:5}"
 
-    local n=$rows
-    local -a _lu=("${_a[@]}")
-    local i j k
+		local _n=$rows
+		local -a _lu=("${_arr[@]}")
+		local i j k
 
-    for (( k = 0; k < n; k++ )); do
-        local pivot_val="${_lu[$k * $n + $k]}"
-        for (( i = k + 1; i < n; i++ )); do
-            local factor
-            factor=$(math::bc "${_lu[$i * $n + $k]} / $pivot_val" "$scale")
-            _lu[$i * $n + $k]="$factor"
-            for (( j = k + 1; j < n; j++ )); do
-                _lu[$i * $n + $j]=$(math::bc "${_lu[$i * $n + $j]} - $factor * ${_lu[$k * $n + $j]}" "$scale")
-            done
-        done
-    done
+		for (( k = 0; k < _n; k++ )); do
+				local pivot_val="${_lu[$k * $_n + $k]}"
+				for (( i = k + 1; i < _n; i++ )); do
+						local factor
+						factor=$(math::bc "${_lu[$i * $_n + $k]} / $pivot_val" "$scale")
+						_lu[$i * $_n + $k]="$factor"
+						for (( j = k + 1; j < _n; j++ )); do
+								_lu[$i * $_n + $j]=$(math::bc "${_lu[$i * $_n + $j]} - $factor * ${_lu[$k * $_n + $j]}" "$scale")
+						done
+				done
+		done
 
-    # Extract L and U
-    _L=()
-    _U=()
-    for (( i = 0; i < n; i++ )); do
-        for (( j = 0; j < n; j++ )); do
-            if (( i > j )); then
-                _L+=("${_lu[$i * $n + $j]}")
-                _U+=(0)
-            elif (( i == j )); then
-                _L+=(1)
-                _U+=("${_lu[$i * $n + $j]}")
-            else
-                _L+=(0)
-                _U+=("${_lu[$i * $n + $j]}")
-            fi
-        done
-    done
+		# Extract L and U
+		_lower=()
+		_upper=()
+		for (( i = 0; i < _n; i++ )); do
+				for (( j = 0; j < _n; j++ )); do
+						if (( i > j )); then
+								_lower+=("${_lu[$i * $_n + $j]}")
+								_upper+=(0)
+						elif (( i == j )); then
+								_lower+=(1)
+								_upper+=("${_lu[$i * $_n + $j]}")
+						else
+								_lower+=(0)
+								_upper+=("${_lu[$i * $_n + $j]}")
+						fi
+				done
+		done
 }
 ```
 

@@ -24,13 +24,13 @@ Fast variant using nameref
 
 ```bash
 array::count_of::fast() {
-    local -n _array_count_of_result="$1"
-    local needle="$2"; shift 2
-    local count=0
-    for el in "$@"; do
-        [[ "$el" == "$needle" ]] && (( count++ ))
-    done
-    _array_count_of_result=$count
+		local -n _array_count_of_result="$1"
+		local needle="$2"; shift 2
+		local count=0
+		for el in "$@"; do
+				[[ "$el" == "$needle" ]] && (( count++ ))
+		done
+		_array_count_of_result=$count
 }
 ```
 

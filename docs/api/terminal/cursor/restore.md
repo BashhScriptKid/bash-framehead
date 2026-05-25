@@ -15,7 +15,7 @@ Restore cursor to saved position
 
 ```bash
 terminal::cursor::restore() {
-    printf '\033[u'
+		printf '\033[u'
 }
 ```
 

@@ -22,11 +22,11 @@ Sum all numeric elements
 
 ```bash
 array::sum() {
-    local total=0
-    for el in "$@"; do
-        total=$(( total + el ))
-    done
-    echo "$total"
+		local total=0
+		for el in "$@"; do
+				total=$(( total + el ))
+		done
+		echo "$total"
 }
 ```
 

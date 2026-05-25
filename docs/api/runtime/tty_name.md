@@ -15,7 +15,7 @@ _No description available._
 
 ```bash
 runtime::tty_name() {
-  tty 2>/dev/null || echo "not a tty"
+	tty 2>/dev/null || echo "not a tty"
 }
 ```
 

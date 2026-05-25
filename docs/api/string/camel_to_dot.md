@@ -15,10 +15,10 @@ camelCase → dot.case
 
 ```bash
 string::camel_to_dot() {
-  local input; _string::read_input input "$@"
-  local words
-  words=$(_string::to_words "$input")
-  echo "${words// /.}"
+	local input; _string::read_input input "$@"
+	local words
+	words=$(_string::to_words "$input")
+	echo "${words// /.}"
 }
 ```
 

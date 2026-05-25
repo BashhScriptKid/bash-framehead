@@ -26,14 +26,14 @@ Fast variant using nameref
 
 ```bash
 array::zip::fast() {
-    local -n _array_zip_result="$1"
-    local -a a=($2) b=($3)
-    local len=$(( ${#a[@]} < ${#b[@]} ? ${#a[@]} : ${#b[@]} ))
-    local i
-    _array_zip_result=()
-    for (( i=0; i<len; i++ )); do
-        _array_zip_result+=("${a[$i]} ${b[$i]}")
-    done
+		local -n _array_zip_result="$1"
+		local -a a=($2) b=($3)
+		local len=$(( ${#a[@]} < ${#b[@]} ? ${#a[@]} : ${#b[@]} ))
+		local i
+		_array_zip_result=()
+		for (( i=0; i<len; i++ )); do
+				_array_zip_result+=("${a[$i]} ${b[$i]}")
+		done
 }
 ```
 

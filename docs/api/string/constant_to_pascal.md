@@ -15,8 +15,8 @@ CONSTANT_CASE → PascalCase
 
 ```bash
 string::constant_to_pascal() {
-  local input; _string::read_input input "$@"
-  string::snake_to_pascal "${input,,}"
+	local input; _string::read_input input "$@"
+	string::snake_to_pascal "${input,,}"
 }
 ```
 

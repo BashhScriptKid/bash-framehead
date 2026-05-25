@@ -22,8 +22,8 @@ _No description available._
 
 ```bash
 pfloat::fixed::normalize() {
-  local v="$1" lo="$2" hi="$3"
-  pfloat::fixed::inv_lerp "$v" "$lo" "$hi"
+	local v="$1" lo="$2" hi="$3"
+	pfloat::fixed::inv_lerp "$v" "$lo" "$hi"
 }
 ```
 

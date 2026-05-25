@@ -21,8 +21,8 @@ _No description available._
 
 ```bash
 pfloat::fixed::percent_of() {
-  local pct="$1" total="$2"
-  pfloat::fixed::mul "$total" $(pfloat::fixed::div "$pct" "100")
+	local pct="$1" total="$2"
+	pfloat::fixed::mul "$total" $(pfloat::fixed::div "$pct" "100")
 }
 ```
 
