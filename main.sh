@@ -754,6 +754,34 @@ wiki() {
     bash "$(_tools_dir)/wiki-gen.sh" "$@"
 }
 
+# ==============================================================================
+# tester — snapshot-based test orchestrator
+#
+# Usage: tester [compiled.sh] [module ...]
+#   Without a compiled file, live-sources src/*.sh directly.
+#
+# ═══════════════════════════════════════════════════════════════════════
+# ⚠  MODEL GUARD — DO NOT ADD DEBUG OUTPUT HERE ⚠
+#
+#   This function is the orchestrator. It runs in-process with sourced
+#   framework code and controls stdout/stderr routing for every test.
+#   A stray echo, declare -p, or printf to stderr can hang the whole
+#   runner (redirect loops, broken TTY carriage-return formatting, etc.).
+#
+#   If you need to debug a test failure, add instrumentation INSIDE the
+#   test:: function in tools/tester.sh — never here.  The test:: functions
+#   are isolated; breaking one leaves the rest of the suite intact.
+#
+#   The pattern is:
+#     ❌  echo "DEBUG: ..." >&2         # NO — in the orchestrator
+#     ❌  declare -p VAR >&2 2>&1      # NO — redirect tangle, blocks TTY
+#     ✅  _fail "got $x, expected $y"   # YES — inside a test:: function
+#     ✅  _sub_fail "label" "$exp" "$got"  # YES — structured, routed
+#
+#   If you're tempted: don't.  Walk away from the orchestrator and go
+#   find the test:: function that's actually failing.
+# ═══════════════════════════════════════════════════════════════════════
+# ==============================================================================
 tester() {
     local file="$1"
     shift
@@ -761,205 +789,334 @@ tester() {
     local filter_active=0
     (( ${#filter_modules[@]} > 0 )) && filter_active=1
 
-    # Helper: extract module name from a namespaced function name
+    # ── helpers ────────────────────────────────────────────────────────
+
+    # _delta BASELINE TARGET
+    # Snapshots declare -F, subtracts BASELINE, filters to namespaced
+    # non-private symbols, stores in TARGET (nameref, overwritten).
+    _delta() {
+        local -n _base="$1"
+        local -n _out="$2"
+        local -A _bmap=()
+        local _fn
+        for _fn in "${_base[@]}"; do _bmap["$_fn"]=1; done
+        _out=()
+        while IFS= read -r _fn; do
+            [[ -n "${_bmap[$_fn]:-}" ]] && continue
+            [[ $_fn =~ ::       ]] || continue
+            [[ $_fn =~ ^_       ]] && continue
+            _out+=("$_fn")
+        done < <(declare -F | awk '{print $3}')
+    }
+
+    # _extract_module "string::upper" → "string"
     # "string::upper" → "string", "test::json::get" → "json"
     _extract_module() {
-        local fn="$1"
-        [[ $fn =~ ^test:: ]] && fn="${fn#test::}"
-        echo "${fn%%::*}"
+        local _m="${1%%::*}"
+        [[ $_m =~ ^test:: ]] && _m="${_m#test::}"
+        echo "$_m"
+    }
+
+    # _matches_filter SYMBOL — true if symbol matches any filter term
+    _matches_filter() {
+        local _sym="$1"
+        local _f
+        for _f in "${filter_modules[@]}"; do
+            [[ "$_sym" == "$_f" || "$_sym" == "$_f"::* ]] && return 0
+        done
+        return 1
     }
 
     local passed=0 failed=0 skipped=0 untested=0
     local -a untested_fn
-
-    source "$file"
-    source "$(_tools_dir)/tester.sh"
-
-    local -a TESTER_FUNCTIONS
-    mapfile -t TESTER_FUNCTIONS < <(
-        declare -F | awk '$3 ~ /::/ && $3 !~ /^_/ {print $3}'
-    )
-
-    # Save an unfiltered snapshot so the extension pass can skip already-seen
-    # core functions even when the filter excludes them from the core run.
-    local -a _ALL_FUNCTIONS=("${TESTER_FUNCTIONS[@]}")
-
-    # Filter to specified modules when ./main.sh test <file> [module ...]
-    if (( filter_active )); then
-        local -a _filtered=()
-        local _mod
-        for fn in "${TESTER_FUNCTIONS[@]}"; do
-            _mod="$(_extract_module "$fn")"
-            for _f in "${filter_modules[@]}"; do
-                [[ "$_mod" == "$_f" ]] && { _filtered+=("$fn"); break; }
-            done
-        done
-        TESTER_FUNCTIONS=("${_filtered[@]}")
-        unset _filtered _mod _f
-    fi
-
-    # Result label column width — wide enough for 'UNTESTED' (8) + 4 spaces gap
+    local -a unrun_tests
     local -r _COL=12
-    local fn raw_label display_label
     local is_tty=false
     [[ -t 1 ]] && is_tty=true
 
-    for fn in "${TESTER_FUNCTIONS[@]}"; do
-        # Skip test:: wrappers except ::global — those run inline below
-        [[ $fn =~ ^test:: ]] && [[ ! $fn =~ ::global$ ]] && continue
-        _tester_reset
+    # ── Stage A: orchestrator baseline ─────────────────────────────────
+    local -a MAIN_FUNC=()
+    mapfile -t MAIN_FUNC < <(declare -F | awk '{print $3}')
 
-        if [[ $fn =~ ::global$ ]]; then
-            "$fn" </dev/null       # already prefixed: test::json::global
-        else
-            "test::${fn}" </dev/null
+    # ── Stage B: framework load → CORE_API ─────────────────────────────
+    if [[ -n "$file" && -f "$file" ]]; then
+        source "$file"
+    else
+        local _src f
+        _src="$(dirname "${BASH_SOURCE[0]}")/src"
+        for f in "$_src"/*.sh; do
+            [[ -f "$f" ]] || continue
+            bash -n "$f" >/dev/null 2>&1 || { echo "ERROR: syntax check failed for $f" >&2; return 1; }
+            source "$f"
+        done
+    fi
+
+    local -a CORE_API=()
+    _delta MAIN_FUNC CORE_API
+
+    # ── Stage C: tester load → TEST_SYMBOLS ────────────────────────────
+    source "$(_tools_dir)/tester.sh"
+
+    local -a COMBINED=("${MAIN_FUNC[@]}" "${CORE_API[@]}")
+    local -a TEST_SYMBOLS=()
+    _delta COMBINED TEST_SYMBOLS
+
+    local -a ALL_API=("${CORE_API[@]}")
+
+    # ── apply module filter ────────────────────────────────────────────
+    if (( filter_active )); then
+        local -a _f_core=()
+        local _fn
+        for _fn in "${CORE_API[@]}"; do
+            _matches_filter "$_fn" && _f_core+=("$_fn")
+        done
+        CORE_API=("${_f_core[@]}")
+
+        local -a _f_test=()
+        for _fn in "${TEST_SYMBOLS[@]}"; do
+            _matches_filter "$_fn" && _f_test+=("$_fn")
+        done
+        TEST_SYMBOLS=("${_f_test[@]}")
+    fi
+
+    # ── Stage D: partition — extract extension API from CORE_API ───────
+    local -A EXT_PRELOADED=()
+    local _ext_test _ext_name _fn
+    for _ext_test in ext/*/test_ext.sh; do
+        [[ -f "$_ext_test" ]] || continue
+        _ext_name="$(basename "$(dirname "$_ext_test")")"
+        local -a _matched=()
+        for _fn in "${CORE_API[@]}"; do
+            [[ "$_fn" == "$_ext_name"::* ]] && _matched+=("$_fn")
+        done
+        if (( ${#_matched[@]} > 0 )); then
+            EXT_PRELOADED["$_ext_name"]="${_matched[*]}"
+            local -a _keep=()
+            for _fn in "${CORE_API[@]}"; do
+                [[ "$_fn" != "$_ext_name"::* ]] && _keep+=("$_fn")
+            done
+            CORE_API=("${_keep[@]}")
         fi
+    done
 
-        if   (( _T_IS_SUB  )); then  raw_label="SUB"
-        elif (( _T_FAIL > 0 )); then raw_label="FAIL"
-        elif (( _T_SKIP > 0 )); then raw_label="SKIP"
-        elif (( _T_PASS > 0 )); then raw_label="PASS"
-        else                         raw_label="UNTESTED"
+    # Build lookup for quick test::fn existence checks
+    local -A _test_map=()
+    for _fn in "${TEST_SYMBOLS[@]}"; do
+        [[ $_fn =~ ^test:: ]] && _test_map["$_fn"]=1
+    done
+
+    # ── test runner ────────────────────────────────────────────────────
+    _run_one_test() {
+        local _ts="$1"    # test symbol to call
+        local _dn="$2"    # display name
+        local _raw _disp _pad
+        _tester_reset
+        "$_ts" </dev/null
+        if   (( _T_IS_SUB  )); then _raw="SUB"
+        elif (( _T_FAIL > 0 )); then _raw="FAIL"
+        elif (( _T_SKIP > 0 )); then _raw="SKIP"
+        elif (( _T_PASS > 0 )); then _raw="PASS"
+        else                       _raw="UNTESTED"
         fi
 
         if $is_tty; then
-            case $raw_label in
-                SUB)      display_label=$'\033[94mSUB\033[0m'      ;;
-                FAIL)     display_label=$'\033[31mFAIL\033[0m'     ;;
-                SKIP)     display_label=$'\033[33mSKIP\033[0m'     ;;
-                PASS)     display_label=$'\033[32mPASS\033[0m'     ;;
-                UNTESTED) display_label=$'\033[43mUNTESTED\033[0m' ;;
+            case $_raw in
+                SUB)      _disp=$'\033[94mSUB\033[0m'      ;;
+                FAIL)     _disp=$'\033[31mFAIL\033[0m'     ;;
+                SKIP)     _disp=$'\033[33mSKIP\033[0m'     ;;
+                PASS)     _disp=$'\033[32mPASS\033[0m'     ;;
+                UNTESTED) _disp=$'\033[43mUNTESTED\033[0m' ;;
             esac
         else
-            display_label="$raw_label"
+            _disp="$_raw"
         fi
 
         if (( _T_IS_SUB )); then
-            # subtests already printed, just print result after them
-            printf "%s%$(( _COL - ${#raw_label} ))s%s\n" "$display_label" "" "$fn"
+            printf "%s%$(( _COL - ${#_raw} ))s%s\n" "$_disp" "" "$_dn"
         elif $is_tty; then
-            # TTY: print function name first, then rewrite with result
-            printf "%${_COL}s%s" "" "$fn"
-            local pad=$(( _COL - ${#raw_label} ))
-            printf "\r%s%${pad}s%s\n" "$display_label" "" "$fn"
+            printf "%${_COL}s%s" "" "$_dn"
+            _pad=$(( _COL - ${#_raw} ))
+            printf "\r%s%${_pad}s%s\n" "$_disp" "" "$_dn"
         else
-            # Pipe: print linear format without \r
-            printf "%s%$(( _COL - ${#raw_label} ))s%s\n" "$display_label" "" "$fn"
+            printf "%s%$(( _COL - ${#_raw} ))s%s\n" "$_disp" "" "$_dn"
         fi
 
-        case "$raw_label" in
+        case $_raw in
             PASS)     (( passed++   )) ;;
             FAIL)     (( failed++   )) ;;
             SKIP)     (( skipped++  )) ;;
-            UNTESTED) (( untested++ )); untested_fn+=("$fn") ;;
+            UNTESTED) (( untested++ )); untested_fn+=("$_dn") ;;
             SUB)
                 (( passed  += _T_PASS ))
                 (( failed  += _T_FAIL ))
                 (( skipped += _T_SKIP ))
                 ;;
         esac
-    done
+    }
 
-    echo ""
+    # ── Stage E: core execution (guard: skip if empty) ────────────────
+    if (( ${#CORE_API[@]} > 0 )); then
+        local _prev_mod="" _mod _gts
+        for _fn in "${CORE_API[@]}"; do
+            _mod="$(_extract_module "$_fn")"
+            if [[ "$_mod" != "$_prev_mod" ]]; then
+                _prev_mod="$_mod"
+                _gts="test::${_mod}::global"
+                if [[ -n "${_test_map[$_gts]:-}" ]]; then
+                    _run_one_test "$_gts" "${_mod}::global"
+                fi
+            fi
+            if [[ -n "${_test_map["test::${_fn}"]:-}" ]]; then
+                _run_one_test "test::${_fn}" "$_fn"
+            else
+                (( untested++ ))
+                untested_fn+=("$_fn")
+            fi
+        done
+        echo ""
+    fi
 
-    # ── extensions ────────────────────────────────────────────────────
-    local ext_dir ext_name ext_mod ext_test
-    local -A _seen_fn
-    for fn in "${_ALL_FUNCTIONS[@]}"; do _seen_fn["$fn"]=1; done
+    # ── Stage F: extension pass ────────────────────────────────────────
+    local _ext_test _ext_dir _ext_name _ext_mod
+    local -a EXT_ALL_TESTS=()
+    for _ext_test in ext/*/test_ext.sh; do
+        [[ -f "$_ext_test" ]] || continue
+        _ext_dir="$(dirname "$_ext_test")"
+        _ext_name="$(basename "$_ext_dir")"
+        _ext_mod="$_ext_dir/$_ext_name.sh"
 
-    for ext_test in ext/*/test_ext.sh; do
-        [[ -f "$ext_test" ]] || continue
-        ext_dir="$(dirname "$ext_test")"
-        ext_name="$(basename "$ext_dir")"
-
-        # Skip extensions not in the module filter list
+        # filter check
         if (( filter_active )); then
             local _match=0
+            local _f
             for _f in "${filter_modules[@]}"; do
-                [[ "$ext_name" == "$_f" ]] && { _match=1; break; }
+                [[ "$_ext_name" == "$_f" ]] && { _match=1; break; }
             done
             (( _match )) || continue
         fi
 
-        ext_mod="$ext_dir/$ext_name.sh"
+        [[ -f "$_ext_mod" ]] || { echo "WARNING: $_ext_test exists but $_ext_mod not found — skipping" >&2; continue; }
 
-        [[ -f "$ext_mod" ]] || { echo "WARNING: $ext_test exists but $ext_mod not found — skipping" >&2; continue; }
+        local -a EXT_API=()
+        local -a EXT_TESTS=()
+        local -a SNAP_PRE=()
 
-        source "$ext_mod"
-        source "$ext_test"
-
-        # Discover extension test functions that weren't in the core pass
-        local -a EXT_FUNCTIONS=()
-        while IFS= read -r fn; do
-            [[ -n "${_seen_fn[$fn]:-}" ]] && continue
-            [[ $fn =~ :: ]] || continue
-            EXT_FUNCTIONS+=("$fn")
-            _seen_fn["$fn"]=1
-        done < <(declare -F | awk '$3 ~ /::/ && $3 !~ /^_/ {print $3}')
-
-        (( ${#EXT_FUNCTIONS[@]} == 0 )) && continue
-
-        echo "--- ext/$ext_name ---"
-
-        for fn in "${EXT_FUNCTIONS[@]}"; do
-            [[ $fn =~ ^test:: ]] && [[ ! $fn =~ ::global$ ]] && continue
-            _tester_reset
-
-            if [[ $fn =~ ::global$ ]]; then
-                "$fn" </dev/null
-            else
-                "test::${fn}" </dev/null
+        if [[ -n "${EXT_PRELOADED[$_ext_name]:-}" ]]; then
+            # Extension API already loaded (compiled target included it)
+            read -ra EXT_API <<< "${EXT_PRELOADED[$_ext_name]}"
+            mapfile -t SNAP_PRE < <(declare -F | awk '{print $3}')
+            source "$_ext_test"
+            local -a EXT_NEW=()
+            _delta SNAP_PRE EXT_NEW
+            for _fn in "${EXT_NEW[@]}"; do
+                [[ $_fn =~ ^test:: ]] && EXT_TESTS+=("$_fn")
+            done
+        else
+            # Live-source the extension
+            if ! (source "$_ext_mod" >/dev/null 2>&1); then
+                echo "--- ext/$_ext_name ---"
+                echo "  skip: extension failed to load"
+                echo ""
+                continue
             fi
+            mapfile -t SNAP_PRE < <(declare -F | awk '{print $3}')
+            source "$_ext_mod"
+            source "$_ext_test"
+            local -a EXT_NEW=()
+            _delta SNAP_PRE EXT_NEW
+            for _fn in "${EXT_NEW[@]}"; do
+                if [[ $_fn =~ ^test:: ]]; then
+                    EXT_TESTS+=("$_fn")
+                else
+                    EXT_API+=("$_fn")
+                fi
+            done
+        fi
 
-            if   (( _T_IS_SUB  )); then  raw_label="SUB"
-            elif (( _T_FAIL > 0 )); then raw_label="FAIL"
-            elif (( _T_SKIP > 0 )); then raw_label="SKIP"
-            elif (( _T_PASS > 0 )); then raw_label="PASS"
-            else                         raw_label="UNTESTED"
-            fi
-
-            if $is_tty; then
-                case $raw_label in
-                    SUB)      display_label=$'\033[94mSUB\033[0m'      ;;
-                    FAIL)     display_label=$'\033[31mFAIL\033[0m'     ;;
-                    SKIP)     display_label=$'\033[33mSKIP\033[0m'     ;;
-                    PASS)     display_label=$'\033[32mPASS\033[0m'     ;;
-                    UNTESTED) display_label=$'\033[43mUNTESTED\033[0m' ;;
-                esac
-            else
-                display_label="$raw_label"
-            fi
-
-            if (( _T_IS_SUB )); then
-                printf "%s%$(( _COL - ${#raw_label} ))s%s\n" "$display_label" "" "$fn"
-            elif $is_tty; then
-                printf "%${_COL}s%s" "" "$fn"
-                local pad=$(( _COL - ${#raw_label} ))
-                printf "\r%s%${pad}s%s\n" "$display_label" "" "$fn"
-            else
-                printf "%s%$(( _COL - ${#raw_label} ))s%s\n" "$display_label" "" "$fn"
-            fi
-
-            case "$raw_label" in
-                PASS)     (( passed++   )) ;;
-                FAIL)     (( failed++   )) ;;
-                SKIP)     (( skipped++  )) ;;
-                UNTESTED) (( untested++ )); untested_fn+=("$fn") ;;
-                SUB)
-                    (( passed  += _T_PASS ))
-                    (( failed  += _T_FAIL ))
-                    (( skipped += _T_SKIP ))
-                    ;;
-            esac
+        # Accumulate into global symbol tables
+        ALL_API+=("${EXT_API[@]}")
+        EXT_ALL_TESTS+=("${EXT_TESTS[@]}")
+        for _fn in "${EXT_TESTS[@]}"; do
+            _test_map["$_fn"]=1
         done
+
+        (( ${#EXT_API[@]} == 0 && ${#EXT_TESTS[@]} == 0 )) && continue
+
+        echo "--- ext/$_ext_name ---"
+
+        # Extension globals + per-function (same module-transition pattern)
+        if (( ${#EXT_API[@]} > 0 )); then
+            local -A _global_ran=()
+            local _prev_mod="" _mod _gts
+            for _fn in "${EXT_API[@]}"; do
+                _mod="$(_extract_module "$_fn")"
+                if [[ "$_mod" != "$_prev_mod" ]]; then
+                    _prev_mod="$_mod"
+                    _gts="test::${_mod}::global"
+                    if [[ -n "${_test_map[$_gts]:-}" ]]; then
+                        _run_one_test "$_gts" "${_mod}::global"
+                        _global_ran["$_gts"]=1
+                    fi
+                fi
+                if [[ -n "${_test_map["test::${_fn}"]:-}" ]]; then
+                    _run_one_test "test::${_fn}" "$_fn"
+                else
+                    (( untested++ ))
+                    untested_fn+=("$_fn")
+                fi
+            done
+        fi
+
+        # Run remaining extension globals that had no API functions
+        for _fn in "${EXT_TESTS[@]}"; do
+            [[ $_fn =~ ::global$ ]] || continue
+            [[ -n "${_global_ran[$_fn]:-}" ]] && continue
+            _run_one_test "$_fn" "${_fn#test::}"
+        done
+
         echo ""
     done
-    # ── end extensions ───────────────────────────────────────────────
+    # ── end extensions ─────────────────────────────────────────────────
+
+    # ── Stage G: reports ───────────────────────────────────────────────
+
+    # UNRUN TESTS: test::* symbols whose stripped fn ∉ ALL_API
+    local -A _all_api_map=()
+    for _fn in "${ALL_API[@]}"; do _all_api_map["$_fn"]=1; done
+
+    for _fn in "${TEST_SYMBOLS[@]}"; do
+        [[ $_fn =~ ^test:: ]] || continue
+        [[ $_fn =~ ::global$ ]] && continue
+        local _bare="${_fn#test::}"
+        [[ -n "${_all_api_map[$_bare]:-}" ]] && continue
+        unrun_tests+=("$_fn")
+    done
+
+    # Accumulate extension test symbols into UNRUN check too
+    for _fn in "${EXT_ALL_TESTS[@]}"; do
+        [[ $_fn =~ ::global$ ]] && continue
+        local _bare="${_fn#test::}"
+        [[ -n "${_all_api_map[$_bare]:-}" ]] && continue
+        # Avoid duplicates
+        local _dup=0 _u
+        for _u in "${unrun_tests[@]}"; do
+            [[ "$_u" == "$_fn" ]] && { _dup=1; break; }
+        done
+        (( _dup )) || unrun_tests+=("$_fn")
+    done
 
     if (( untested > 0 )); then
         echo "=== UNTESTED FUNCTIONS ==="
-        for fn in "${untested_fn[@]}"; do
-            printf "  %s\n" "$fn"
+        for _fn in "${untested_fn[@]}"; do
+            printf "  %s\n" "$_fn"
+        done
+        echo ""
+    fi
+
+    if (( ${#unrun_tests[@]} > 0 )); then
+        echo "=== UNRUN TESTS ==="
+        for _fn in "${unrun_tests[@]}"; do
+            printf "  %s\n" "$_fn"
         done
         echo ""
     fi
@@ -1005,7 +1162,7 @@ if [[ ${1,,} == "help" ]] || [[ -z "$1" ]]; then
     echo "  compile          [output.sh]         Compile src/ modules into a single file"
     echo "  compile_extended [output.sh]         Compile src/ + all ext/ with dep checks"
     echo "  dry_compile      [shellcheck-args]    ShellCheck all modules and extensions"
-    echo "  test             <compiled.sh>        Run the test suite"
+    echo "  test             [compiled.sh]        Run the test suite (live-source from src/ if omitted)"
     echo "  stat             <compiled.sh>        Show diagnostics and function counts"
     echo "  profile          <compiled.sh>        Profile per-function load times"
     echo "  optimize         <input> [output]     Optimize a compiled file  (tools/optimize.sh)"
