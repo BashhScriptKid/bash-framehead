@@ -23,8 +23,8 @@ fs::path::basename() {
 
 # Get directory from path (like dirname)
 fs::path::dirname() {
-		local p="${1%/*}"
-		[[ "$p" == "$1" ]] && echo "." || echo "$p"
+		local _path="${1%/*}"
+		[[ "$_path" == "$1" ]] && echo "." || echo "$_path"
 }
 
 # Get file extension (without dot)
@@ -49,13 +49,13 @@ fs::path::stem() {
 
 # Get absolute path (resolves . and .. without requiring the path to exist)
 fs::path::absolute() {
-		local p="$1"
-		if [[ "$p" != /* ]]; then
-				p="$(pwd)/$p"
+		local _path="$1"
+		if [[ "$_path" != /* ]]; then
+				_path="$(pwd)/$_path"
 		fi
 		# Resolve . and .. manually
 		local -a parts=() result=()
-		IFS='/' read -ra parts <<< "$p"
+		IFS='/' read -ra parts <<< "$_path"
 		for part in "${parts[@]}"; do
 				case "$part" in
 						""|.) ;;

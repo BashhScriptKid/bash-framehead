@@ -13,11 +13,11 @@
 # Usage: _hash::pipe string command [args...]
 #        echo "string" | _hash::pipe "" command [args...]
 _hash::pipe() {
-	local s="$1"; shift
-	if [[ -z "$s" && ! -t 0 ]]; then
+	local _str="$1"; shift
+	if [[ -z "$_str" && ! -t 0 ]]; then
 		cat | "$@"
 	else
-		printf '%s' "$s" | "$@"
+		printf '%s' "$_str" | "$@"
 	fi
 }
 
@@ -169,9 +169,9 @@ hash::hmac::md5() {
 # Usage: hash::djb2 string
 hash::djb2() {
 	local input; _hash::read_input input "$@"
-		local s="$input" hash=5381 i char
+		local _str="$input" hash=5381 i char
 		for (( i=0; i<${#s}; i++ )); do
-				char=$(printf '%d' "'${s:$i:1}")
+				char=$(printf '%d' "'${_str:$i:1}")
 				hash=$(( ((hash << 5) + hash + char) & 0xFFFFFFFF ))
 		done
 		echo "$hash"
@@ -180,9 +180,9 @@ hash::djb2() {
 # DJB2a (xor variant) — slightly better distribution than djb2
 hash::djb2a() {
 	local input; _hash::read_input input "$@"
-		local s="$input" hash=5381 i char
+		local _str="$input" hash=5381 i char
 		for (( i=0; i<${#s}; i++ )); do
-				char=$(printf '%d' "'${s:$i:1}")
+				char=$(printf '%d' "'${_str:$i:1}")
 				hash=$(( ((hash << 5) + hash ^ char) & 0xFFFFFFFF ))
 		done
 		echo "$hash"
@@ -192,9 +192,9 @@ hash::djb2a() {
 # Often outperforms DJB2 for database keys
 hash::sdbm() {
 	local input; _hash::read_input input "$@"
-		local s="$input" hash=0 i char
+		local _str="$input" hash=0 i char
 		for (( i=0; i<${#s}; i++ )); do
-				char=$(printf '%d' "'${s:$i:1}")
+				char=$(printf '%d' "'${_str:$i:1}")
 				hash=$(( (char + (hash << 6) + (hash << 16) - hash) & 0xFFFFFFFF ))
 		done
 		echo "$hash"
@@ -204,9 +204,9 @@ hash::sdbm() {
 # Period: 2^32
 hash::fnv1a32() {
 	local input; _hash::read_input input "$@"
-		local s="$input" hash=2166136261 i char
+		local _str="$input" hash=2166136261 i char
 		for (( i=0; i<${#s}; i++ )); do
-				char=$(printf '%d' "'${s:$i:1}")
+				char=$(printf '%d' "'${_str:$i:1}")
 				hash=$(( (hash ^ char) * 16777619 & 0xFFFFFFFF ))
 		done
 		echo "$hash"
@@ -216,12 +216,12 @@ hash::fnv1a32() {
 # Note: bash uses signed 64-bit integers; result may be negative for large hashes
 hash::fnv1a64() {
 	local input; _hash::read_input input "$@"
-		local s="$input"
+		local _str="$input"
 		local hash_lo=2166136261 hash_hi=0
 		local fnv_prime_lo=16777619 i char
 
 		for (( i=0; i<${#s}; i++ )); do
-				char=$(printf '%d' "'${s:$i:1}")
+				char=$(printf '%d' "'${_str:$i:1}")
 				# XOR low 32 bits with byte
 				hash_lo=$(( (hash_lo ^ char) & 0xFFFFFFFF ))
 				# Multiply: (hi:lo) * prime — simplified since prime fits in 32 bits
@@ -238,11 +238,11 @@ hash::fnv1a64() {
 # Not a hash in the traditional sense but useful for data integrity
 hash::adler32() {
 	local input; _hash::read_input input "$@"
-		local s="$input"
+		local _str="$input"
 		local a=1 b=0 i char MOD=65521
 
 		for (( i=0; i<${#s}; i++ )); do
-				char=$(printf '%d' "'${s:$i:1}")
+				char=$(printf '%d' "'${_str:$i:1}")
 				a=$(( (a + char) % MOD ))
 				b=$(( (b + a) % MOD ))
 		done
@@ -254,14 +254,14 @@ hash::adler32() {
 # Usage: hash::crc32 string
 hash::crc32() {
 	local input; _hash::read_input input "$@"
-		local s="$input"
+		local _str="$input"
 		if runtime::has_command crc32; then
-				printf '%s' "$s" | crc32 /dev/stdin 2>/dev/null
+				printf '%s' "$_str" | crc32 /dev/stdin 2>/dev/null
 		elif runtime::has_command python3; then
-				python3 -c "import binascii,sys; print('%08x' % (binascii.crc32(sys.argv[1].encode()) & 0xffffffff))" "$s"
+				python3 -c "import binascii,sys; print('%08x' % (binascii.crc32(sys.argv[1].encode()) & 0xffffffff))" "$_str"
 		elif runtime::has_command cksum; then
 				# cksum uses CRC but with a different algorithm — close but not standard CRC32
-				printf '%s' "$s" | cksum | awk '{print $1}'
+				printf '%s' "$_str" | cksum | awk '{print $1}'
 		else
 				echo "hash::crc32: requires crc32, python3, or cksum" >&2
 				return 1
@@ -272,17 +272,17 @@ hash::crc32() {
 # Austin Appleby, 2008
 hash::murmur2() {
 	local input; _hash::read_input input "$@"
-		local s="$input" seed="${2:-0}"
+		local _str="$input" seed="${2:-0}"
 		local len="${#s}"
 		local m=2246822519 r=13
 		local h=$(( seed ^ len ))
 		local i=0 k
 
 		while (( i + 4 <= len )); do
-				local c0; c0=$(printf '%d' "'${s:$i:1}")
-				local c1; c1=$(printf '%d' "'${s:$((i+1)):1}")
-				local c2; c2=$(printf '%d' "'${s:$((i+2)):1}")
-				local c3; c3=$(printf '%d' "'${s:$((i+3)):1}")
+				local c0; c0=$(printf '%d' "'${_str:$i:1}")
+				local c1; c1=$(printf '%d' "'${_str:$((i+1)):1}")
+				local c2; c2=$(printf '%d' "'${_str:$((i+2)):1}")
+				local c3; c3=$(printf '%d' "'${_str:$((i+3)):1}")
 				k=$(( c0 | (c1 << 8) | (c2 << 16) | (c3 << 24) ))
 				k=$(( (k * m) & 0xFFFFFFFF ))
 				k=$(( k ^ (k >> r) ))
@@ -295,9 +295,9 @@ hash::murmur2() {
 		# Handle remaining bytes
 		local remaining=$(( len - i ))
 		case "$remaining" in
-		3) h=$(( h ^ ($(printf '%d' "'${s:$((i+2)):1}") << 16) )) ;&
-		2) h=$(( h ^ ($(printf '%d' "'${s:$((i+1)):1}") << 8)  )) ;&
-		1) h=$(( h ^ $(printf '%d' "'${s:$i:1}") ))
+		3) h=$(( h ^ ($(printf '%d' "'${_str:$((i+2)):1}") << 16) )) ;&
+		2) h=$(( h ^ ($(printf '%d' "'${_str:$((i+1)):1}") << 8)  )) ;&
+		1) h=$(( h ^ $(printf '%d' "'${_str:$i:1}") ))
 			 h=$(( (h * m) & 0xFFFFFFFF ))
 			 ;;
 		esac
@@ -315,9 +315,9 @@ hash::murmur2() {
 # Usage: hash::verify string expected_hash algorithm
 # Example: hash::verify "hello" "2cf24dba..." sha256
 hash::verify() {
-		local s="$1" expected="$2" algo="${3:-sha256}"
+		local _str="$1" expected="$2" algo="${3:-sha256}"
 		local actual
-		actual=$(hash::"$algo" "$s" 2>/dev/null) || return 1
+		actual=$(hash::"$algo" "$_str" 2>/dev/null) || return 1
 		[[ "$actual" == "$expected" ]]
 }
 
@@ -335,9 +335,9 @@ hash::slot() {
 # Usage: hash::short string [length]
 hash::short() {
 	local input; _hash::read_input input "$@"
-		local s="$input" len="${2:-8}"
+		local _str="$input" len="${2:-8}"
 		local full
-		full=$(hash::sha256 "$s") || return 1
+		full=$(hash::sha256 "$_str") || return 1
 		echo "${full:0:$len}"
 }
 
