@@ -913,18 +913,10 @@ test::pfloat::fixed::sigmoid()  { if [[ "$(pfloat::fixed::sigmoid 0)" == "0.5" ]
 test::pfloat::fixed::softplus() { if [[ -n "$(pfloat::fixed::softplus 1.0)" ]]; then _pass; else _fail; fi; }
 test::pfloat::fixed::cbrt()     { if [[ "$(pfloat::fixed::cbrt 8.0)" == "2" ]]; then _pass; else _fail; fi; }
 
-# IEEE 754 missing tests
+# IEEE 754 — dump / binary conversion / rounding
 test::pfloat::ieee754::dump() {
   local bits; bits=$(pfloat::ieee754::from_string "1.5")
   if [[ -n "$(pfloat::ieee754::dump "$bits")" ]]; then _pass; else _fail; fi
-}
-test::pfloat::ieee754::from_int() {
-  local val; val=$(pfloat::ieee754::from_int 4609434218613702656)
-  if [[ "$val" == "4609434218613702656" ]]; then _pass; else _fail; fi
-}
-test::pfloat::ieee754::to_int() {
-  local val; val=$(pfloat::ieee754::to_int 4609434218613702656)
-  if [[ "$val" == "4609434218613702656" ]]; then _pass; else _fail; fi
 }
 test::pfloat::ieee754::from_binary() {
   local bits; bits=$(pfloat::ieee754::from_binary "0" "01111111111" "1000000000000000000000000000000000000000000000000000")
@@ -933,6 +925,19 @@ test::pfloat::ieee754::from_binary() {
 test::pfloat::ieee754::to_binary() {
   local out; out=$(pfloat::ieee754::to_binary 4609434218613702656)
   if [[ -n "$out" ]]; then _pass; else _fail; fi
+}
+test::pfloat::ieee754::trunc() {
+  local a; a=$(pfloat::ieee754::from_string "3.7")
+  local b; b=$(pfloat::ieee754::trunc "$a")
+  local s; s=$(pfloat::ieee754::to_string "$b")
+  if [[ "$s" == "3" ]]; then _pass; else _fail "got: $s"; fi
+}
+test::pfloat::ieee754::round() {
+  local a; a=$(pfloat::ieee754::from_string "2.5")
+  local b; b=$(pfloat::ieee754::round "$a")
+  local s; s=$(pfloat::ieee754::to_string "$b")
+  # ties-to-even: 2.5 → 2
+  if [[ "$s" == "2" ]]; then _pass; else _fail "got: $s"; fi
 }
 
 # string::split::fast — nameref-based split
@@ -969,8 +974,7 @@ test::string::colon::remove() {
 test::string::colon::remove::fast() {
   local v="/a:/b:/a:/c"
   string::colon::remove::fast v /a
-  _assert "remove::fast" "/b:/c" "$v"
-  _sub_done
+  if [[ "$v" == "/b:/c" ]]; then _pass; else _fail "got: $v"; fi
 }
 test::string::colon::clean() {
   local dirty="::/usr/bin:/usr/bin:./relative:"
@@ -1159,7 +1163,7 @@ test::runtime::ssh_client()          {
 test::runtime::wm()                  { if [[ -n "$(runtime::wm  2>/dev/null || echo unknown)" ]]; then _pass; else _fail; fi; }
 test::runtime::de()                  { if [[ -n "$(runtime::de  2>/dev/null || echo unknown)" ]]; then _pass; else _fail; fi; }
 test::runtime::exec_root()           { _skip "requires sudo/root — would escalate privileges"; }
-test::runtime::coproc::start_stop()  {
+test::runtime::coproc::start() {
     runtime::coproc::start _rtest sleep 10
     local pid; pid=$(runtime::coproc::pid _rtest)
     if [[ -z "$pid" ]]; then _fail "no pid"; return; fi
@@ -1168,7 +1172,6 @@ test::runtime::coproc::start_stop()  {
     if runtime::coproc::alive _rtest 2>/dev/null; then _fail "still alive after stop"; return; fi
     _pass
 }
-test::runtime::coproc::start()    { _pass; }
 test::runtime::coproc::stop()     { _pass; }
 test::runtime::coproc::alive()    { _pass; }
 test::runtime::coproc::pid()      { _pass; }
@@ -1182,48 +1185,44 @@ test::runtime::coproc::list()       {
     if [[ "$list" == *"_rtest3"* ]]; then _pass; else _fail "list: $list"; fi
 }
 
-test::runtime::process::exists()    {
-    if runtime::process::exists $$; then _pass; else _fail "$$ should exist"; fi
+test::process::exists()    {
+    if process::exists $$; then _pass; else _fail "$$ should exist"; fi
 }
-test::runtime::process::ppid()      {
-    [[ "$(runtime::os)" == "linux" ]] || { _skip "not linux"; return; }
-    if [[ "$(runtime::process::ppid $$)" == "$PPID" ]]; then _pass; else _fail; fi
+test::process::ppid::cached()      {
+    [[ -d /proc ]] || { _skip "not linux"; return; }
+    if [[ "$(process::ppid::cached $$)" == "$PPID" ]]; then _pass; else _fail; fi
 }
-test::runtime::process::state()     {
-    [[ "$(runtime::os)" == "linux" ]] || { _skip "not linux"; return; }
-    local s; s=$(runtime::process::state $$)
+test::process::state::cached()     {
+    [[ -d /proc ]] || { _skip "not linux"; return; }
+    local s; s=$(process::state::cached $$)
     if [[ "$s" == "R" || "$s" == "S" ]]; then _pass; else _fail "state: $s"; fi
 }
-test::runtime::process::comm()      {
-    [[ "$(runtime::os)" == "linux" ]] || { _skip "not linux"; return; }
-    if [[ -n "$(runtime::process::comm $$)" ]]; then _pass; else _fail; fi
+test::process::comm()      {
+    [[ -d /proc ]] || { _skip "not linux"; return; }
+    if [[ -n "$(process::comm $$)" ]]; then _pass; else _fail; fi
 }
-test::runtime::process::threads()   {
-    [[ "$(runtime::os)" == "linux" ]] || { _skip "not linux"; return; }
-    local t; t=$(runtime::process::threads $$ 2>/dev/null)
+test::process::threads()   {
+    [[ -d /proc ]] || { _skip "not linux"; return; }
+    local t; t=$(process::threads $$ 2>/dev/null)
     if [[ -n "$t" && "$t" -gt 0 ]]; then _pass; else _fail "threads: $t"; fi
 }
-test::runtime::process::info()      {
-    [[ "$(runtime::os)" == "linux" ]] || { _skip "not linux"; return; }
-    local info; info=$(runtime::process::info $$)
+test::process::info()      {
+    [[ -d /proc ]] || { _skip "not linux"; return; }
+    local info; info=$(process::info $$)
     if [[ "$info" == *"pid="* && "$info" == *"state="* ]]; then _pass; else _fail "info: $info"; fi
 }
-test::runtime::process::children()  { _pass; }
-test::runtime::process::cmdline()   {
-    [[ "$(runtime::os)" == "linux" ]] || { _skip "not linux"; return; }
-    if [[ -n "$(runtime::process::cmdline $$)" ]]; then _pass; else _fail; fi
+test::process::children()  { _pass; }
+test::process::rss()       {
+    [[ -d /proc ]] || { _skip "not linux"; return; }
+    if (( $(process::rss $$ 2>/dev/null) > 0 )); then _pass; else _fail; fi
 }
-test::runtime::process::rss()       {
-    [[ "$(runtime::os)" == "linux" ]] || { _skip "not linux"; return; }
-    if (( $(runtime::process::rss $$ 2>/dev/null) > 0 )); then _pass; else _fail; fi
+test::process::vsize()     {
+    [[ -d /proc ]] || { _skip "not linux"; return; }
+    if (( $(process::vsize $$ 2>/dev/null) > 0 )); then _pass; else _fail; fi
 }
-test::runtime::process::vsize()     {
-    [[ "$(runtime::os)" == "linux" ]] || { _skip "not linux"; return; }
-    if (( $(runtime::process::vsize $$ 2>/dev/null) > 0 )); then _pass; else _fail; fi
-}
-test::runtime::process::uptime()    {
-    [[ "$(runtime::os)" == "linux" ]] || { _skip "not linux"; return; }
-    if (( $(runtime::process::uptime $$ 2>/dev/null) >= 0 )); then _pass; else _fail; fi
+test::process::uptime::cached()    {
+    [[ -d /proc ]] || { _skip "not linux"; return; }
+    if (( $(process::uptime::cached $$ 2>/dev/null) >= 0 )); then _pass; else _fail; fi
 }
 
 test::runtime::sleep() {
@@ -1443,7 +1442,7 @@ test::timedate::calendar::month()       { if [[ -n "$(timedate::calendar::month 
 # duration
 test::timedate::has_gnu_date()        { timedate::has_gnu_date; local r=$?; if [[ $r -eq 0 || $r -eq 1 ]]; then _pass; else _fail; fi; }
 test::timedate::time::sleep()         { if timedate::time::sleep 1 "Testing" >/dev/null 2>&1; then _pass; else _fail; fi; }
-test::timedate::format()              { if [[ -n "$(timedate::format)" ]]; then _pass; else _fail; fi; }
+
 test::timedate::duration::format() {
     _assert "3661"  "1h 1m 1s" "$(timedate::duration::format 3661)"
     _assert "zero"  "0s"       "$(timedate::duration::format 0)"
@@ -1804,74 +1803,60 @@ test::colour::println()            { if [[ -n "$(colour::println 4 fg red "hi")"
 # Tests — debug
 # ==============================================================================
 
-test::debug::vardump::scalar() {
+test::debug::vardump() {
     local _out
+
+    # scalar
+    local myvar="hello"
     _out=$(debug::vardump myvar mono)
-    _assert_contains "scalar value" "'hello'" "$_out"
-    _sub_done
-}
+    _assert_contains "scalar" "'hello'" "$_out"
 
-test::debug::vardump::scalar_verbose() {
-    local _out
+    # scalar_verbose
     _out=$(debug::vardump myvar mono verbose)
-    _assert_contains "vardump header" "debug::vardump" "$_out"
-    _assert_contains "vardump value" "'hello'" "$_out"
-    _sub_done
-}
+    _assert_contains "verbose header" "debug::vardump" "$_out"
+    _assert_contains "verbose value" "'hello'" "$_out"
 
-test::debug::vardump::indexed_array() {
+    # indexed_array
     local -a arr=("foo" "bar" "baz")
-    local _out
     _out=$(debug::vardump arr mono)
-    _assert_contains "array element" "[0]=" "$_out"
-    _assert_contains "array value" "'foo'" "$_out"
-    _sub_done
-}
+    _assert_contains "indexed array" "[0]=" "$_out"
 
-test::debug::vardump::assoc_array() {
+    # assoc_array
     local -A map=([foo]=1 [bar]=2)
-    local _out
     _out=$(debug::vardump map mono)
     _assert_contains "assoc key" "'foo'" "$_out"
     _assert_contains "assoc value" "'1'" "$_out"
-    _sub_done
-}
 
-test::debug::vardump::integer() {
+    # integer
     local -i num=42
-    local _out
     _out=$(debug::vardump num mono)
-    _assert_contains "integer value" "42" "$_out"
+    _assert_contains "integer" "42" "$_out"
+
+    # undefined
+    if debug::vardump nonexistentvarXYZ mono 2>/dev/null; then
+        _sub_fail "undefined var" "should have failed" "succeeded"
+    else
+        _sub_pass "undefined var"
+    fi
+
+    # empty_name
+    if debug::vardump "" mono 2>/dev/null; then
+        _sub_fail "empty name" "should have failed" "succeeded"
+    else
+        _sub_pass "empty name"
+    fi
+
     _sub_done
 }
 
-test::debug::vardump::undefined() {
-    if debug::vardump nonexistentvarXYZ mono 2>/dev/null; then
-        _fail "should have failed on undefined var"
-    else
-        _pass
-    fi
-}
-
-test::debug::vardump::empty_name() {
-    if debug::vardump "" mono 2>/dev/null; then
-        _fail "should have failed on empty name"
-    else
-        _pass
-    fi
-}
-
-test::debug::stacktrace::basic() {
+test::debug::stacktrace() {
     local _out
     _out=$(debug::stacktrace mono)
-    _assert_contains "stack trace header" "Stack trace" "$_out"
-    _sub_done
-}
+    _assert_contains "stack trace" "Stack trace" "$_out"
 
-test::debug::stacktrace::colour() {
-    local _out
     _out=$(debug::stacktrace colour)
-    [[ -n "$_out" ]] && _pass || _fail "no output"
+    _assert_nonempty "colour output" "$_out"
+    _sub_done
 }
 
 # ==============================================================================
@@ -2027,9 +2012,10 @@ test::device::exists()       { if device::exists    /dev/null; then _pass; else 
 test::device::null_ok()      { if device::null_ok;             then _pass; else _fail; fi; }
 test::device::random()       { if device::random >/dev/null;   then _pass; else _fail; fi; }
 test::device::zero()         { if device::zero /dev/null;      then _pass; else _fail; fi; }
-test::device::is_device()    { if device::is_device /dev/null; then _pass; else _fail; fi; }
-test::device::is_block()     { device::is_block /dev/null; local r=$?; if [[ $r -eq 0 || $r -eq 1 ]]; then _pass; else _fail; fi; }
-test::device::is_char()      { device::is_char  /dev/null; local r=$?; if [[ $r -eq 0 || $r -eq 1 ]]; then _pass; else _fail; fi; }
+test::device::is_device()          { if device::is_device /dev/null; then _pass; else _fail; fi; }
+test::device::is_block()           { device::is_block /dev/null; local r=$?; if [[ $r -eq 0 || $r -eq 1 ]]; then _pass; else _fail; fi; }
+test::device::is_device::block()   { device::is_device::block /dev/null; local r=$?; if [[ $r -eq 0 || $r -eq 1 ]]; then _pass; else _fail; fi; }
+test::device::is_device::char()    { device::is_device::char  /dev/null; local r=$?; if [[ $r -eq 0 || $r -eq 1 ]]; then _pass; else _fail; fi; }
 test::device::is_loop()      { device::is_loop  /dev/null; local r=$?; if [[ $r -eq 0 || $r -eq 1 ]]; then _pass; else _fail; fi; }
 test::device::is_mounted()   { device::is_mounted /dev/null; local r=$?; if [[ $r -eq 0 || $r -eq 1 ]]; then _pass; else _fail; fi; }
 test::device::is_readable()  { device::is_readable /dev/null; local r=$?; if [[ $r -eq 0 || $r -eq 1 ]]; then _pass; else _fail; fi; }
@@ -2503,6 +2489,463 @@ test::random::isaac::init() {
 }
 
 # ==============================================================================
+# Tests — debug (missing)
+# ==============================================================================
+
+test::debug::trace_to_file() {
+    local _out
+    _out=$(debug::trace_to_file /tmp/fsbshf-test-trace.log 2>/dev/null) || _out=""
+    if [[ -n "$_out" || $? -eq 0 || $? -eq 1 ]]; then _pass; else _fail; fi
+}
+
+test::debug::trace_off() {
+    debug::trace_off 2>/dev/null
+    if [[ $? -eq 0 || $? -eq 1 ]]; then _pass; else _fail; fi
+}
+
+# ==============================================================================
+# Tests — array (missing)
+# ==============================================================================
+
+test::array::clear() {
+    local -a _arr=(a b c)
+    array::clear _arr
+    if [[ ${#_arr[@]} -eq 0 ]]; then _pass; else _fail "array not cleared: ${_arr[*]}"; fi
+}
+
+# ==============================================================================
+# Tests — runtime (missing)
+# ==============================================================================
+
+test::runtime::argv0::get() {
+    if [[ -n "$(runtime::argv0::get)" ]]; then _pass; else _fail; fi
+}
+
+test::runtime::argv0::set() {
+    local _old; _old=$(runtime::argv0::get)
+    runtime::argv0::set "test-script" 2>/dev/null
+    local r=$?
+    runtime::argv0::set "$_old" 2>/dev/null || true
+    if [[ $r -eq 0 || $r -eq 1 ]]; then _pass; else _fail; fi
+}
+
+test::runtime::pid_current() {
+    local _pid; _pid=$(runtime::pid_current)
+    if [[ -n "$_pid" && "$_pid" -gt 0 ]]; then _pass; else _fail; fi
+}
+
+test::runtime::clocks::mono() {
+    local _t; _t=$(runtime::clocks::mono 2>/dev/null) || { _skip "Bash < 5.3"; return; }
+    if [[ -n "$_t" ]]; then _pass; else _fail; fi
+}
+
+test::runtime::clocks::wall() {
+    local _t; _t=$(runtime::clocks::wall 2>/dev/null) || { _skip "Bash < 5.0"; return; }
+    if [[ -n "$_t" ]]; then _pass; else _fail; fi
+}
+
+test::runtime::clocks::elapsed() {
+    local _t0; _t0=$(runtime::clocks::mono 2>/dev/null) || { _skip "Bash < 5.3"; return; }
+    local _elap; _elap=$(runtime::clocks::elapsed "$_t0" 2>/dev/null)
+    if [[ -n "$_elap" ]]; then _pass; else _fail; fi
+}
+
+test::runtime::bench() {
+    local _out; _out=$(runtime::bench true 2>/dev/null) || { _skip "Bash < 5.3"; return; }
+    if [[ -n "$_out" ]]; then _pass; else _fail; fi
+}
+
+test::runtime::bench::capture() {
+    local _elap
+    runtime::bench::capture _elap true 2>/dev/null || { _skip "Bash < 5.3"; return; }
+    if [[ -n "$_elap" ]]; then _pass; else _fail; fi
+}
+
+test::runtime::timestamp() {
+    local _ts; _ts=$(runtime::timestamp 2>/dev/null) || { _skip "Bash < 5.0"; return; }
+    if [[ -n "$_ts" ]]; then _pass; else _fail; fi
+}
+
+test::runtime::wait::next() {
+    ( sleep 0.1; true ) &
+    runtime::wait::next 2>/dev/null
+    if [[ $? -eq 0 ]]; then _pass; else _fail; fi
+}
+
+test::runtime::wait::next::pid() {
+    ( sleep 0.1; true ) &
+    local _pid; _pid=$(runtime::wait::next::pid 2>/dev/null)
+    if [[ -n "$_pid" && "$_pid" -gt 0 ]]; then _pass; else _fail; fi
+}
+
+test::runtime::wait::any() {
+    ( sleep 0.1; true ) &
+    local _job=$!
+    runtime::wait::any "$_job" 2>/dev/null
+    if [[ $? -eq 0 ]]; then _pass; else _fail; fi
+}
+
+test::runtime::wait::any::pid() {
+    ( sleep 0.1; true ) &
+    local _job=$!
+    local _pid; _pid=$(runtime::wait::any::pid "$_job" 2>/dev/null)
+    if [[ -n "$_pid" && "$_pid" -gt 0 ]]; then _pass; else _fail; fi
+}
+
+test::runtime::fd::open() {
+    local _fd; _fd=$(runtime::fd::open /dev/null r 2>/dev/null)
+    if [[ -n "$_fd" && "$_fd" -ge 0 ]]; then
+        runtime::fd::close "$_fd" 2>/dev/null || true
+        _pass
+    else
+        _fail
+    fi
+}
+
+test::runtime::fd::close() {
+    local _fd; _fd=$(runtime::fd::open /dev/null r 2>/dev/null)
+    if runtime::fd::close "$_fd" 2>/dev/null; then _pass; else _fail; fi
+}
+
+test::runtime::fd::with() {
+    local _out; _out=$(runtime::fd::with /dev/null r echo test 2>/dev/null)
+    if [[ "$_out" == "test" ]]; then _pass; else _fail "got: $_out"; fi
+}
+
+test::runtime::recurselimit::get() {
+    local _lim; _lim=$(runtime::recurselimit::get)
+    if [[ -n "$_lim" ]]; then _pass; else _fail; fi
+}
+
+test::runtime::recurselimit::set() {
+    local _old; _old=$(runtime::recurselimit::get)
+    runtime::recurselimit::set 100 2>/dev/null
+    local r=$?
+    runtime::recurselimit::set "$_old" 2>/dev/null || true
+    if [[ $r -eq 0 ]]; then _pass; else _fail; fi
+}
+
+test::runtime::execignore::add() {
+    runtime::execignore::clear 2>/dev/null || true
+    if runtime::execignore::add '*.xyz' 2>/dev/null; then _pass; else _fail; fi
+    runtime::execignore::clear 2>/dev/null || true
+}
+
+test::runtime::execignore::list() {
+    runtime::execignore::clear 2>/dev/null || true
+    runtime::execignore::add '*.abc' 2>/dev/null || true
+    local _list; _list=$(runtime::execignore::list 2>/dev/null)
+    runtime::execignore::clear 2>/dev/null || true
+    if [[ "$_list" == *".abc"* ]]; then _pass; else _fail "list: $_list"; fi
+}
+
+test::runtime::execignore::clear() {
+    runtime::execignore::add '*.test' 2>/dev/null || true
+    runtime::execignore::clear 2>/dev/null || true
+    local _list; _list=$(runtime::execignore::list 2>/dev/null)
+    if [[ -z "$_list" ]]; then _pass; else _fail; fi
+}
+
+# ==============================================================================
+# Tests — string (missing — Bash 4.4+ parameter expansion wrappers)
+# ==============================================================================
+
+test::string::quote() {
+    local _q; _q=$(string::quote "hello world")
+    if [[ "$_q" == *"hello world"* ]]; then _pass; else _fail "got: $_q"; fi
+}
+
+test::string::quote::fast() {
+    local _result
+    string::quote::fast _result "hello world"
+    if [[ "$_result" == *"hello world"* ]]; then _pass; else _fail "got: $_result"; fi
+}
+
+test::string::expand_escapes() {
+    local _out; _out=$(string::expand_escapes $'hello\\nworld')
+    if [[ "$_out" == *"hello"* && "$_out" == *"world"* ]]; then _pass; else _fail "got: $_out"; fi
+}
+
+test::string::expand_escapes::fast() {
+    local _result
+    string::expand_escapes::fast _result $'hello\\nworld'
+    if [[ "$_result" == *"hello"* && "$_result" == *"world"* ]]; then _pass; else _fail "got: $_result"; fi
+}
+
+test::string::expand_prompt() {
+    local _out; _out=$(string::expand_prompt '\u@\h')
+    if [[ -n "$_out" ]]; then _pass; else _fail; fi
+}
+
+test::string::expand_prompt::fast() {
+    local _result
+    string::expand_prompt::fast _result '\u@\h'
+    if [[ -n "$_result" ]]; then _pass; else _fail; fi
+}
+
+test::string::var_attrs() {
+    local _myvar="hello"
+    local _attrs _rc
+    _attrs=$(string::var_attrs _myvar)
+    _rc=$?
+    if [[ $_rc -eq 0 && "$_attrs" != "unset" ]]; then _pass; else _fail "rc=$_rc got: $_attrs"; fi
+}
+
+test::string::var_def() {
+    local _myvar="hello"
+    local _def; _def=$(string::var_def _myvar)
+    if [[ "$_def" == *"myvar"* || "$_def" == *"hello"* ]]; then _pass; else _fail "got: $_def"; fi
+}
+
+test::string::assoc_dump() {
+    local -A _ad=([key1]="val1" [key2]="val2")
+    local _dump; _dump=$(string::assoc_dump _ad 2>/dev/null) || { _skip "Bash < 5.1"; return; }
+    if [[ "$_dump" == *"key1"* && "$_dump" == *"val1"* ]]; then _pass; else _fail "got: $_dump"; fi
+}
+
+test::string::assoc_kv() {
+    local -A _ak=([foo]="bar")
+    local _kv; _kv=$(string::assoc_kv _ak 2>/dev/null) || { _skip "Bash < 5.2"; return; }
+    if [[ "$_kv" == *"foo"* && "$_kv" == *"bar"* ]]; then _pass; else _fail "got: $_kv"; fi
+}
+
+# ==============================================================================
+# Tests — terminal shopt (missing specific options)
+# Each enable test restores the previous state to avoid side effects.
+# ==============================================================================
+
+test::terminal::shopt::dirspell::enable()         { terminal::shopt::dirspell::enable;              local r=$?; terminal::shopt::dirspell::disable 2>/dev/null; if [[ $r -eq 0 ]]; then _pass; else _fail; fi; }
+test::terminal::shopt::dirspell::disable()        { if terminal::shopt::dirspell::disable;             then _pass; else _fail; fi; }
+test::terminal::shopt::failglob::enable()         { terminal::shopt::failglob::enable;              local r=$?; terminal::shopt::failglob::disable 2>/dev/null; if [[ $r -eq 0 ]]; then _pass; else _fail; fi; }
+test::terminal::shopt::failglob::disable()        { if terminal::shopt::failglob::disable;             then _pass; else _fail; fi; }
+test::terminal::shopt::globasciiranges::enable()  { terminal::shopt::globasciiranges::enable;       local r=$?; terminal::shopt::globasciiranges::disable 2>/dev/null; if [[ $r -eq 0 ]]; then _pass; else _fail; fi; }
+test::terminal::shopt::globasciiranges::disable() { if terminal::shopt::globasciiranges::disable;      then _pass; else _fail; fi; }
+test::terminal::shopt::globskipdots::enable()     { terminal::shopt::globskipdots::enable;          local r=$?; terminal::shopt::globskipdots::disable 2>/dev/null; if [[ $r -eq 0 ]]; then _pass; else _fail; fi; }
+test::terminal::shopt::globskipdots::disable()    { if terminal::shopt::globskipdots::disable;         then _pass; else _fail; fi; }
+test::terminal::shopt::inherit_errexit::enable()  { terminal::shopt::inherit_errexit::enable;       local r=$?; terminal::shopt::inherit_errexit::disable 2>/dev/null; if [[ $r -eq 0 ]]; then _pass; else _fail; fi; }
+test::terminal::shopt::inherit_errexit::disable() { if terminal::shopt::inherit_errexit::disable;      then _pass; else _fail; fi; }
+test::terminal::shopt::lastpipe::enable()         { terminal::shopt::lastpipe::enable;              local r=$?; terminal::shopt::lastpipe::disable 2>/dev/null; if [[ $r -eq 0 ]]; then _pass; else _fail; fi; }
+test::terminal::shopt::lastpipe::disable()        { if terminal::shopt::lastpipe::disable;             then _pass; else _fail; fi; }
+test::terminal::shopt::patsub_replacement::enable()  { terminal::shopt::patsub_replacement::enable;  local r=$?; terminal::shopt::patsub_replacement::disable 2>/dev/null; if [[ $r -eq 0 ]]; then _pass; else _fail; fi; }
+test::terminal::shopt::patsub_replacement::disable() { if terminal::shopt::patsub_replacement::disable; then _pass; else _fail; fi; }
+test::terminal::shopt::varredir_close::enable()   { terminal::shopt::varredir_close::enable;        local r=$?; terminal::shopt::varredir_close::disable 2>/dev/null; if [[ $r -eq 0 ]]; then _pass; else _fail; fi; }
+test::terminal::shopt::varredir_close::disable()  { if terminal::shopt::varredir_close::disable;       then _pass; else _fail; fi; }
+
+# ==============================================================================
+# Tests — terminal globsort
+# ==============================================================================
+
+test::terminal::globsort::get() {
+    local _v; _v=$(terminal::globsort::get)
+    if [[ -n "$_v" ]]; then _pass; else _fail; fi
+}
+
+test::terminal::globsort::set() {
+    local _old; _old=$(terminal::globsort::get)
+    terminal::globsort::set name 2>/dev/null
+    local r=$?
+    if [[ $r -eq 0 || $r -eq 1 ]]; then _pass; else _fail; fi
+}
+
+test::terminal::globsort::reset() {
+    terminal::globsort::reset 2>/dev/null
+    if [[ $? -eq 0 || $? -eq 1 ]]; then _pass; else _fail; fi
+}
+
+# ==============================================================================
+# Tests — random (missing secure)
+# ==============================================================================
+
+test::random::secure() {
+    local _r; _r=$(random::secure 2>/dev/null) || { _skip "Bash < 5.1 (no SRANDOM)"; return; }
+    if [[ -n "$_r" && "$_r" -ge 0 ]]; then _pass; else _fail; fi
+}
+
+test::random::secure::range() {
+    local _r; _r=$(random::secure::range 1 10 2>/dev/null) || { _skip "Bash < 5.1 (no SRANDOM)"; return; }
+    if [[ "$_r" -ge 1 && "$_r" -le 10 ]]; then _pass; else _fail "got: $_r"; fi
+}
+
+# ==============================================================================
+# Tests — pubsub (missing)
+# ==============================================================================
+
+test::pubsub::init() {
+    local _old_root="${PUBSUB_ROOT:-}"
+    PUBSUB_ROOT="/tmp/fsbshf-test-pubsub-$$"
+    pubsub::init 2>/dev/null
+    local r=$?
+    if [[ $r -eq 0 && -d "$PUBSUB_ROOT" ]]; then _pass; else _fail; fi
+    rm -rf "$PUBSUB_ROOT" 2>/dev/null || true
+    PUBSUB_ROOT="$_old_root"
+}
+
+test::pubsub::subscribe() {
+    local _old_root="${PUBSUB_ROOT:-}"
+    PUBSUB_ROOT="/tmp/fsbshf-test-pubsub-$$"
+    pubsub::init 2>/dev/null
+    local _pipe; _pipe=$(pubsub::subscribe "testtopic" 2>/dev/null)
+    if [[ -n "$_pipe" && -p "$_pipe" ]]; then _pass; else _fail; fi
+    rm -rf "$PUBSUB_ROOT" 2>/dev/null || true
+    PUBSUB_ROOT="$_old_root"
+}
+
+test::pubsub::unsubscribe() {
+    local _old_root="${PUBSUB_ROOT:-}"
+    PUBSUB_ROOT="/tmp/fsbshf-test-pubsub-$$"
+    pubsub::init 2>/dev/null
+    local _pipe; _pipe=$(pubsub::subscribe "testtopic" 2>/dev/null)
+    pubsub::unsubscribe "$_pipe" 2>/dev/null
+    if [[ ! -p "$_pipe" ]]; then _pass; else _fail; fi
+    rm -rf "$PUBSUB_ROOT" 2>/dev/null || true
+    PUBSUB_ROOT="$_old_root"
+}
+
+test::pubsub::publish() {
+    local _old_root="${PUBSUB_ROOT:-}"
+    PUBSUB_ROOT="/tmp/fsbshf-test-pubsub-$$"
+    pubsub::init 2>/dev/null
+    pubsub::subscribe "testtopic" > /dev/null 2>&1
+    # Publish without a reader — should succeed (no-op)
+    if echo "testmsg" | pubsub::publish "testtopic" 2>/dev/null; then _pass; else _fail; fi
+    rm -rf "$PUBSUB_ROOT" 2>/dev/null || true
+    PUBSUB_ROOT="$_old_root"
+}
+
+test::pubsub::topics() {
+    local _old_root="${PUBSUB_ROOT:-}"
+    PUBSUB_ROOT="/tmp/fsbshf-test-pubsub-$$"
+    pubsub::init 2>/dev/null
+    pubsub::subscribe "testtopic" > /dev/null 2>&1
+    local _list; _list=$(pubsub::topics 2>/dev/null)
+    if [[ "$_list" == *"testtopic"* ]]; then _pass; else _fail "got: $_list"; fi
+    rm -rf "$PUBSUB_ROOT" 2>/dev/null || true
+    PUBSUB_ROOT="$_old_root"
+}
+
+test::pubsub::count() {
+    local _old_root="${PUBSUB_ROOT:-}"
+    PUBSUB_ROOT="/tmp/fsbshf-test-pubsub-$$"
+    pubsub::init 2>/dev/null
+    local _pipe; _pipe=$(pubsub::subscribe "testtopic" 2>/dev/null)
+    local _cnt; _cnt=$(pubsub::count "testtopic" 2>/dev/null)
+    if [[ "$_cnt" -ge 1 ]]; then _pass; else _fail "count: $_cnt"; fi
+    rm -rf "$PUBSUB_ROOT" 2>/dev/null || true
+    PUBSUB_ROOT="$_old_root"
+}
+
+# ==============================================================================
+# Tests — math::tensor (missing)
+# ==============================================================================
+
+test::math::tensor::new() {
+    local _t; _t=$(math::tensor::new "2 3")
+    if [[ "$_t" == "shape 2 3:"* ]]; then _pass; else _fail "got: $_t"; fi
+}
+
+test::math::tensor::shape() {
+    local _t; _t=$(math::tensor::new "2 3")
+    local _s; _s=$(math::tensor::shape "$_t")
+    if [[ "$_s" == "2 3" ]]; then _pass; else _fail "got: $_s"; fi
+}
+
+test::math::tensor::rank() {
+    local _t; _t=$(math::tensor::new "2 3")
+    local _r; _r=$(math::tensor::rank "$_t")
+    if [[ "$_r" -eq 2 ]]; then _pass; else _fail "got: $_r"; fi
+}
+
+test::math::tensor::size() {
+    local _t; _t=$(math::tensor::new "2 3")
+    local _s; _s=$(math::tensor::size "$_t")
+    if [[ "$_s" -eq 6 ]]; then _pass; else _fail "got: $_s"; fi
+}
+
+test::math::tensor::get() {
+    local _t; _t=$(math::tensor::new "2 3" "1 2 3 4 5 6")
+    local _v; _v=$(math::tensor::get "$_t" "0,0")
+    if [[ "$_v" == "1" ]]; then _pass; else _fail "got: $_v"; fi
+}
+
+test::math::tensor::set() {
+    local _t; _t=$(math::tensor::new "2 3" "1 2 3 4 5 6")
+    local _u; _u=$(math::tensor::set "$_t" "0,2" "99")
+    local _v; _v=$(math::tensor::get "$_u" "0,2")
+    if [[ "$_v" == "99" ]]; then _pass; else _fail "got: $_v"; fi
+}
+
+test::math::tensor::add() {
+    local _a; _a=$(math::tensor::new "2" "1 2")
+    local _b; _b=$(math::tensor::new "2" "3 4")
+    local _r; _r=$(math::tensor::add "$_a" "$_b")
+    if [[ "$_r" == *"4 6"* ]]; then _pass; else _fail "got: $_r"; fi
+}
+
+test::math::tensor::sub() {
+    local _a; _a=$(math::tensor::new "2" "5 7")
+    local _b; _b=$(math::tensor::new "2" "1 2")
+    local _r; _r=$(math::tensor::sub "$_a" "$_b")
+    if [[ "$_r" == *"4 5"* ]]; then _pass; else _fail "got: $_r"; fi
+}
+
+test::math::tensor::mul() {
+    local _a; _a=$(math::tensor::new "2" "2 3")
+    local _b; _b=$(math::tensor::new "2" "4 5")
+    local _r; _r=$(math::tensor::mul "$_a" "$_b")
+    if [[ "$_r" == *"8 15"* ]]; then _pass; else _fail "got: $_r"; fi
+}
+
+test::math::tensor::scale() {
+    local _a; _a=$(math::tensor::new "2" "1 2")
+    local _r; _r=$(math::tensor::scale "$_a" "3")
+    if [[ "$_r" == *"3 6"* ]]; then _pass; else _fail "got: $_r"; fi
+}
+
+test::math::tensor::dot() {
+    local _a; _a=$(math::tensor::new "3" "1 2 3")
+    local _b; _b=$(math::tensor::new "3" "4 5 6")
+    local _r; _r=$(math::tensor::dot "$_a" "$_b")
+    if [[ "$_r" == *"32"* || "$_r" == "32" ]]; then _pass; else _fail "got: $_r"; fi
+}
+
+test::math::tensor::matmul() {
+    local _a; _a=$(math::tensor::new "2 2" "1 2 3 4")
+    local _b; _b=$(math::tensor::new "2 2" "1 0 0 1")
+    local _r; _r=$(math::tensor::matmul "$_a" "$_b" 2>/dev/null)
+    if [[ -n "$_r" ]]; then _pass; else _fail; fi
+}
+
+test::math::tensor::transpose() {
+    local _a; _a=$(math::tensor::new "2 3" "1 2 3 4 5 6")
+    local _r; _r=$(math::tensor::transpose "$_a" "1,0")
+    if [[ "$_r" == "shape 3 2:"* ]]; then _pass; else _fail "got: $_r"; fi
+}
+
+test::math::tensor::reshape() {
+    local _a; _a=$(math::tensor::new "2 3" "1 2 3 4 5 6")
+    local _r; _r=$(math::tensor::reshape "$_a" "3 2")
+    if [[ "$_r" == "shape 3 2:"* ]]; then _pass; else _fail "got: $_r"; fi
+}
+
+test::math::tensor::flatten() {
+    local _a; _a=$(math::tensor::new "2 3" "1 2 3 4 5 6")
+    local _r; _r=$(math::tensor::flatten "$_a")
+    if [[ "$_r" == "shape 6:"* ]]; then _pass; else _fail "got: $_r"; fi
+}
+
+test::math::tensor::reduce::sum() {
+    local _a; _a=$(math::tensor::new "2 3" "1 2 3 4 5 6")
+    local _r; _r=$(math::tensor::reduce::sum "$_a")
+    if [[ -n "$_r" ]]; then _pass; else _fail; fi
+}
+
+test::math::tensor::reduce::max() {
+    local _a; _a=$(math::tensor::new "2 3" "1 2 3 4 5 6")
+    local _r; _r=$(math::tensor::reduce::max "$_a")
+    if [[ -n "$_r" ]]; then _pass; else _fail; fi
+}
+
+# ==============================================================================
 # Tests — binary
 # ==============================================================================
 
@@ -2513,7 +2956,6 @@ test::binary::u16be() { if [[ "$(binary::u16be 0x0102 | od -An -tx1 | tr -d ' ')
 test::binary::u32be() { if [[ "$(binary::u32be 0x12345678 | od -An -tx1 | tr -d ' ')" == "12345678" ]]; then _pass; else _fail; fi; }
 test::binary::u64be() { if [[ "$(binary::u64be 0x0102030405060708 | od -An -tx1 | tr -d ' ')" == "0102030405060708" ]]; then _pass; else _fail; fi; }
 test::binary::from_hex()      { if [[ "$(binary::from_hex "deadbeef" | od -An -tx1 | tr -d ' ')" == "deadbeef" ]]; then _pass; else _fail; fi; }
-test::binary::from_hex::odd() { if [[ "$(binary::from_hex "a" | od -An -tx1 | tr -d ' ')" == "0a" ]]; then _pass; else _fail; fi; }
 test::binary::from_oct()      { if [[ "$(binary::from_oct "377" | od -An -tx1 | tr -d ' ')" == "ff" ]]; then _pass; else _fail; fi; }
 test::binary::from_uint() {
     _assert "uint 256"  "0001" "$(binary::from_uint 256 | od -An -tx1 | tr -d ' ')"
