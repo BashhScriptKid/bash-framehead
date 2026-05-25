@@ -274,18 +274,18 @@ terminal::read_key::decode() {
 		esac
 
 		# ESC received — peek at next byte with a short timeout
-		local _t="${_timeout:-0.01}"
-		IFS= read -r -s -n1 -t "$_t" _seq || { printf -v "$_var" 'ESC'; return 0; }
+		local _timeout_val="${_timeout:-0.01}"
+		IFS= read -r -s -n1 -t "$_timeout_val" _seq || { printf -v "$_var" 'ESC'; return 0; }
 
 		case "$_seq" in
 				'[') # CSI sequence
 						_rest=''
 						# Read CSI parameter bytes (digits, semicolons) until terminal byte
-						local _b
-						while IFS= read -r -s -n1 -t "$_t" _b; do
-								case "$_b" in
-										[0-9]|\;) _rest+="$_b";;
-										*) _seq+="$_rest$_b"; break;;
+						local _byte
+						while IFS= read -r -s -n1 -t "$_timeout_val" _byte; do
+								case "$_byte" in
+										[0-9]|\;) _rest+="$_byte";;
+										*) _seq+="$_rest$_byte"; break;;
 								esac
 						done
 						# _seq now holds the full CSI suffix, e.g. "A", "5~", "1;2A"

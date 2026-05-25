@@ -125,12 +125,12 @@ colour::index::8bit() {
 
 		# Greyscale (232-255): grey0-grey23 or gray0-gray23
 		if [[ "$key" =~ ^(gr[ae]y)?([0-9]+)$ ]]; then
-				local n="${BASH_REMATCH[2]}"
+				local _grey_idx="${BASH_REMATCH[2]}"
 				# Warn on bare numbers — ambiguous intent
 				[[ "$key" =~ ^[0-9]+$ ]] && \
 						echo "colour::index::8bit: bare number interpreted as greyscale index" >&2
-				(( n >= 0 && n <= 23 )) || { echo "colour::index::8bit: greyscale index must be 0-23" >&2; return 1; }
-				echo $(( 232 + n ))
+				(( _grey_idx >= 0 && _grey_idx <= 23 )) || { echo "colour::index::8bit: greyscale index must be 0-23" >&2; return 1; }
+				echo $(( 232 + _grey_idx ))
 				return 0
 		fi
 

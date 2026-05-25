@@ -23,12 +23,12 @@ timedate::has_gnu_date() {
 # Portable date formatting
 # Usage: _timedate::format format [timestamp]
 _timedate::format() {
-		local fmt="$1" ts="${2:-}"
-		if [[ -n "$ts" ]]; then
+		local fmt="$1" _timestamp="${2:-}"
+		if [[ -n "$_timestamp" ]]; then
 				if _timedate::has_gnu_date; then
-						date -d "@$ts" +"$fmt" 2>/dev/null
+						date -d "@$_timestamp" +"$fmt" 2>/dev/null
 				else
-						date -r "$ts" +"$fmt" 2>/dev/null
+						date -r "$_timestamp" +"$fmt" 2>/dev/null
 				fi
 		else
 				date +"$fmt"
@@ -72,8 +72,8 @@ timedate::timestamp::unix_ns() {
 # Convert unix timestamp to human-readable
 # Usage: timedate::timestamp::to_human timestamp [format]
 timedate::timestamp::to_human() {
-		local ts="$1" fmt="${2:-%Y-%m-%d %H:%M:%S}"
-		_timedate::format "$fmt" "$ts"
+		local _timestamp="$1" fmt="${2:-%Y-%m-%d %H:%M:%S}"
+		_timedate::format "$fmt" "$_timestamp"
 }
 
 # Convert human-readable date to unix timestamp
@@ -98,8 +98,8 @@ timedate::date::today() {
 # Current date in a custom format
 # Usage: timedate::date::format [format] [timestamp]
 timedate::date::format() {
-		local fmt="${1:-%Y-%m-%d}" ts="${2:-}"
-		_timedate::format "$fmt" "$ts"
+		local fmt="${1:-%Y-%m-%d}" _timestamp="${2:-}"
+		_timedate::format "$fmt" "$_timestamp"
 }
 
 # Get year
@@ -201,10 +201,10 @@ timedate::date::add_years() {
 # Number of days between two dates
 # Usage: timedate::date::days_between YYYY-MM-DD YYYY-MM-DD
 timedate::date::days_between() {
-		local ts1 ts2
-		ts1=$(timedate::timestamp::from_human "$1 00:00:00")
-		ts2=$(timedate::timestamp::from_human "$2 00:00:00")
-		echo $(( (ts2 - ts1) / 86400 ))
+		local _timestamp1 _timestamp2
+		_timestamp1=$(timedate::timestamp::from_human "$1 00:00:00")
+		_timestamp2=$(timedate::timestamp::from_human "$2 00:00:00")
+		echo $(( (_timestamp2 - _timestamp1) / 86400 ))
 }
 
 # Get yesterday's date
@@ -279,11 +279,11 @@ timedate::date::prev_weekday() {
 # Compare two dates — returns -1, 0, or 1
 # Usage: timedate::date::compare YYYY-MM-DD YYYY-MM-DD
 timedate::date::compare() {
-		local ts1 ts2
-		ts1=$(timedate::timestamp::from_human "$1 00:00:00")
-		ts2=$(timedate::timestamp::from_human "$2 00:00:00")
-		if (( ts1 < ts2 ));   then echo -1
-		elif (( ts1 > ts2 )); then echo 1
+		local _timestamp1 _timestamp2
+		_timestamp1=$(timedate::timestamp::from_human "$1 00:00:00")
+		_timestamp2=$(timedate::timestamp::from_human "$2 00:00:00")
+		if (( _timestamp1 < _timestamp2 ));   then echo -1
+		elif (( _timestamp1 > _timestamp2 )); then echo 1
 		else                       echo 0
 		fi
 }
@@ -485,10 +485,10 @@ timedate::duration::parse() {
 # Usage: timedate::duration::relative timestamp
 # Output: "3 hours ago", "in 2 days"
 timedate::duration::relative() {
-		local ts="$1"
+		local _timestamp="$1"
 		local now
 		now=$(timedate::timestamp::unix)
-		local diff=$(( now - ts ))
+		local diff=$(( now - _timestamp ))
 		local abs_diff=$(( diff < 0 ? -diff : diff ))
 		local future=false
 		(( diff < 0 )) && future=true
@@ -656,11 +656,11 @@ timedate::calendar::month() {
 # Usage: timedate::tz::convert timestamp timezone
 # Example: timedate::tz::convert 1700000000 "America/New_York"
 timedate::tz::convert() {
-		local ts="$1" tz="$2"
+		local _timestamp="$1" tz="$2"
 		if _timedate::has_gnu_date; then
-				TZ="$tz" date -d "@$ts" "+%Y-%m-%d %H:%M:%S %Z" 2>/dev/null
+				TZ="$tz" date -d "@$_timestamp" "+%Y-%m-%d %H:%M:%S %Z" 2>/dev/null
 		else
-				TZ="$tz" date -r "$ts" "+%Y-%m-%d %H:%M:%S %Z" 2>/dev/null
+				TZ="$tz" date -r "$_timestamp" "+%Y-%m-%d %H:%M:%S %Z" 2>/dev/null
 		fi
 }
 

@@ -111,6 +111,35 @@ module::function() {
 - Exported constants: `UPPER_SNAKE_CASE` (readonly permitted for intent)
 - Local variables: `lower_snake_case`
 
+### 2.1 Variable Naming
+
+Variable names must be self-documenting. Single-letter or abbreviated names
+harm readability and are forbidden unless they fall into one of these
+exceptions:
+
+| Allowed | Example | Reason |
+|---------|---------|--------|
+| Loop counters | `i`, `j`, `k` | Universal convention |
+| Cartesian coords | `x`, `y`, `z` | Domain convention (math, geometry) |
+| Color channels | `r`, `g`, `b` | Domain convention (graphics) |
+| PRNG state registers | `s0`, `s1`, `s2` | Domain convention (XorShift, ISAAC, etc.) |
+| Scalar helpers in math | `dx`, `dy`, `sum`, `val` | Short but unambiguous |
+| Standard Unix abbrevs | `_fd` (file descriptor), `_pid` | Ubiquitous in the shell ecosystem |
+
+Otherwise, spell it out:
+
+```bash
+# BAD
+local s="$1"        # string? sum? scale?
+local n="$2"        # number? name? count?
+local _a            # what is _a?
+
+# GOOD
+local str="$1"
+local count="$2"
+local _name
+```
+
 ## 3. Bashisms (Use Freely)
 
 - `[[ … ]]` for conditionals (never `[ ]`)

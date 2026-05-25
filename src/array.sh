@@ -741,22 +741,22 @@ array::zip::fast() {
 # Rotate array left by n positions
 # Usage: array::rotate n el1 el2 ...
 array::rotate() {
-		local n="$1"; shift
+		local _rot="$1"; shift
 		local -a arr=("$@")
 		local len="${#arr[@]}"
-		n=$(( n % len ))
-		printf '%s\n' "${arr[@]:$n}" "${arr[@]:0:$n}"
+		_rot=$(( _rot % len ))
+		printf '%s\n' "${arr[@]:$_rot}" "${arr[@]:0:$_rot}"
 }
 
 # Fast variant using nameref
 # Usage: array::rotate::fast result_arr n el1 el2 ...
 array::rotate::fast() {
 		local -n _array_rotate_result="$1"
-		local n="$2"; shift 2
+		local _rot="$2"; shift 2
 		local -a _arr=("$@")
 		local len="${#_arr[@]}"
-		n=$(( n % len ))
-		_array_rotate_result=("${_arr[@]:$n}" "${_arr[@]:0:$n}")
+		_rot=$(( _rot % len ))
+		_array_rotate_result=("${_arr[@]:$_rot}" "${_arr[@]:0:$_rot}")
 }
 
 # Chunk array into groups of n

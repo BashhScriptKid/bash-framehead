@@ -448,8 +448,8 @@ math::productf() {
 # Internal: split a comma-separated vec2 into positional vars
 # Usage: _math::vec2::split "x,y" → sets _v_x1 _v_y1
 _math::vec2::unpack2() {
-		local -n _x="$1" _y="$2"
-		IFS=, read -r _x _y <<< "$3"
+		local -n _vec_x="$1" _vec_y="$2"
+		IFS=, read -r _vec_x _vec_y <<< "$3"
 }
 
 # Internal: split two comma-separated vec2s into positional vars
@@ -461,8 +461,8 @@ _math::vec2::unpack4() {
 
 # Internal: split a comma-separated vec3 into positional vars
 _math::vec3::unpack3() {
-		local -n _x="$1" _y="$2" _z="$3"
-		IFS=, read -r _x _y _z <<< "$4"
+		local -n _vec_x="$1" _vec_y="$2" _vec_z="$3"
+		IFS=, read -r _vec_x _vec_y _vec_z <<< "$4"
 }
 
 # Internal: split two comma-separated vec3s into positional vars
@@ -880,15 +880,15 @@ _math::matrix::unpack() {
 # Unpack two matrices from either nameref or spaghetti args
 # Usage: _math::matrix::unpack2 target_a target_b size_a size_b [args...]
 _math::matrix::unpack2() {
-		local -n _ta="$1" _tb="$2"
+		local -n _target_a="$1" _target_b="$2"
 		local size_a="$3" size_b="$4"; shift 4
 		if [[ "$1" =~ ^-?[0-9] ]]; then
-				_ta=("${@:1:$size_a}")
-				_tb=("${@:$(( size_a + 1 )):$size_b}")
+				_target_a=("${@:1:$size_a}")
+				_target_b=("${@:$(( size_a + 1 )):$size_b}")
 		else
-				local -n _sa="$1" _sb="$2"
-				_ta=("${_sa[@]}")
-				_tb=("${_sb[@]}")
+				local -n _src_a="$1" _src_b="$2"
+				_target_a=("${_src_a[@]}")
+				_target_b=("${_src_b[@]}")
 		fi
 }
 
@@ -1696,41 +1696,41 @@ math::matrix::lu() {
 				echo "Error: math::matrix::lu: matrix must be square" >&2
 				return 1
 		fi
-		local -n _L="$3" _U="$4"
+		local -n _lower="$3" _upper="$4"
 		local size=$(( rows * cols ))
-		local -a _a
-		_math::matrix::unpack _a "$size" "${@:5}"
+		local -a _arr
+		_math::matrix::unpack _arr "$size" "${@:5}"
 
-		local n=$rows
-		local -a _lu=("${_a[@]}")
+		local _n=$rows
+		local -a _lu=("${_arr[@]}")
 		local i j k
 
-		for (( k = 0; k < n; k++ )); do
-				local pivot_val="${_lu[$k * $n + $k]}"
-				for (( i = k + 1; i < n; i++ )); do
+		for (( k = 0; k < _n; k++ )); do
+				local pivot_val="${_lu[$k * $_n + $k]}"
+				for (( i = k + 1; i < _n; i++ )); do
 						local factor
-						factor=$(math::bc "${_lu[$i * $n + $k]} / $pivot_val" "$scale")
-						_lu[$i * $n + $k]="$factor"
-						for (( j = k + 1; j < n; j++ )); do
-								_lu[$i * $n + $j]=$(math::bc "${_lu[$i * $n + $j]} - $factor * ${_lu[$k * $n + $j]}" "$scale")
+						factor=$(math::bc "${_lu[$i * $_n + $k]} / $pivot_val" "$scale")
+						_lu[$i * $_n + $k]="$factor"
+						for (( j = k + 1; j < _n; j++ )); do
+								_lu[$i * $_n + $j]=$(math::bc "${_lu[$i * $_n + $j]} - $factor * ${_lu[$k * $_n + $j]}" "$scale")
 						done
 				done
 		done
 
 		# Extract L and U
-		_L=()
-		_U=()
-		for (( i = 0; i < n; i++ )); do
-				for (( j = 0; j < n; j++ )); do
+		_lower=()
+		_upper=()
+		for (( i = 0; i < _n; i++ )); do
+				for (( j = 0; j < _n; j++ )); do
 						if (( i > j )); then
-								_L+=("${_lu[$i * $n + $j]}")
-								_U+=(0)
+								_lower+=("${_lu[$i * $_n + $j]}")
+								_upper+=(0)
 						elif (( i == j )); then
-								_L+=(1)
-								_U+=("${_lu[$i * $n + $j]}")
+								_lower+=(1)
+								_upper+=("${_lu[$i * $_n + $j]}")
 						else
-								_L+=(0)
-								_U+=("${_lu[$i * $n + $j]}")
+								_lower+=(0)
+								_upper+=("${_lu[$i * $_n + $j]}")
 						fi
 				done
 		done
@@ -2769,35 +2769,35 @@ math::tensor::set() {
 }
 
 math::tensor::add() {
-		local da db
-		da=$(_math::tensor_data "$1"); db=$(_math::tensor_data "$2")
-		local -a va vb r
-		read -ra va <<< "$da"; read -ra vb <<< "$db"
+		local _data_a _data_b
+		_data_a=$(_math::tensor_data "$1"); _data_b=$(_math::tensor_data "$2")
+		local -a _vec_a _vec_b _result
+		read -ra _vec_a <<< "$_data_a"; read -ra _vec_b <<< "$_data_b"
 		local i
 		for ((i = 0; i < ${#va[@]}; i++)); do
-				r+=($(echo "${va[$i]} + ${vb[$i]}" | bc -l 2>/dev/null || pfloat::fixed::add "${va[$i]}" "${vb[$i]}"))
+				r+=($(echo "${_vec_a[$i]} + ${_vec_b[$i]}" | bc -l 2>/dev/null || pfloat::fixed::add "${_vec_a[$i]}" "${_vec_b[$i]}"))
 		done
 		echo "shape $(_math::tensor_shape_dims "$1"): ${r[*]}"
 }
 
 math::tensor::sub() {
-		local da db
-		da=$(_math::tensor_data "$1"); db=$(_math::tensor_data "$2")
-		local -a va vb r; read -ra va <<< "$da"; read -ra vb <<< "$db"
+		local _data_a _data_b
+		_data_a=$(_math::tensor_data "$1"); _data_b=$(_math::tensor_data "$2")
+		local -a _vec_a _vec_b _result; read -ra _vec_a <<< "$_data_a"; read -ra _vec_b <<< "$_data_b"
 		local i
 		for ((i = 0; i < ${#va[@]}; i++)); do
-				r+=($(echo "${va[$i]} - ${vb[$i]}" | bc -l 2>/dev/null || pfloat::fixed::sub "${va[$i]}" "${vb[$i]}"))
+				r+=($(echo "${_vec_a[$i]} - ${_vec_b[$i]}" | bc -l 2>/dev/null || pfloat::fixed::sub "${_vec_a[$i]}" "${_vec_b[$i]}"))
 		done
 		echo "shape $(_math::tensor_shape_dims "$1"): ${r[*]}"
 }
 
 math::tensor::mul() {
-		local da db
-		da=$(_math::tensor_data "$1"); db=$(_math::tensor_data "$2")
-		local -a va vb r; read -ra va <<< "$da"; read -ra vb <<< "$db"
+		local _data_a _data_b
+		_data_a=$(_math::tensor_data "$1"); _data_b=$(_math::tensor_data "$2")
+		local -a _vec_a _vec_b _result; read -ra _vec_a <<< "$_data_a"; read -ra _vec_b <<< "$_data_b"
 		local i
 		for ((i = 0; i < ${#va[@]}; i++)); do
-				r+=($(echo "${va[$i]} * ${vb[$i]}" | bc -l 2>/dev/null || pfloat::fixed::mul "${va[$i]}" "${vb[$i]}"))
+				r+=($(echo "${_vec_a[$i]} * ${_vec_b[$i]}" | bc -l 2>/dev/null || pfloat::fixed::mul "${_vec_a[$i]}" "${_vec_b[$i]}"))
 		done
 		echo "shape $(_math::tensor_shape_dims "$1"): ${r[*]}"
 }
@@ -2813,11 +2813,11 @@ math::tensor::scale() {
 }
 
 math::tensor::dot() {
-		local da db; da=$(_math::tensor_data "$1"); db=$(_math::tensor_data "$2")
-		local -a va vb; read -ra va <<< "$da"; read -ra vb <<< "$db"
+		local _data_a _data_b; _data_a=$(_math::tensor_data "$1"); _data_b=$(_math::tensor_data "$2")
+		local -a va vb; read -ra _vec_a <<< "$_data_a"; read -ra _vec_b <<< "$_data_b"
 		local i sum=0
 		for ((i = 0; i < ${#va[@]}; i++)); do
-				sum=$(echo "$sum + ${va[$i]} * ${vb[$i]}" | bc -l 2>/dev/null || { local p; p=$(pfloat::fixed::mul "${va[$i]}" "${vb[$i]}"); pfloat::fixed::add "$sum" "$p"; })
+				sum=$(echo "$sum + ${_vec_a[$i]} * ${_vec_b[$i]}" | bc -l 2>/dev/null || { local p; p=$(pfloat::fixed::mul "${_vec_a[$i]}" "${_vec_b[$i]}"); pfloat::fixed::add "$sum" "$p"; })
 		done
 		echo "$sum"
 }
@@ -2825,7 +2825,7 @@ math::tensor::dot() {
 math::tensor::matmul() {
 		local sa sb da db
 		sa=$(_math::tensor_shape_dims "$1"); sb=$(_math::tensor_shape_dims "$2")
-		da=$(_math::tensor_data "$1"); db=$(_math::tensor_data "$2")
+		_data_a=$(_math::tensor_data "$1"); _data_b=$(_math::tensor_data "$2")
 		local -a ad bd av bv
 		read -ra ad <<< "$sa"; read -ra bd <<< "$sb"
 		read -ra av <<< "$da"; read -ra bv <<< "$db"

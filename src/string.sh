@@ -320,14 +320,14 @@ string::assoc_kv() {
 
 # Internal: split any common convention into space-separated words (lowercase)
 _string::to_words() {
-	local s="$1"
+	local _str="$1"
 	# Insert space before uppercase runs (camel/pascal → words)
-	s="$(echo "$s" | sed 's/\([a-z]\)\([A-Z]\)/\1 \2/g')"
+	_str="$(echo "$_str" | sed 's/\([a-z]\)\([A-Z]\)/\1 \2/g')"
 	# Replace common separators with spaces
-	s="${s//_/ }"
-	s="${s//-/ }"
-	s="${s//./ }"
-	s="${s//\// }"
+	_str="${_str//_/ }"
+	_str="${_str//-/ }"
+	_str="${_str//./ }"
+	_str="${_str//\// }"
 	# Lowercase everything
 	echo "${s,,}"
 }
@@ -337,7 +337,7 @@ _string::to_words() {
 #        echo "hello world" | string::plain_to_snake
 string::plain_to_snake() {
 	local input; _string::read_input input "$@"
-	local s="${input// /_}"
+	local _str="${input// /_}"
 	echo "${s,,}"
 }
 
@@ -353,7 +353,7 @@ string::plain_to_snake::fast() {
 #        echo "hello world" | string::plain_to_kebab
 string::plain_to_kebab() {
 	local input; _string::read_input input "$@"
-	local s="${input// /-}"
+	local _str="${input// /-}"
 	echo "${s,,}"
 }
 
@@ -412,7 +412,7 @@ string::plain_to_pascal::fast() {
 #        echo "hello world" | string::plain_to_constant
 string::plain_to_constant() {
 	local input; _string::read_input input "$@"
-	local s="${input// /_}"
+	local _str="${input// /_}"
 	echo "${s^^}"
 }
 
@@ -427,7 +427,7 @@ string::plain_to_constant::fast() {
 #        echo "hello world" | string::plain_to_dot
 string::plain_to_dot() {
 	local input; _string::read_input input "$@"
-	local s="${input// /.}"
+	local _str="${input// /.}"
 	echo "${s,,}"
 }
 
@@ -442,7 +442,7 @@ string::plain_to_dot::fast() {
 #        echo "hello world" | string::plain_to_path
 string::plain_to_path() {
 	local input; _string::read_input input "$@"
-	local s="${input// //}"
+	local _str="${input// //}"
 	echo "${s,,}"
 }
 
@@ -608,7 +608,7 @@ string::kebab_to_pascal::fast() {
 # kebab-case → CONSTANT_CASE
 string::kebab_to_constant() {
 	local input; _string::read_input input "$@"
-	local s="${input//-/_}"
+	local _str="${input//-/_}"
 	echo "${s^^}"
 }
 
@@ -652,12 +652,12 @@ string::camel_to_plain() {
 # Fast variant using nameref
 string::camel_to_plain::fast() {
 	local -n _string_camel_to_plain_result="$1"
-	local s="$2"
-	s="$(echo "$s" | sed 's/\([a-z]\)\([A-Z]\)/\1 \2/g')"
-	s="${s//_/ }"
-	s="${s//-/ }"
-	s="${s//./ }"
-	s="${s//\// }"
+	local _str="$2"
+	_str="$(echo "$_str" | sed 's/\([a-z]\)\([A-Z]\)/\1 \2/g')"
+	_str="${_str//_/ }"
+	_str="${_str//-/ }"
+	_str="${_str//./ }"
+	_str="${_str//\// }"
 	_string_camel_to_plain_result="${s,,}"
 }
 
@@ -672,14 +672,14 @@ string::camel_to_snake() {
 # Fast variant using nameref
 string::camel_to_snake::fast() {
 	local -n _string_camel_to_snake_result="$1"
-	local s="$2"
-	s="$(echo "$s" | sed 's/\([a-z]\)\([A-Z]\)/\1 \2/g')"
-	s="${s//_/ }"
-	s="${s//-/ }"
-	s="${s//./ }"
-	s="${s//\// }"
-	s="${s,,}"
-	_string_camel_to_snake_result="${s// /_}"
+	local _str="$2"
+	_str="$(echo "$_str" | sed 's/\([a-z]\)\([A-Z]\)/\1 \2/g')"
+	_str="${_str//_/ }"
+	_str="${_str//-/ }"
+	_str="${_str//./ }"
+	_str="${_str//\// }"
+	_str="${s,,}"
+	_string_camel_to_snake_result="${_str// /_}"
 }
 
 # camelCase → kebab-case
@@ -693,14 +693,14 @@ string::camel_to_kebab() {
 # Fast variant using nameref
 string::camel_to_kebab::fast() {
 	local -n _string_camel_to_kebab_result="$1"
-	local s="$2"
-	s="$(echo "$s" | sed 's/\([a-z]\)\([A-Z]\)/\1 \2/g')"
-	s="${s//_/ }"
-	s="${s//-/ }"
-	s="${s//./ }"
-	s="${s//\// }"
-	s="${s,,}"
-	_string_camel_to_kebab_result="${s// /-}"
+	local _str="$2"
+	_str="$(echo "$_str" | sed 's/\([a-z]\)\([A-Z]\)/\1 \2/g')"
+	_str="${_str//_/ }"
+	_str="${_str//-/ }"
+	_str="${_str//./ }"
+	_str="${_str//\// }"
+	_str="${s,,}"
+	_string_camel_to_kebab_result="${_str// /-}"
 }
 
 # camelCase → PascalCase
@@ -712,13 +712,13 @@ string::camel_to_pascal() {
 # Fast variant using nameref
 string::camel_to_pascal::fast() {
 	local -n _string_camel_to_pascal_result="$1"
-	local s="$2"
-	s="$(echo "$s" | sed 's/\([a-z]\)\([A-Z]\)/\1 \2/g')"
-	s="${s//_/ }"
-	s="${s//-/ }"
-	s="${s//./ }"
-	s="${s//\// }"
-	s="${s,,}"
+	local _str="$2"
+	_str="$(echo "$_str" | sed 's/\([a-z]\)\([A-Z]\)/\1 \2/g')"
+	_str="${_str//_/ }"
+	_str="${_str//-/ }"
+	_str="${_str//./ }"
+	_str="${_str//\// }"
+	_str="${s,,}"
 	local result=""
 	for word in $s; do result+="${word^}"; done
 	_string_camel_to_pascal_result="$result"
@@ -729,21 +729,21 @@ string::camel_to_constant() {
 	local input; _string::read_input input "$@"
 	local words
 	words=$(_string::to_words "$input")
-	local s="${words// /_}"
+	local _str="${words// /_}"
 	echo "${s^^}"
 }
 
 # Fast variant using nameref
 string::camel_to_constant::fast() {
 	local -n _string_camel_to_constant_result="$1"
-	local s="$2"
-	s="$(echo "$s" | sed 's/\([a-z]\)\([A-Z]\)/\1 \2/g')"
-	s="${s//_/ }"
-	s="${s//-/ }"
-	s="${s//./ }"
-	s="${s//\// }"
-	s="${s,,}"
-	_string_camel_to_constant_result="${s// /_}"
+	local _str="$2"
+	_str="$(echo "$_str" | sed 's/\([a-z]\)\([A-Z]\)/\1 \2/g')"
+	_str="${_str//_/ }"
+	_str="${_str//-/ }"
+	_str="${_str//./ }"
+	_str="${_str//\// }"
+	_str="${s,,}"
+	_string_camel_to_constant_result="${_str// /_}"
 	_string_camel_to_constant_result="${_string_camel_to_constant_result^^}"
 }
 
@@ -758,14 +758,14 @@ string::camel_to_dot() {
 # Fast variant using nameref
 string::camel_to_dot::fast() {
 	local -n _string_camel_to_dot_result="$1"
-	local s="$2"
-	s="$(echo "$s" | sed 's/\([a-z]\)\([A-Z]\)/\1 \2/g')"
-	s="${s//_/ }"
-	s="${s//-/ }"
-	s="${s//./ }"
-	s="${s//\// }"
-	s="${s,,}"
-	_string_camel_to_dot_result="${s// /.}"
+	local _str="$2"
+	_str="$(echo "$_str" | sed 's/\([a-z]\)\([A-Z]\)/\1 \2/g')"
+	_str="${_str//_/ }"
+	_str="${_str//-/ }"
+	_str="${_str//./ }"
+	_str="${_str//\// }"
+	_str="${s,,}"
+	_string_camel_to_dot_result="${_str// /.}"
 }
 
 # camelCase → path/case
@@ -779,14 +779,14 @@ string::camel_to_path() {
 # Fast variant using nameref
 string::camel_to_path::fast() {
 	local -n _string_camel_to_path_result="$1"
-	local s="$2"
-	s="$(echo "$s" | sed 's/\([a-z]\)\([A-Z]\)/\1 \2/g')"
-	s="${s//_/ }"
-	s="${s//-/ }"
-	s="${s//./ }"
-	s="${s//\// }"
-	s="${s,,}"
-	_string_camel_to_path_result="${s// //}"
+	local _str="$2"
+	_str="$(echo "$_str" | sed 's/\([a-z]\)\([A-Z]\)/\1 \2/g')"
+	_str="${_str//_/ }"
+	_str="${_str//-/ }"
+	_str="${_str//./ }"
+	_str="${_str//\// }"
+	_str="${s,,}"
+	_string_camel_to_path_result="${_str// //}"
 }
 
 # PascalCase → plain
@@ -798,12 +798,12 @@ string::pascal_to_plain() {
 # Fast variant using nameref
 string::pascal_to_plain::fast() {
 	local -n _string_pascal_to_plain_result="$1"
-	local s="$2"
-	s="$(echo "$s" | sed 's/\([a-z]\)\([A-Z]\)/\1 \2/g')"
-	s="${s//_/ }"
-	s="${s//-/ }"
-	s="${s//./ }"
-	s="${s//\// }"
+	local _str="$2"
+	_str="$(echo "$_str" | sed 's/\([a-z]\)\([A-Z]\)/\1 \2/g')"
+	_str="${_str//_/ }"
+	_str="${_str//-/ }"
+	_str="${_str//./ }"
+	_str="${_str//\// }"
 	_string_pascal_to_plain_result="${s,,}"
 }
 
@@ -816,14 +816,14 @@ string::pascal_to_snake() {
 # Fast variant using nameref
 string::pascal_to_snake::fast() {
 	local -n _string_pascal_to_snake_result="$1"
-	local s="$2"
-	s="$(echo "$s" | sed 's/\([a-z]\)\([A-Z]\)/\1 \2/g')"
-	s="${s//_/ }"
-	s="${s//-/ }"
-	s="${s//./ }"
-	s="${s//\// }"
-	s="${s,,}"
-	_string_pascal_to_snake_result="${s// /_}"
+	local _str="$2"
+	_str="$(echo "$_str" | sed 's/\([a-z]\)\([A-Z]\)/\1 \2/g')"
+	_str="${_str//_/ }"
+	_str="${_str//-/ }"
+	_str="${_str//./ }"
+	_str="${_str//\// }"
+	_str="${s,,}"
+	_string_pascal_to_snake_result="${_str// /_}"
 }
 
 # PascalCase → kebab-case
@@ -835,14 +835,14 @@ string::pascal_to_kebab() {
 # Fast variant using nameref
 string::pascal_to_kebab::fast() {
 	local -n _string_pascal_to_kebab_result="$1"
-	local s="$2"
-	s="$(echo "$s" | sed 's/\([a-z]\)\([A-Z]\)/\1 \2/g')"
-	s="${s//_/ }"
-	s="${s//-/ }"
-	s="${s//./ }"
-	s="${s//\// }"
-	s="${s,,}"
-	_string_pascal_to_kebab_result="${s// /-}"
+	local _str="$2"
+	_str="$(echo "$_str" | sed 's/\([a-z]\)\([A-Z]\)/\1 \2/g')"
+	_str="${_str//_/ }"
+	_str="${_str//-/ }"
+	_str="${_str//./ }"
+	_str="${_str//\// }"
+	_str="${s,,}"
+	_string_pascal_to_kebab_result="${_str// /-}"
 }
 
 # PascalCase → camelCase
@@ -856,13 +856,13 @@ string::pascal_to_camel() {
 # Fast variant using nameref
 string::pascal_to_camel::fast() {
 	local -n _string_pascal_to_camel_result="$1"
-	local s="$2"
-	s="$(echo "$s" | sed 's/\([a-z]\)\([A-Z]\)/\1 \2/g')"
-	s="${s//_/ }"
-	s="${s//-/ }"
-	s="${s//./ }"
-	s="${s//\// }"
-	s="${s,,}"
+	local _str="$2"
+	_str="$(echo "$_str" | sed 's/\([a-z]\)\([A-Z]\)/\1 \2/g')"
+	_str="${_str//_/ }"
+	_str="${_str//-/ }"
+	_str="${_str//./ }"
+	_str="${_str//\// }"
+	_str="${s,,}"
 	local result="" first=true
 	for word in $s; do
 		if $first; then
@@ -882,14 +882,14 @@ string::pascal_to_constant() {
 # Fast variant using nameref
 string::pascal_to_constant::fast() {
 	local -n _string_pascal_to_constant_result="$1"
-	local s="$2"
-	s="$(echo "$s" | sed 's/\([a-z]\)\([A-Z]\)/\1 \2/g')"
-	s="${s//_/ }"
-	s="${s//-/ }"
-	s="${s//./ }"
-	s="${s//\// }"
-	s="${s,,}"
-	_string_pascal_to_constant_result="${s// /_}"
+	local _str="$2"
+	_str="$(echo "$_str" | sed 's/\([a-z]\)\([A-Z]\)/\1 \2/g')"
+	_str="${_str//_/ }"
+	_str="${_str//-/ }"
+	_str="${_str//./ }"
+	_str="${_str//\// }"
+	_str="${s,,}"
+	_string_pascal_to_constant_result="${_str// /_}"
 	_string_pascal_to_constant_result="${_string_pascal_to_constant_result^^}"
 }
 
@@ -902,14 +902,14 @@ string::pascal_to_dot() {
 # Fast variant using nameref
 string::pascal_to_dot::fast() {
 	local -n _string_pascal_to_dot_result="$1"
-	local s="$2"
-	s="$(echo "$s" | sed 's/\([a-z]\)\([A-Z]\)/\1 \2/g')"
-	s="${s//_/ }"
-	s="${s//-/ }"
-	s="${s//./ }"
-	s="${s//\// }"
-	s="${s,,}"
-	_string_pascal_to_dot_result="${s// /.}"
+	local _str="$2"
+	_str="$(echo "$_str" | sed 's/\([a-z]\)\([A-Z]\)/\1 \2/g')"
+	_str="${_str//_/ }"
+	_str="${_str//-/ }"
+	_str="${_str//./ }"
+	_str="${_str//\// }"
+	_str="${s,,}"
+	_string_pascal_to_dot_result="${_str// /.}"
 }
 
 # PascalCase → path/case
@@ -921,20 +921,20 @@ string::pascal_to_path() {
 # Fast variant using nameref
 string::pascal_to_path::fast() {
 	local -n _string_pascal_to_path_result="$1"
-	local s="$2"
-	s="$(echo "$s" | sed 's/\([a-z]\)\([A-Z]\)/\1 \2/g')"
-	s="${s//_/ }"
-	s="${s//-/ }"
-	s="${s//./ }"
-	s="${s//\// }"
-	s="${s,,}"
-	_string_pascal_to_path_result="${s// //}"
+	local _str="$2"
+	_str="$(echo "$_str" | sed 's/\([a-z]\)\([A-Z]\)/\1 \2/g')"
+	_str="${_str//_/ }"
+	_str="${_str//-/ }"
+	_str="${_str//./ }"
+	_str="${_str//\// }"
+	_str="${s,,}"
+	_string_pascal_to_path_result="${_str// //}"
 }
 
 # CONSTANT_CASE → plain
 string::constant_to_plain() {
 	local input; _string::read_input input "$@"
-	local s="${input//_/ }"
+	local _str="${input//_/ }"
 	echo "${s,,}"
 }
 
@@ -960,7 +960,7 @@ string::constant_to_snake::fast() {
 # CONSTANT_CASE → kebab-case
 string::constant_to_kebab() {
 	local input; _string::read_input input "$@"
-	local s="${input//_/-}"
+	local _str="${input//_/-}"
 	echo "${s,,}"
 }
 
@@ -1010,7 +1010,7 @@ string::constant_to_pascal::fast() {
 # CONSTANT_CASE → dot.case
 string::constant_to_dot() {
 	local input; _string::read_input input "$@"
-	local s="${input//_/.}"
+	local _str="${input//_/.}"
 	echo "${s,,}"
 }
 
@@ -1024,7 +1024,7 @@ string::constant_to_dot::fast() {
 # CONSTANT_CASE → path/case
 string::constant_to_path() {
 	local input; _string::read_input input "$@"
-	local s="${input//_//}"
+	local _str="${input//_//}"
 	echo "${s,,}"
 }
 
@@ -1108,7 +1108,7 @@ string::dot_to_pascal::fast() {
 # dot.case → CONSTANT_CASE
 string::dot_to_constant() {
 	local input; _string::read_input input "$@"
-	local s="${input//./_}"
+	local _str="${input//./_}"
 	echo "${s^^}"
 }
 
@@ -1208,7 +1208,7 @@ string::path_to_pascal::fast() {
 # path/case → CONSTANT_CASE
 string::path_to_constant() {
 	local input; _string::read_input input "$@"
-	local s="${input//\//_}"
+	local _str="${input//\//_}"
 	echo "${s^^}"
 }
 
@@ -1334,11 +1334,11 @@ string::substr() {
 # Usage: string::substr::fast result_var str start [length]
 string::substr::fast() {
 	local -n _string_substr_result="$1"
-	local s="$2" start="$3" len="${4:-}"
+	local _str="$2" start="$3" len="${4:-}"
 	if [[ -n "$len" ]]; then
-		_string_substr_result="${s:$start:$len}"
+		_string_substr_result="${_str:$start:$len}"
 	else
-		_string_substr_result="${s:$start}"
+		_string_substr_result="${_str:$start}"
 	fi
 }
 
@@ -1550,10 +1550,10 @@ string::pad_left() {
 # Usage: string::pad_left::fast result_var str width [char]
 string::pad_left::fast() {
 	local -n _string_pad_left_result="$1"
-	local s="$2" width="$3" char="${4:- }"
+	local _str="$2" width="$3" char="${4:- }"
 	local len="${#s}"
 	if ((len >= width)); then
-		_string_pad_left_result="$s"
+		_string_pad_left_result="$_str"
 		return
 	fi
 	local pad result=""
@@ -1581,10 +1581,10 @@ string::pad_right() {
 # Usage: string::pad_right::fast result_var str width [char]
 string::pad_right::fast() {
 	local -n _string_pad_right_result="$1"
-	local s="$2" width="$3" char="${4:- }"
+	local _str="$2" width="$3" char="${4:- }"
 	local len="${#s}"
 	if ((len >= width)); then
-		_string_pad_right_result="$s"
+		_string_pad_right_result="$_str"
 		return
 	fi
 	local result=""
@@ -1616,10 +1616,10 @@ string::pad_center() {
 # Usage: string::pad_center::fast result_var str width [char]
 string::pad_center::fast() {
 	local -n _string_pad_center_result="$1"
-	local s="$2" width="$3" char="${4:- }"
+	local _str="$2" width="$3" char="${4:- }"
 	local len="${#s}"
 	if ((len >= width)); then
-		_string_pad_center_result="$s"
+		_string_pad_center_result="$_str"
 		return
 	fi
 	local total=$((width - len))
@@ -1677,11 +1677,11 @@ string::truncate() {
 # Usage: string::truncate::fast result_var str max [suffix]
 string::truncate::fast() {
 	local -n _string_truncate_result="$1"
-	local s="$2" max="$3"
+	local _str="$2" max="$3"
 	local suffix
 
 	if ((${#s} <= max)); then
-		_string_truncate_result="$s"
+		_string_truncate_result="$_str"
 		return 0
 	fi
 
@@ -1690,7 +1690,7 @@ string::truncate::fast() {
 		_string_truncate_result="…"
 		return 0
 	elif ((max == 2)); then
-		_string_truncate_result="${s:0:1}…"
+		_string_truncate_result="${_str:0:1}…"
 		return 0
 	fi
 
@@ -1704,7 +1704,7 @@ string::truncate::fast() {
 		suffix="..."
 	fi
 
-	_string_truncate_result="${s:0:$available_chars}${suffix}"
+	_string_truncate_result="${_str:0:$available_chars}${suffix}"
 }
 
 # ==============================================================================
@@ -1782,9 +1782,9 @@ string::join::fast() {
 # Usage: string::url_encode str
 string::url_encode() {
 		local input; _string::read_input input "$@"
-		local s="$input" encoded="" i char hex
+		local _str="$input" encoded="" i char hex
 		for (( i=0; i<${#s}; i++ )); do
-				char="${s:$i:1}"
+				char="${_str:$i:1}"
 				case "$char" in
 						[a-zA-Z0-9.~_-]) encoded+="$char" ;;
 						*) printf -v hex '%02X' "'$char"
@@ -1798,9 +1798,9 @@ string::url_encode() {
 # Usage: string::url_encode::fast result_var str
 string::url_encode::fast() {
 		local -n _string_url_encode_result="$1"
-		local s="$2" encoded="" i char hex
+		local _str="$2" encoded="" i char hex
 		for (( i=0; i<${#s}; i++ )); do
-				char="${s:$i:1}"
+				char="${_str:$i:1}"
 				case "$char" in
 						[a-zA-Z0-9.~_-]) encoded+="$char" ;;
 						*) printf -v hex '%02X' "'$char"
@@ -1812,16 +1812,16 @@ string::url_encode::fast() {
 
 string::url_decode() {
 		local input; _string::read_input input "$@"
-		local s="${input//+/ }"  # replace + with space first
-		printf '%b\n' "${s//%/\\x}"
+		local _str="${input//+/ }"  # replace + with space first
+		printf '%b\n' "${_str//%/\\x}"
 }
 
 # Fast variant using nameref
 # Usage: string::url_decode::fast result_var str
 string::url_decode::fast() {
 		local -n _string_url_decode_result="$1"
-		local s="${2//+/ }"
-		_string_url_decode_result=$(printf '%b\n' "${s//%/\\x}")
+		local _str="${2//+/ }"
+		_string_url_decode_result=$(printf '%b\n' "${_str//%/\\x}")
 }
 
 # Base64 encode
@@ -1866,13 +1866,13 @@ string::base64_decode::fast() {
 
 string::base64_encode::pure() {
 		local input; _string::read_input input "$@"
-		local s="$input" out="" i a b c
+		local _str="$input" out="" i a b c
 		local _B64="ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/"
 
 		for (( i=0; i<${#s}; i+=3 )); do
-				a=$(printf '%d' "'${s:$i:1}")
-				b=$(( i+1 < ${#s} ? $(printf '%d' "'${s:$((i+1)):1}") : 0 ))
-				c=$(( i+2 < ${#s} ? $(printf '%d' "'${s:$((i+2)):1}") : 0 ))
+				a=$(printf '%d' "'${_str:$i:1}")
+				b=$(( i+1 < ${#s} ? $(printf '%d' "'${_str:$((i+1)):1}") : 0 ))
+				c=$(( i+2 < ${#s} ? $(printf '%d' "'${_str:$((i+2)):1}") : 0 ))
 
 				out+="${_B64:$(( (a >> 2) & 63 )):1}"
 				out+="${_B64:$(( ((a << 4) | (b >> 4)) & 63 )):1}"
@@ -1885,15 +1885,15 @@ string::base64_encode::pure() {
 
 string::base64_decode::pure() {
 		local input; _string::read_input input "$@"
-		local s="$input" i
+		local _str="$input" i
 		local -i a b c d byte1 byte2 byte3
 		local _B64="ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/"
 
 		# strip padding
-		s="${s//=}"
+		_str="${_str//=}"
 
 		for (( i=0; i<${#s}; i+=4 )); do
-				local c0="${s:$i:1}" c1="${s:$((i+1)):1}" c2="${s:$((i+2)):1}" c3="${s:$((i+3)):1}"
+				local c0="${_str:$i:1}" c1="${_str:$((i+1)):1}" c2="${_str:$((i+2)):1}" c3="${_str:$((i+3)):1}"
 				# Use case for reliable index lookup (avoids issues with +/ in patterns)
 				case "$c0" in A) a=0;; B) a=1;; C) a=2;; D) a=3;; E) a=4;; F) a=5;; G) a=6;; H) a=7;; I) a=8;; J) a=9;; K) a=10;; L) a=11;; M) a=12;; N) a=13;; O) a=14;; P) a=15;; Q) a=16;; R) a=17;; S) a=18;; T) a=19;; U) a=20;; V) a=21;; W) a=22;; X) a=23;; Y) a=24;; Z) a=25;; a) a=26;; b) a=27;; c) a=28;; d) a=29;; e) a=30;; f) a=31;; g) a=32;; h) a=33;; i) a=34;; j) a=35;; k) a=36;; l) a=37;; m) a=38;; n) a=39;; o) a=40;; p) a=41;; q) a=42;; r) a=43;; s) a=44;; t) a=45;; u) a=46;; v) a=47;; w) a=48;; x) a=49;; y) a=50;; z) a=51;; 0) a=52;; 1) a=53;; 2) a=54;; 3) a=55;; 4) a=56;; 5) a=57;; 6) a=58;; 7) a=59;; 8) a=60;; 9) a=61;; +) a=62;; /) a=63;; *) a=0;; esac
 				case "$c1" in A) b=0;; B) b=1;; C) b=2;; D) b=3;; E) b=4;; F) b=5;; G) b=6;; H) b=7;; I) b=8;; J) b=9;; K) b=10;; L) b=11;; M) b=12;; N) b=13;; O) b=14;; P) b=15;; Q) b=16;; R) b=17;; S) b=18;; T) b=19;; U) b=20;; V) b=21;; W) b=22;; X) b=23;; Y) b=24;; Z) b=25;; a) b=26;; b) b=27;; c) b=28;; d) b=29;; e) b=30;; f) b=31;; g) b=32;; h) b=33;; i) b=34;; j) b=35;; k) b=36;; l) b=37;; m) b=38;; n) b=39;; o) b=40;; p) b=41;; q) b=42;; r) b=43;; s) b=44;; t) b=45;; u) b=46;; v) b=47;; w) b=48;; x) b=49;; y) b=50;; z) b=51;; 0) b=52;; 1) b=53;; 2) b=54;; 3) b=55;; 4) b=56;; 5) b=57;; 6) b=58;; 7) b=59;; 8) b=60;; 9) b=61;; +) b=62;; /) b=63;; *) b=0;; esac
@@ -1966,14 +1966,14 @@ string::base32_decode::fast() {
 string::base32_encode::pure() {
 		local input; _string::read_input input "$@"
 		local _B32="ABCDEFGHIJKLMNOPQRSTUVWXYZ234567"
-		local s="$input" out="" i a b c d e
+		local _str="$input" out="" i a b c d e
 
 		for (( i=0; i<${#s}; i+=5 )); do
-				a=$(printf '%d' "'${s:$i:1}")
-				b=$(( i+1 < ${#s} ? $(printf '%d' "'${s:$((i+1)):1}") : 0 ))
-				c=$(( i+2 < ${#s} ? $(printf '%d' "'${s:$((i+2)):1}") : 0 ))
-				d=$(( i+3 < ${#s} ? $(printf '%d' "'${s:$((i+3)):1}") : 0 ))
-				e=$(( i+4 < ${#s} ? $(printf '%d' "'${s:$((i+4)):1}") : 0 ))
+				a=$(printf '%d' "'${_str:$i:1}")
+				b=$(( i+1 < ${#s} ? $(printf '%d' "'${_str:$((i+1)):1}") : 0 ))
+				c=$(( i+2 < ${#s} ? $(printf '%d' "'${_str:$((i+2)):1}") : 0 ))
+				d=$(( i+3 < ${#s} ? $(printf '%d' "'${_str:$((i+3)):1}") : 0 ))
+				e=$(( i+4 < ${#s} ? $(printf '%d' "'${_str:$((i+4)):1}") : 0 ))
 
 				out+="${_B32:$(( (a >> 3) & 31 )):1}"
 				out+="${_B32:$(( ((a << 2) | (b >> 6)) & 31 )):1}"
@@ -1990,15 +1990,15 @@ string::base32_encode::pure() {
 
 string::base32_decode::pure() {
 		local input; _string::read_input input "$@"
-		local s="${input//=}" i
+		local _str="${input//=}" i
 		local -i a b c d e f g h
 
 		# uppercase input since base32 alphabet is uppercase only
-		s="${s^^}"
+		_str="${s^^}"
 
 		for (( i=0; i<${#s}; i+=8 )); do
-				local c0="${s:$i:1}" c1="${s:$((i+1)):1}" c2="${s:$((i+2)):1}" c3="${s:$((i+3)):1}"
-				local c4="${s:$((i+4)):1}" c5="${s:$((i+5)):1}" c6="${s:$((i+6)):1}" c7="${s:$((i+7)):1}"
+				local c0="${_str:$i:1}" c1="${_str:$((i+1)):1}" c2="${_str:$((i+2)):1}" c3="${_str:$((i+3)):1}"
+				local c4="${_str:$((i+4)):1}" c5="${_str:$((i+5)):1}" c6="${_str:$((i+6)):1}" c7="${_str:$((i+7)):1}"
 				# Use case for reliable index lookup (base32 alphabet: A-Z, 2-7)
 				case "$c0" in A) a=0;; B) a=1;; C) a=2;; D) a=3;; E) a=4;; F) a=5;; G) a=6;; H) a=7;; I) a=8;; J) a=9;; K) a=10;; L) a=11;; M) a=12;; N) a=13;; O) a=14;; P) a=15;; Q) a=16;; R) a=17;; S) a=18;; T) a=19;; U) a=20;; V) a=21;; W) a=22;; X) a=23;; Y) a=24;; Z) a=25;; 2) a=26;; 3) a=27;; 4) a=28;; 5) a=29;; 6) a=30;; 7) a=31;; *) a=0;; esac
 				case "$c1" in A) b=0;; B) b=1;; C) b=2;; D) b=3;; E) b=4;; F) b=5;; G) b=6;; H) b=7;; I) b=8;; J) b=9;; K) b=10;; L) b=11;; M) b=12;; N) b=13;; O) b=14;; P) b=15;; Q) b=16;; R) b=17;; S) b=18;; T) b=19;; U) b=20;; V) b=21;; W) b=22;; X) b=23;; Y) b=24;; Z) b=25;; 2) b=26;; 3) b=27;; 4) b=28;; 5) b=29;; 6) b=30;; 7) b=31;; *) b=0;; esac
@@ -2098,9 +2098,9 @@ string::colon::add() {
 	IFS=: read -ra _arr <<< "$_value"
 
 	# Skip if already present
-	local _e
-	for _e in "${_arr[@]}"; do
-		[[ $_e == "$_dir" ]] && { echo "$_value"; return 0; }
+	local _entry
+	for _entry in "${_arr[@]}"; do
+		[[ $_entry == "$_dir" ]] && { echo "$_value"; return 0; }
 	done
 
 	case "$_pos" in

@@ -638,10 +638,10 @@ _pfloat::_ln_approx() {
 	fi
 
 	for ((i = 0; i < iterations; i++)); do
-		local ey num den delta
-		ey=$(_pfloat::_exp_approx "$y")
-		num=$(pfloat::fixed::mul "2" $(pfloat::fixed::sub "$x" "$ey"))
-		den=$(pfloat::fixed::add "$x" "$ey")
+		local _exp_y num den delta
+		_exp_y=$(_pfloat::_exp_approx "$y")
+		num=$(pfloat::fixed::mul "2" $(pfloat::fixed::sub "$x" "$_exp_y"))
+		den=$(pfloat::fixed::add "$x" "$_exp_y")
 		delta=$(pfloat::fixed::div "$num" "$den")
 		y=$(pfloat::fixed::add "$y" "$delta")
 	done

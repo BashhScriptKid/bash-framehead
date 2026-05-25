@@ -126,8 +126,8 @@ runtime::de() {
 				echo "none"; return
 		fi
 
-		local _s="${XDG_CURRENT_DESKTOP:-${DESKTOP_SESSION:-${GDMSESSION:-}}}"
-		case "${_s,,}" in
+		local _session="${XDG_CURRENT_DESKTOP:-${DESKTOP_SESSION:-${GDMSESSION:-}}}"
+		case "${_session,,}" in
 				*gnome*)    echo "gnome";    return ;;
 				*kde*)      echo "kde";      return ;;
 				*xfce*)     echo "xfce";     return ;;
@@ -165,8 +165,8 @@ runtime::wm() {
 				echo "none"; return
 		fi
 
-		local _s="${XDG_SESSION_DESKTOP:-}"
-		case "${_s,,}" in
+		local _session="${XDG_SESSION_DESKTOP:-}"
+		case "${_session,,}" in
 				*hyprland*) echo "hyprland"; return ;;
 				*sway*)     echo "sway";     return ;;
 				*wayfire*)  echo "wayfire";  return ;;
@@ -174,9 +174,9 @@ runtime::wm() {
 		esac
 
 		if runtime::has_command xprop && [[ -n "${DISPLAY:-}" ]]; then
-				local _n
-				_n=$(xprop -root -notype _NET_WM_NAME 2>/dev/null | sed 's/.*= *"//;s/".*//')
-				[[ -n "$_n" ]] && echo "${_n,,}" && return
+				local _wm_name
+				_wm_name=$(xprop -root -notype _NET_WM_NAME 2>/dev/null | sed 's/.*= *"//;s/".*//')
+				[[ -n "$_wm_name" ]] && echo "${_wm_name,,}" && return
 		fi
 
 		local -A _procs=(
@@ -316,8 +316,8 @@ runtime::is_minimum_bash() {
 
 # Internal: compare against Bash major.minor version (handles 5.1, 5.2, etc.)
 _runtime::min_bash() {
-		local maj=${1%.*} min=${1#*.}
-		(( BASH_VERSINFO[0] > maj || (BASH_VERSINFO[0] == maj && BASH_VERSINFO[1] >= min) ))
+		local _major=${1%.*} _minor=${1#*.}
+		(( BASH_VERSINFO[0] > _major || (BASH_VERSINFO[0] == _major && BASH_VERSINFO[1] >= _minor) ))
 }
 
 runtime::is_container() {
