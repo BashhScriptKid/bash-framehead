@@ -1152,12 +1152,13 @@ tester() {
 #
 #   compile_bare "json::" out.sh
 #
-#  1. Load all function definitions from src/ and ext/ into a map.
+#  1. Load all function definitions AND global variables from src/ and ext/.
 #  2. Seed candidates by matching function names against <pattern>.
-#  3. Iterate: scan candidate bodies for module::function calls,
-#     adding any found in the map that aren't already a candidate.
+#  3. Iterate: scan candidate bodies for module::function calls AND
+#     global-variable references, adding any found that aren't already
+#     a candidate.
 #  4. Stop when the candidate set stops growing.
-#  5. Emit candidates (with deps first) to output.
+#  5. Emit global vars first, then functions in dependency order.
 compile_bare() {
     local _pattern="${1:-}"
     local _output="${2:-bare.sh}"
@@ -1175,15 +1176,16 @@ compile_bare() {
         return 1
     }
 
-    # --- Step 1: load all functions from src/ and ext/ into a map ---
+    # --- Step 1: load all functions AND global variables ---
     local -A _cb_fn_body=()
-    local -A _cb_fn_file=()   # for ordering: which file each fn came from
-    local -a _cb_files=()     # preserve file order for output ordering
+    local -A _cb_fn_file=()
+    local -A _cb_global_var=()   # var_name → declaration line
+    local -a _cb_files=()
 
     local _cb_f
     while IFS= read -r -d '' _cb_f; do
         _cb_files+=("$_cb_f")
-        local _cb_content _cb_in_fn=false _cb_fn_name="" _cb_fn_body=""
+        local _cb_in_fn=false _cb_fn_name="" _cb_fn_body=""
         local _cb_line
         while IFS= read -r _cb_line; do
             # Detect function start: module::name() {
@@ -1193,17 +1195,45 @@ compile_bare() {
                 _cb_fn_body="$_cb_line"$'\n'
             elif $_cb_in_fn; then
                 _cb_fn_body+="$_cb_line"$'\n'
-                # Bare closing brace at the right indent level ends the function
                 if [[ "$_cb_line" == '}' ]]; then
                     _cb_fn_body["$_cb_fn_name"]="$_cb_fn_body"
                     _cb_fn_file["$_cb_fn_name"]="$_cb_f"
                     _cb_in_fn=false
                 fi
+            else
+                # Top-level: capture global variable declarations
+                # declare, readonly, or bare VAR=value assignments
+                if [[ "$_cb_line" =~ ^(declare\s|readonly\s|export\s) ]] || \
+                   [[ "$_cb_line" =~ ^([a-zA-Z_][a-zA-Z0-9_]*)= ]] || \
+                   [[ "$_cb_line" =~ ^([a-zA-Z_][a-zA-Z0-9_]*)\[\".*\"\] ]]; then
+                    local _cb_global_name="${BASH_REMATCH[1]}"
+                    _cb_global_name="${_cb_global_name%%=*}"
+                    _cb_global_name="${_cb_global_name%%[*}"
+                    _cb_global_name="${_cb_global_name#[[:space:]]}"
+                    # Strip leading keyword
+                    _cb_global_name="${_cb_global_name#declare }"
+                    _cb_global_name="${_cb_global_name#readonly }"
+                    _cb_global_name="${_cb_global_name#export }"
+                    _cb_global_name="${_cb_global_name#-a }"
+                    _cb_global_name="${_cb_global_name#-A }"
+                    _cb_global_name="${_cb_global_name#-i }"
+                    _cb_global_name="${_cb_global_name## }"
+                    if [[ -n "$_cb_global_name" ]] && [[ -z "${_cb_global_var[$_cb_global_name]:-}" ]]; then
+                        # Convert readonly → plain assignment for standalone reuse
+                        local _cb_gv_line="$_cb_line"
+                        _cb_gv_line="${_cb_gv_line#readonly }"
+                        _cb_gv_line="${_cb_gv_line#export }"
+                        # Only keep if it's an assignment (not just "declare name")
+                        if [[ "$_cb_gv_line" =~ = ]]; then
+                            _cb_global_var["$_cb_global_name"]="$_cb_gv_line"
+                        fi
+                    fi
+                fi
             fi
         done < "$_cb_f"
     done < <(find "$_src_dir" "$_ext_dir" -name '*.sh' -print0 2>/dev/null | sort -z)
 
-    echo "Loaded ${#_cb_fn_body[@]} functions from ${#_cb_files[@]} files." >&2
+    echo "Loaded ${#_cb_fn_body[@]} functions + ${#_cb_global_var[@]} globals from ${#_cb_files[@]} files." >&2
 
     # --- Step 2: seed candidates from pattern ---
     local -a _cb_candidates=()
@@ -1224,7 +1254,7 @@ compile_bare() {
         return 1
     fi
 
-    echo "Seed: ${#_cb_candidates[@]} functions matched '$_pattern'" >&2
+    echo "Seed: ${#_cb_candidates[@]} functions matched '$_pattern' (${#_cb_global_var[@]} globals loaded)" >&2
 
     # --- Step 3/4: fixed-point call-graph discovery ---
     local _cb_round=0 _cb_any_new=true
@@ -1241,48 +1271,73 @@ compile_bare() {
             # Find all module::function calls in the body
             local _cb_dep
             while IFS= read -r _cb_dep; do
-                # Skip if it's already a candidate or not in our function map
                 if [[ -n "${_cb_fn_body[$_cb_dep]:-}" ]] && ! _cb_in_array "$_cb_dep" "${_cb_candidates[@]}"; then
                     _cb_candidates+=("$_cb_dep")
                     _cb_any_new=true
                 fi
             done < <(echo "$_cb_body" | grep -oE '\b[a-zA-Z_][a-zA-Z0-9_]*::[a-zA-Z_][a-zA-Z0-9_:]*' | sort -u)
+
+            # Also scan for references to known global variables
+            if (( ${#_cb_global_var[@]} > 0 )); then
+                local _cb_gv
+                for _cb_gv in "${!_cb_global_var[@]}"; do
+                    # Skip very short names (too many false positives: $1, $a, etc.)
+                    [[ ${#_cb_gv} -le 2 ]] && continue
+                    # Check if body references this global: ${VAR}, $VAR, or bare VAR
+                    if [[ "$_cb_body" = *'${'_cb_gv'}'* ]] || \
+                       [[ "$_cb_body" = *'${'_cb_gv':'* ]] || \
+                       [[ "$_cb_body" = *'${'_cb_gv'['* ]] || \
+                       [[ "$_cb_body" = *'$'_cb_gv* ]] || \
+                       [[ "$_cb_body" =~ (^|[^a-zA-Z0-9_])${_cb_gv}([^a-zA-Z0-9_]|$) ]]; then
+                        if ! _cb_in_array "_cb_global_var:$_cb_gv" "${_cb_candidates[@]}"; then
+                            _cb_candidates+=("_cb_global_var:$_cb_gv")
+                            _cb_any_new=true
+                        fi
+                    fi
+                done
+            fi
         done
     done
 
     echo "Round $_cb_round: ${#_cb_candidates[@]} total functions (dependencies resolved)" >&2
 
-    # --- Step 5: emit in file-order, dependencies first ---
-    # Sort candidates so dependencies appear before their callers.
-    # Simple approach: emit by file (src/ first, then ext/), within each file
-    # the functions appear in order of discovery (deps tend to come early).
-
-    # Build a dependency-ordered list:
-    # 1. Start with runtime.sh functions (universal deps)
-    # 2. Add src/ functions not yet emitted
-    # 3. Add ext/ functions not yet emitted
+    # --- Step 5: emit globals first, then functions in dependency order ---
     local -A _cb_emitted=()
     {
         echo '#!/usr/bin/env bash'
         echo "# Generated by compile_bare '$1'"
         echo "# $(date -u +'%Y-%m-%dT%H:%M:%SZ')"
-        echo "# ${#_cb_candidates[@]} functions"
+        echo "# ${#_cb_candidates[@]} total (functions + globals)"
 
+        # Emit discovered global variables first
+        local _cb_cand
+        for _cb_cand in "${_cb_candidates[@]}"; do
+            if [[ "$_cb_cand" == _cb_global_var:* ]]; then
+                local _cb_gv_name="${_cb_cand#_cb_global_var:}"
+                if [[ -z "${_cb_emitted[$_cb_cand]:-}" ]] && [[ -n "${_cb_global_var[$_cb_gv_name]:-}" ]]; then
+                    _cb_emitted["$_cb_cand"]=1
+                    echo "${_cb_global_var[$_cb_gv_name]}"
+                fi
+            fi
+        done
+
+        # Then emit functions: runtime.sh deps first, then src/, then ext/
         local _cb_pass _cb_fn _cb_file
         for _cb_pass in runtime src ext; do
-            for _cb_fn in "${_cb_candidates[@]}"; do
+            for _cb_cand in "${_cb_candidates[@]}"; do
+                [[ "$_cb_cand" == _cb_global_var:* ]] && continue
+                _cb_fn="$_cb_cand"
                 _cb_file="${_cb_fn_file[$_cb_fn]:-}"
                 if [[ -n "${_cb_emitted[$_cb_fn]:-}" ]]; then
                     continue
                 fi
                 _cb_emitted["$_cb_fn"]=1
-                # Only emit function body (no shebang, no file-level comments)
                 echo "${_cb_fn_body[$_cb_fn]}"
             done
         done
     } > "$_output"
 
-    echo "Wrote $_output (${#_cb_candidates[@]} functions)" >&2
+    echo "Wrote $_output (${#_cb_candidates[@]} total: functions + globals)" >&2
 }
 
 if [[ ${1,,} == "compile" ]]; then
