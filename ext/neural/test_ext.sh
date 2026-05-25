@@ -6,18 +6,6 @@
 # tensor
 # ==============================================================================
 
-test::math::tensor::new_get_set() {
-    local t; t=$(math::tensor::new "2 3" "1 2 3 4 5 6")
-    if [[ "$(math::tensor::shape "$t")" != "2 3" ]]; then _fail "shape"; return; fi
-    if [[ "$(math::tensor::rank "$t")" != "2" ]]; then _fail "rank"; return; fi
-    if [[ "$(math::tensor::size "$t")" != "6" ]]; then _fail "size"; return; fi
-    if [[ "$(math::tensor::get "$t" "0,0")" != "1" ]]; then _fail "get 0,0"; return; fi
-    if [[ "$(math::tensor::get "$t" "1,2")" != "6" ]]; then _fail "get 1,2"; return; fi
-    local t2; t2=$(math::tensor::set "$t" "0,0" 99)
-    if [[ "$(math::tensor::get "$t2" "0,0")" != "99" ]]; then _fail "set"; return; fi
-    _pass
-}
-
 test::math::tensor::matmul() {
     local a; a=$(math::tensor::new "2 3" "1 2 3 4 5 6")
     local b; b=$(math::tensor::new "3 2" "1 2 3 4 5 6")

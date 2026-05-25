@@ -109,3 +109,19 @@ test::yaml::global() {
 
     _sub_done
 }
+
+test::yaml::get_file() {
+    declare -f 'json::get' &>/dev/null || { _skip "json extension required"; return; }
+    local _tmp="/tmp/fsbshf-test-yaml-getfile-$$.yaml"
+    printf 'server:\n  host: localhost\n  port: 8080\n' > "$_tmp"
+    local v; v=$(yaml::get_file "$_tmp" "server.host")
+    rm -f "$_tmp"
+    if [[ "$v" == "localhost" ]]; then _pass; else _fail "got: $v"; fi
+}
+
+test::yaml::keys() {
+    declare -f 'json::keys' &>/dev/null || { _skip "json extension required"; return; }
+    local yaml=$'server:\n  host: localhost\ndatabase:\n  host: db.local'
+    local keys; keys=$(yaml::keys "$yaml")
+    if [[ "$keys" == *"server"* && "$keys" == *"database"* ]]; then _pass; else _fail "keys: $keys"; fi
+}

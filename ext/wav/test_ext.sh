@@ -53,13 +53,13 @@ test::wav::parse_header() {
 # ==============================================================================
 
 test::wav::read() {
-    local tmp
+    local tmp s
+
+    # sequential s16le reads
     tmp=$(mktemp "/tmp/fsbshf-wav-test.XXXXXX")
     wav::write::sample s16le 0 >> "$tmp"
     wav::write::sample s16le -1 >> "$tmp"
     wav::write::sample s16le 32767 >> "$tmp"
-
-    # Use a single fd so reads advance sequentially
     local s0 s1 s2
     exec 3< "$tmp"
     s0=$(wav::read s16le <&3)
@@ -69,33 +69,25 @@ test::wav::read() {
     if [[ "$s0" != "0" ]]; then _fail "s0: $s0"; rm -f "$tmp"; return; fi
     if [[ "$s1" != "-1" ]]; then _fail "s1: $s1"; rm -f "$tmp"; return; fi
     if [[ "$s2" != "32767" ]]; then _fail "s2: $s2"; rm -f "$tmp"; return; fi
-    _pass
     rm -f "$tmp"
-}
 
-test::wav::read::skip() {
-    local tmp
+    # skip parameter
     tmp=$(mktemp "/tmp/fsbshf-wav-test.XXXXXX")
     wav::write::sample s16le 100 >> "$tmp"
     wav::write::sample s16le 200 >> "$tmp"
     wav::write::sample s16le 300 >> "$tmp"
-
-    local s
-    s=$(wav::read s16le 1 < "$tmp")  # skip first, read second
-    if [[ "$s" != "200" ]]; then _fail "skip 1: $s (expected 200)"; rm -f "$tmp"; return; fi
-    _pass
+    s=$(wav::read s16le 1 < "$tmp")
+    if [[ "$s" != "200" ]]; then _fail "skip: $s (expected 200)"; rm -f "$tmp"; return; fi
     rm -f "$tmp"
-}
 
-test::wav::read::u8() {
-    local tmp
+    # u8 encoding
     tmp=$(mktemp "/tmp/fsbshf-wav-test.XXXXXX")
     wav::write::sample u8 128 >> "$tmp"
-
-    local s; s=$(wav::read u8 < "$tmp")
+    s=$(wav::read u8 < "$tmp")
     if [[ "$s" != "128" ]]; then _fail "u8: $s (expected 128)"; rm -f "$tmp"; return; fi
-    _pass
     rm -f "$tmp"
+
+    _pass
 }
 
 # ==============================================================================

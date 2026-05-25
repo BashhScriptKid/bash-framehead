@@ -1,86 +1,62 @@
 #!/usr/bin/env bash
 # test_ext.sh — ext/toml test suite
 
-test::toml::to_json::basic() {
+test::toml::to_json() {
+    local json
+
+    # basic types
     local toml='name = "test"
 port = 3000
 debug = true
 pi = 3.14
 label = "null"'
-
-    local json
     json="$(toml::to_json "$toml")"
     _assert_contains "string" '"name":"test"'   "$json"
     _assert_contains "int"    '"port":3000'     "$json"
     _assert_contains "bool"   '"debug":true'    "$json"
     _assert_contains "float"  '"pi":3.14'       "$json"
     _assert_contains "null"   '"label":"null"'  "$json"
-    _sub_done
-}
 
-test::toml::to_json::tables() {
-    local toml='[db]
+    # tables
+    toml='[db]
 host = "localhost"
 port = 5432
 
 [cache]
 enabled = true'
-
-    local json
     json="$(toml::to_json "$toml")"
     _assert_contains "db host"  '"host":"localhost"' "$json"
     _assert_contains "db port"  '"port":5432'        "$json"
     _assert_contains "cache"    '"enabled":true'     "$json"
-    _sub_done
-}
 
-test::toml::to_json::nested() {
-    local toml='[a.b.c]
-key = "deep"'
-
-    local json
-    json="$(toml::to_json "$toml")"
+    # nested
+    json="$(toml::to_json '[a.b.c]'$'\n''key = "deep"')"
     _assert_contains "deep" '"key":"deep"' "$json"
-    _sub_done
-}
 
-test::toml::to_json::dotted() {
-    local toml='db.host = "localhost"
-db.port = 5432'
-
-    local json
-    json="$(toml::to_json "$toml")"
+    # dotted keys
+    json="$(toml::to_json 'db.host = "localhost"'$'\n''db.port = 5432')"
     _assert_contains "host" '"host":"localhost"' "$json"
     _assert_contains "port" '"port":5432'        "$json"
-    _sub_done
-}
 
-test::toml::to_json::inline_table() {
-    local json
+    # inline table
     json="$(toml::to_json 'point = {x = 1, y = 2}')"
     _assert_contains "x" '"x":1' "$json"
     _assert_contains "y" '"y":2' "$json"
-    _sub_done
-}
 
-test::toml::to_json::array() {
-    local json
+    # array
     json="$(toml::to_json 'ports = [8080, 8081, 8082]')"
     _assert_contains "array" '"ports":[8080,8081,8082]' "$json"
-    _sub_done
-}
 
-test::toml::to_json::mixed() {
-    local toml='name = "test"
+    # mixed root + table
+    toml='name = "test"
 [db]
 host = "localhost"
 port = 5432'
-
-    local json
     json="$(toml::to_json "$toml")"
     _assert_contains "root"  '"name":"test"'    "$json"
     _assert_contains "db"    '"db":{'           "$json"
     _assert_contains "host"  '"host":"localhost"' "$json"
+
     _sub_done
 }
 
@@ -125,3 +101,20 @@ bin = 0b1010')"
 
     _sub_done
 }
+
+test::toml::get_file() {
+    declare -f 'json::get' &>/dev/null || { _skip "json extension required"; return; }
+    local _tmp="/tmp/fsbshf-test-toml-getfile-$$.toml"
+    printf '[db]\nhost = "localhost"\n' > "$_tmp"
+    local v; v=$(toml::get_file "$_tmp" "db.host")
+    rm -f "$_tmp"
+    if [[ "$v" == "localhost" ]]; then _pass; else _fail "got: $v"; fi
+}
+
+test::toml::keys() {
+    declare -f 'json::keys' &>/dev/null || { _skip "json extension required"; return; }
+    local toml=$'[db]\nhost = "localhost"\n[cache]\nhost = "redis"'
+    local keys; keys=$(toml::keys "$toml")
+    if [[ "$keys" == *"db"* && "$keys" == *"cache"* ]]; then _pass; else _fail "keys: $keys"; fi
+}
+

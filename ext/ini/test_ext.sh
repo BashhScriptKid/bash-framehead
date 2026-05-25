@@ -147,3 +147,23 @@ key=yes'
 
     _sub_done
 }
+
+test::ini::set() {
+    local ini=$'[db]\nhost=localhost\n'
+    local out; out=$(ini::set "$ini" "port" "5432" "db")
+    _assert_contains "set new key" "port" "$out"
+    _assert_contains "set new key value" "5432" "$out"
+
+    local out2; out2=$(ini::set "$ini" "host" "newhost" "db")
+    _assert_contains "set existing key" "newhost" "$out2"
+
+    local out3; out3=$(ini::set "$ini" "global_key" "gval")
+    _assert_contains "set global" "gval" "$out3"
+    _sub_done
+}
+
+test::ini::remove() {
+    local ini=$'[db]\nhost=localhost\nport=5432\n'
+    local out; out=$(ini::remove "$ini" "port" "db")
+    if [[ "$out" != *"port"* ]]; then _pass; else _fail "port not removed"; fi
+}

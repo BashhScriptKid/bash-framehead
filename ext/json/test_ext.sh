@@ -93,3 +93,112 @@ test::json::global() {
 
     _sub_done
 }
+
+test::json::validate() {
+    if json::validate '{"a":1}'; then _pass; else _fail "valid json rejected"; fi
+}
+
+test::json::kv() {
+    local j='{"name":"Alice","age":30,"scores":[90,95,100]}'
+    json::kv "$j"
+    local ok=0
+    [[ -n "${_json_kv_root:-}" ]] && ok=1
+    if (( ok )); then _pass; else _fail "kv context not set"; fi
+}
+
+test::json::kv::keys() {
+    local j='{"name":"Alice","age":30}'
+    json::kv "$j"
+    local out; out=$(json::kv::keys)
+    if [[ "$out" == *"name"* && "$out" == *"age"* ]]; then _pass; else _fail "keys: $out"; fi
+}
+
+test::json::kv::keys::exists() {
+    local j='{"name":"Alice","age":30}'
+    json::kv "$j"
+    if json::kv::keys::exists "name"; then _pass; else _fail "name not found"; fi
+}
+
+test::json::kv::keys::remove() {
+    local j='{"name":"Alice","age":30}'
+    json::kv "$j"
+    json::kv::keys::remove "age"
+    local out; out=$(json::kv::keys)
+    if [[ "$out" != *"age"* ]]; then _pass; else _fail "age not removed: $out"; fi
+}
+
+test::json::kv::keys::rename() {
+    local j='{"name":"Alice","age":30}'
+    json::kv "$j"
+    json::kv::keys::rename "age" "years"
+    local out; out=$(json::kv::keys)
+    if [[ "$out" == *"years"* && "$out" != *"age"* ]]; then _pass; else _fail "rename failed: $out"; fi
+}
+
+test::json::kv::value::get() {
+    local j='{"name":"Alice","age":30}'
+    json::kv "$j"
+    local v; v=$(json::kv::value::get "name")
+    _assert "get name" "Alice" "$v"
+    _sub_done
+}
+
+test::json::kv::value::set() {
+    local j='{"name":"Alice"}'
+    json::kv "$j"
+    json::kv::value::set "age" "30"
+    local v; v=$(json::kv::value::get "age")
+    _assert "set age" "30" "$v"
+    _sub_done
+}
+
+test::json::kv::value::type() {
+    local j='{"name":"Alice","age":30,"active":true,"tags":null}'
+    json::kv "$j"
+    _assert "type string"  "string"  "$(json::kv::value::type "name")"
+    _assert "type number"  "number"  "$(json::kv::value::type "age")"
+    _assert "type boolean" "boolean" "$(json::kv::value::type "active")"
+    _assert "type null"    "null"    "$(json::kv::value::type "tags")"
+    _sub_done
+}
+
+test::json::kv::count() {
+    local j='{"a":1,"b":2,"c":3}'
+    json::kv "$j"
+    _assert "count 3" "3" "$(json::kv::count)"
+    _sub_done
+}
+
+test::json::kv::list() {
+    local j='{"name":"Alice","age":30}'
+    json::kv "$j"
+    local out; out=$(json::kv::list)
+    if [[ -n "$out" ]]; then _pass; else _fail "empty list"; fi
+}
+
+test::json::kv::at() {
+    local j='{"user":{"name":"Alice","scores":[90,95]}}'
+    json::kv "$j"
+    json::kv::at "user"
+    local v; v=$(json::kv::value::get "name")
+    _assert "nested get" "Alice" "$v"
+    _sub_done
+}
+
+test::json::kv::parent() {
+    local j='{"user":{"name":"Alice"}}'
+    json::kv "$j"
+    json::kv::at "user"
+    json::kv::parent
+    local out; out=$(json::kv::keys)
+    if [[ "$out" == *"user"* ]]; then _pass; else _fail "parent failed: $out"; fi
+}
+
+test::json::kv::root() {
+    local j='{"user":{"name":"Alice"}}'
+    json::kv "$j"
+    json::kv::at "user"
+    json::kv::root
+    local out; out=$(json::kv::keys)
+    if [[ "$out" == *"user"* ]]; then _pass; else _fail "root failed: $out"; fi
+}

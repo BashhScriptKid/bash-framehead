@@ -80,3 +80,25 @@ test::dotenv::global() {
 
     _sub_done
 }
+
+test::dotenv::load() {
+    local _tmp="/tmp/fsbshf-test-dotenv-load-$$.env"
+    printf 'TEST_HOST=localhost\nTEST_PORT=8080\n' > "$_tmp"
+    dotenv::load "$_tmp"
+    local ok=0
+    [[ "${TEST_HOST:-}" == "localhost" ]] && [[ "${TEST_PORT:-}" == "8080" ]] && ok=1
+    rm -f "$_tmp"
+    unset TEST_HOST TEST_PORT 2>/dev/null || true
+    if (( ok )); then _pass; else _fail "vars not loaded"; fi
+}
+
+test::dotenv::load_assoc() {
+    local _tmp="/tmp/fsbshf-test-dotenv-loadassoc-$$.env"
+    printf 'DB_HOST=db.local\nDB_PORT=5432\n' > "$_tmp"
+    local -A cfg
+    dotenv::load_assoc "$_tmp" cfg
+    local ok=0
+    [[ "${cfg[DB_HOST]:-}" == "db.local" ]] && [[ "${cfg[DB_PORT]:-}" == "5432" ]] && ok=1
+    rm -f "$_tmp"
+    if (( ok )); then _pass; else _fail "assoc not loaded"; fi
+}

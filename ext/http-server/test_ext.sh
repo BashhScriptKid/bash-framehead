@@ -390,3 +390,20 @@ test::http::global() {
 
     _sub_done
 }
+
+test::http::header::get() {
+    http::parse_request <<< $'GET / HTTP/1.1\r\nHost: localhost\r\nX-Custom: testval\r\n\r\n'
+    local v; v=$(http::header::get "host")
+    _assert "host header" "localhost" "$v"
+    local v2; v2=$(http::header::get "x-custom")
+    _assert "custom header" "testval" "$v2"
+    local v3; v3=$(http::header::get "missing-header")
+    _assert "missing header" "" "$v3"
+    _sub_done
+}
+
+test::http::html_encode() {
+    local out; out=$(http::html_encode '<script>alert("xss")</script>')
+    _assert "html encode" '&lt;script&gt;alert(&quot;xss&quot;)&lt;/script&gt;' "$out"
+    _sub_done
+}

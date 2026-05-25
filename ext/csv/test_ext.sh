@@ -151,3 +151,32 @@ test::csv::global() {
 
     _sub_done
 }
+
+test::csv::col() {
+    local _csv=$'name,age,city\nAlice,30,NYC\nBob,25,LA'
+    local out; out=$(csv::col "$_csv" "name")
+    _assert "col by name" $'Alice\nBob' "$out"
+
+    local out2; out2=$(csv::col "$_csv" 1)
+    _assert "col by index" $'30\n25' "$out2"
+
+    CSV_NOHEADER=1
+    local out3; out3=$(csv::col "a,b,c" 0)
+    _assert "col noheader" $'a' "$out3"
+    unset CSV_NOHEADER
+    _sub_done
+}
+
+test::csv::to_json() {
+    local _csv=$'name,age\nAlice,30\nBob,25'
+    local json; json=$(csv::to_json "$_csv")
+    _assert_contains "json array open" "[" "$json"
+    _assert_contains "json name key" '"name"' "$json"
+    _assert_contains "json value" '"Alice"' "$json"
+
+    CSV_NOHEADER=1
+    local json2; json2=$(csv::to_json $'a,b\nc,d')
+    _assert_contains "noheader array" '[["a","b"],["c","d"]]' "$json2"
+    unset CSV_NOHEADER
+    _sub_done
+}
