@@ -18,10 +18,10 @@ body=$(cat <<BODY
 <section>
 <h2>Parsed Fields</h2>
 <table>
-  <tr><th>Field</th><th>Value</th></tr>
-  <tr><td>name</td><td><code>${name}</code></td></tr>
-  <tr><td>email</td><td><code>${email}</code></td></tr>
-  <tr><td>message</td><td><code>${message}</code></td></tr>
+	<tr><th>Field</th><th>Value</th></tr>
+	<tr><td>name</td><td><code>${name}</code></td></tr>
+	<tr><td>email</td><td><code>${email}</code></td></tr>
+	<tr><td>message</td><td><code>${message}</code></td></tr>
 </table>
 </section>
 

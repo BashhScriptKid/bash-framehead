@@ -22,11 +22,11 @@ body=$(cat <<BODY
 <section>
 <h2>Upload Details</h2>
 <table>
-  <tr><th>Field</th><th>Value</th></tr>
-  <tr><td>description</td><td><code>${description}</code></td></tr>
-  <tr><td>filename</td><td><code>${filename}</code></td></tr>
-  <tr><td>content-type</td><td><code>${filetype}</code></td></tr>
-  <tr><td>size</td><td><code>${filesize} bytes</code></td></tr>
+	<tr><th>Field</th><th>Value</th></tr>
+	<tr><td>description</td><td><code>${description}</code></td></tr>
+	<tr><td>filename</td><td><code>${filename}</code></td></tr>
+	<tr><td>content-type</td><td><code>${filetype}</code></td></tr>
+	<tr><td>size</td><td><code>${filesize} bytes</code></td></tr>
 </table>
 </section>
 

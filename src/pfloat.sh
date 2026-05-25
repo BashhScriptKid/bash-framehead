@@ -1030,6 +1030,7 @@ pfloat::ieee754::add() {
 }
 
 # IEEE 754: Subtraction (uses addition with negated operand)
+# Usage: pfloat::ieee754::sub bits_a bits_b
 pfloat::ieee754::sub() {
 	local a="$1" b="$2"
 	# Flip sign bit of b and add
@@ -1038,6 +1039,7 @@ pfloat::ieee754::sub() {
 }
 
 # IEEE 754: Multiplication
+# Usage: pfloat::ieee754::mul bits_a bits_b
 pfloat::ieee754::mul() {
 	local a="$1" b="$2"
 
@@ -1105,6 +1107,7 @@ pfloat::ieee754::mul() {
 }
 
 # IEEE 754: Division
+# Usage: pfloat::ieee754::div bits_a bits_b
 pfloat::ieee754::div() {
 	local a="$1" b="$2"
 
@@ -1180,6 +1183,7 @@ pfloat::ieee754::div() {
 }
 
 # IEEE 754: Square root (Newton-Raphson iteration)
+# Usage: pfloat::ieee754::sqrt bits
 pfloat::ieee754::sqrt() {
 	local a="$1"
 
@@ -1227,6 +1231,7 @@ pfloat::ieee754::eq() {
 	((abs_a == abs_b))
 }
 
+# IEEE 754: Not-equal comparison
 pfloat::ieee754::ne() {
 	local a="$1" b="$2"
 	local abs_a=$((a & ~9223372036854775808))
@@ -1234,6 +1239,7 @@ pfloat::ieee754::ne() {
 	((abs_a != abs_b))
 }
 
+# IEEE 754: Less-than comparison
 pfloat::ieee754::lt() {
 	local a="$1" b="$2"
 	local sign_a=$(_ieee754::get_sign "$a")
@@ -1250,44 +1256,52 @@ pfloat::ieee754::lt() {
 	fi
 }
 
+# IEEE 754: Less-than-or-equal comparison
 pfloat::ieee754::le() {
 	local a="$1" b="$2"
 	pfloat::ieee754::lt "$a" "$b" || pfloat::ieee754::eq "$a" "$b"
 }
 
+# IEEE 754: Greater-than comparison
 pfloat::ieee754::gt() {
 	local a="$1" b="$2"
 	! pfloat::ieee754::le "$a" "$b"
 }
 
+# IEEE 754: Greater-than-or-equal comparison
 pfloat::ieee754::ge() {
 	local a="$1" b="$2"
 	! pfloat::ieee754::lt "$a" "$b"
 }
 
-# IEEE 754: Classification
+# IEEE 754: Check if value is NaN
 pfloat::ieee754::is_nan() {
 	_ieee754::is_nan "$1"
 }
 
+# IEEE 754: Check if value is Infinity
 pfloat::ieee754::is_inf() {
 	_ieee754::is_inf "$1"
 }
 
+# IEEE 754: Check if value is finite (not NaN, not Inf)
 pfloat::ieee754::is_finite() {
 	local exp=$(_ieee754::get_exp "$1")
 	((exp < 2047))
 }
 
+# IEEE 754: Check if value is zero (+0 or -0)
 pfloat::ieee754::is_zero() {
 	_ieee754::is_zero "$1"
 }
 
+# IEEE 754: Check if value is negative
 pfloat::ieee754::is_negative() {
 	local sign=$(_ieee754::get_sign "$1")
 	((sign == 1))
 }
 
+# IEEE 754: Check if value is positive (non-zero, non-negative)
 pfloat::ieee754::is_positive() {
 	local bits="$1"
 	local sign=$(_ieee754::get_sign "$bits")
@@ -1295,11 +1309,13 @@ pfloat::ieee754::is_positive() {
 }
 
 # IEEE 754: Negation
+# Usage: pfloat::ieee754::neg bits
 pfloat::ieee754::neg() {
 	echo $(( $1 ^ 9223372036854775808 ))
 }
 
 # IEEE 754: Absolute value
+# Usage: pfloat::ieee754::abs bits
 pfloat::ieee754::abs() {
 	echo $(( $1 & ~9223372036854775808 ))
 }

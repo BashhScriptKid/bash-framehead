@@ -15,23 +15,23 @@ DATA_DIR="${JSON_BENCH_DIR:-/tmp/json-bench}"
 mkdir -p "$DATA_DIR"
 
 download() {
-    local url="$1" file="$2"
-    local dest="$DATA_DIR/$file"
-    if [[ -f "$dest" ]]; then
-        echo "  [cached] $file"
-        return
-    fi
-    echo "  downloading $file (${3:-unknown})..."
-    curl -sSL "$url" -o "$dest" || { echo "  FAILED to download $file"; rm -f "$dest"; }
+		local url="$1" file="$2"
+		local dest="$DATA_DIR/$file"
+		if [[ -f "$dest" ]]; then
+				echo "  [cached] $file"
+				return
+		fi
+		echo "  downloading $file (${3:-unknown})..."
+		curl -sSL "$url" -o "$dest" || { echo "  FAILED to download $file"; rm -f "$dest"; }
 }
 
 echo "=== Preparing JSON benchmark data ==="
 download "https://raw.githubusercontent.com/miloyip/nativejson-benchmark/master/data/canada.json" \
-        "canada.json" "2.2 MB"
+				"canada.json" "2.2 MB"
 download "https://raw.githubusercontent.com/miloyip/nativejson-benchmark/master/data/citm_catalog.json" \
-        "citm_catalog.json" "1.7 MB"
+				"citm_catalog.json" "1.7 MB"
 download "https://raw.githubusercontent.com/miloyip/nativejson-benchmark/master/data/twitter.json" \
-        "twitter.json" "632 KB"
+				"twitter.json" "632 KB"
 
 # ---- Load framework and extension ----
 source "$SCRIPT_DIR/../../bash-framehead.sh"
@@ -67,15 +67,15 @@ r=$(_get '{"k":"é"}' k);      [[ "$r" == 'é' ]]     && check_pass || check_fai
 
 echo "--- Numbers: valid ---"
 for num in 0 42 -17 3.14 -0.5 1e10 1E5 1e-5 1.5e2 0.5 0e0 1E+5; do
-    r="$(json::get "{\"k\":$num}" k 2>/dev/null)"
-    [[ "$r" == "$num" ]] && check_pass || check_fail "valid $num: got [$r]"
+		r="$(json::get "{\"k\":$num}" k 2>/dev/null)"
+		[[ "$r" == "$num" ]] && check_pass || check_fail "valid $num: got [$r]"
 done
 
 echo "--- Numbers: invalid (must reject) ---"
 for num in 01 +1 1. 1e - 1.2.3 1e+ 00 .5 -.5 1e1.5; do
-    json::get "{\"k\":$num}" k >/dev/null 2>&1 \
-        && check_fail "invalid '$num' was accepted" \
-        || check_pass
+		json::get "{\"k\":$num}" k >/dev/null 2>&1 \
+				&& check_fail "invalid '$num' was accepted" \
+				|| check_pass
 done
 
 echo "--- Literals ---"
@@ -128,113 +128,113 @@ command -v jq &>/dev/null && HAS_JQ=1
 timer() { date +%s%3N 2>/dev/null || printf '%d' $(( $(printf '%(%s)T' -1) * 1000 )); }
 
 bench_file() {
-    local label="$1" file="$2"
-    local json t0 t1 result
+		local label="$1" file="$2"
+		local json t0 t1 result
 
-    json="$(< "$file")"
-    local size_kb=$(( ${#json} / 1024 ))
+		json="$(< "$file")"
+		local size_kb=$(( ${#json} / 1024 ))
 
-    echo ""
-    echo "--- $label ($size_kb KB) ---"
+		echo ""
+		echo "--- $label ($size_kb KB) ---"
 
-    # Discover a sample key and structure
-    local root_type
-    root_type="$(json::type "$json" '')"
-    echo "  root type: $root_type"
+		# Discover a sample key and structure
+		local root_type
+		root_type="$(json::type "$json" '')"
+		echo "  root type: $root_type"
 
-    local sample_key="" sample_path=""
-    if [[ "$root_type" == "object" ]]; then
-        sample_key="$(json::keys "$json" '' | head -1)"
-        sample_path="$sample_key"
-        local key_type
-        key_type="$(json::type "$json" "$sample_key")"
-        echo "  sample key: '$sample_key' (type: $key_type)"
-        # If it's an object, find a nested key
-        if [[ "$key_type" == "object" ]]; then
-            local nested
-            nested="$(json::keys "$json" "$sample_key" | head -1)"
-            sample_path="$sample_key.$nested"
-        elif [[ "$key_type" == "array" ]]; then
-            sample_path="$sample_key.0"
-        fi
-    elif [[ "$root_type" == "array" ]]; then
-        sample_path="0"
-        local arr_len
-        arr_len="$(json::len "$json" '')"
-        echo "  array length: $arr_len"
-    fi
+		local sample_key="" sample_path=""
+		if [[ "$root_type" == "object" ]]; then
+				sample_key="$(json::keys "$json" '' | head -1)"
+				sample_path="$sample_key"
+				local key_type
+				key_type="$(json::type "$json" "$sample_key")"
+				echo "  sample key: '$sample_key' (type: $key_type)"
+				# If it's an object, find a nested key
+				if [[ "$key_type" == "object" ]]; then
+						local nested
+						nested="$(json::keys "$json" "$sample_key" | head -1)"
+						sample_path="$sample_key.$nested"
+				elif [[ "$key_type" == "array" ]]; then
+						sample_path="$sample_key.0"
+				fi
+		elif [[ "$root_type" == "array" ]]; then
+				sample_path="0"
+				local arr_len
+				arr_len="$(json::len "$json" '')"
+				echo "  array length: $arr_len"
+		fi
 
-    # --- Bench 1: json::get at sample path ---
-    if [[ -n "$sample_path" ]]; then
-        echo -n "  json::get '$sample_path' (10x): "
-        t0=$(timer)
-        for ((i=0; i<10; i++)); do json::get "$json" "$sample_path" >/dev/null 2>&1 || true; done
-        t1=$(timer)
-        echo "$(( t1 - t0 )) ms"
+		# --- Bench 1: json::get at sample path ---
+		if [[ -n "$sample_path" ]]; then
+				echo -n "  json::get '$sample_path' (10x): "
+				t0=$(timer)
+				for ((i=0; i<10; i++)); do json::get "$json" "$sample_path" >/dev/null 2>&1 || true; done
+				t1=$(timer)
+				echo "$(( t1 - t0 )) ms"
 
-        if (( HAS_JQ )); then
-            echo -n "  jq equivalent (10x):            "
-            t0=$(timer)
-            for ((i=0; i<10; i++)); do echo "$json" | jq ".$sample_path" >/dev/null 2>&1 || true; done
-            t1=$(timer)
-            echo "$(( t1 - t0 )) ms"
-        fi
-    fi
+				if (( HAS_JQ )); then
+						echo -n "  jq equivalent (10x):            "
+						t0=$(timer)
+						for ((i=0; i<10; i++)); do echo "$json" | jq ".$sample_path" >/dev/null 2>&1 || true; done
+						t1=$(timer)
+						echo "$(( t1 - t0 )) ms"
+				fi
+		fi
 
-    # --- Bench 2: json::keys at root ---
-    if [[ "$root_type" == "object" || "$root_type" == "array" ]]; then
-        echo -n "  json::keys '' (1x):             "
-        t0=$(timer)
-        json::keys "$json" '' >/dev/null 2>&1
-        t1=$(timer)
-        echo "$(( t1 - t0 )) ms"
+		# --- Bench 2: json::keys at root ---
+		if [[ "$root_type" == "object" || "$root_type" == "array" ]]; then
+				echo -n "  json::keys '' (1x):             "
+				t0=$(timer)
+				json::keys "$json" '' >/dev/null 2>&1
+				t1=$(timer)
+				echo "$(( t1 - t0 )) ms"
 
-        if (( HAS_JQ )); then
-            echo -n "  jq equivalent (1x):             "
-            t0=$(timer)
-            echo "$json" | jq 'keys' >/dev/null 2>&1 || echo "$json" | jq '.[]' >/dev/null 2>&1 || true
-            t1=$(timer)
-            echo "$(( t1 - t0 )) ms"
-        fi
-    fi
+				if (( HAS_JQ )); then
+						echo -n "  jq equivalent (1x):             "
+						t0=$(timer)
+						echo "$json" | jq 'keys' >/dev/null 2>&1 || echo "$json" | jq '.[]' >/dev/null 2>&1 || true
+						t1=$(timer)
+						echo "$(( t1 - t0 )) ms"
+				fi
+		fi
 
-    # --- Bench 3: json::len ---
-    if [[ "$root_type" == "object" || "$root_type" == "array" ]]; then
-        echo -n "  json::len '' (1x):              "
-        t0=$(timer)
-        result="$(json::len "$json" '')"
-        t1=$(timer)
-        echo "$(( t1 - t0 )) ms  (result: $result)"
+		# --- Bench 3: json::len ---
+		if [[ "$root_type" == "object" || "$root_type" == "array" ]]; then
+				echo -n "  json::len '' (1x):              "
+				t0=$(timer)
+				result="$(json::len "$json" '')"
+				t1=$(timer)
+				echo "$(( t1 - t0 )) ms  (result: $result)"
 
-        if (( HAS_JQ )); then
-            echo -n "  jq equivalent (1x):             "
-            t0=$(timer)
-            echo "$json" | jq 'length' >/dev/null 2>&1 || true
-            t1=$(timer)
-            echo "$(( t1 - t0 )) ms"
-        fi
-    fi
+				if (( HAS_JQ )); then
+						echo -n "  jq equivalent (1x):             "
+						t0=$(timer)
+						echo "$json" | jq 'length' >/dev/null 2>&1 || true
+						t1=$(timer)
+						echo "$(( t1 - t0 )) ms"
+				fi
+		fi
 
-    # --- Bench 4: json::type at root ---
-    echo -n "  json::type '' (1x):             "
-    t0=$(timer)
-    json::type "$json" '' >/dev/null
-    t1=$(timer)
-    echo "$(( t1 - t0 )) ms"
+		# --- Bench 4: json::type at root ---
+		echo -n "  json::type '' (1x):             "
+		t0=$(timer)
+		json::type "$json" '' >/dev/null
+		t1=$(timer)
+		echo "$(( t1 - t0 )) ms"
 
-    # --- Bench 5: Deep path lookup if nesting exists ---
-    if [[ -n "$sample_path" && "$sample_path" =~ \. ]]; then
-        echo -n "  json::get deep path (10x):       "
-        t0=$(timer)
-        for ((i=0; i<10; i++)); do json::get "$json" "$sample_path" >/dev/null 2>&1 || true; done
-        t1=$(timer)
-        echo "$(( t1 - t0 )) ms"
-    fi
+		# --- Bench 5: Deep path lookup if nesting exists ---
+		if [[ -n "$sample_path" && "$sample_path" =~ \. ]]; then
+				echo -n "  json::get deep path (10x):       "
+				t0=$(timer)
+				for ((i=0; i<10; i++)); do json::get "$json" "$sample_path" >/dev/null 2>&1 || true; done
+				t1=$(timer)
+				echo "$(( t1 - t0 )) ms"
+		fi
 }
 
 for datafile in "$DATA_DIR"/{canada,citm_catalog,twitter}.json; do
-    [[ -f "$datafile" ]] || { echo "Skipping missing: $datafile"; continue; }
-    bench_file "$(basename "$datafile" .json)" "$datafile"
+		[[ -f "$datafile" ]] || { echo "Skipping missing: $datafile"; continue; }
+		bench_file "$(basename "$datafile" .json)" "$datafile"
 done
 
 echo ""

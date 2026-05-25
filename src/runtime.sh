@@ -713,7 +713,10 @@ runtime::recurselimit::get() {
 # Set to 0 to disable the limit. Bash 4.2+.
 # Usage: runtime::recurselimit::set 50
 runtime::recurselimit::set() {
-		[[ -n "${1:-}" ]] || { echo "runtime::recurselimit::set: limit required" >&2; return 1; }
+		[[ -n "${1:-}" ]] || {
+			echo "runtime::recurselimit::set: limit required" >&2
+			return 1
+		}
 		FUNCNEST="$1"
 }
 
@@ -728,7 +731,10 @@ runtime::recurselimit::set() {
 # Usage: runtime::execignore::add '*.py'
 runtime::execignore::add() {
 		local _pat=$1
-		[[ -n "$_pat" ]] || { echo "runtime::execignore::add: pattern required" >&2; return 1; }
+		[[ -n "$_pat" ]] || {
+			echo "runtime::execignore::add: pattern required" >&2
+			return 1
+		}
 		if [[ -z "${EXECIGNORE:-}" ]]; then
 				EXECIGNORE="$_pat"
 		else

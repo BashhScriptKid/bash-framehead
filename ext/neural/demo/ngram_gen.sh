@@ -23,9 +23,9 @@ echo "Generating samples..."
 echo ""
 
 for ((i = 1; i <= 3; i++)); do
-    printf "  [%d] " "$i"
-    < /tmp/fsbshf-ngram-model.txt neural::ngram::generate 2>/dev/null || true
-    echo ""
+		printf "  [%d] " "$i"
+		< /tmp/fsbshf-ngram-model.txt neural::ngram::generate 2>/dev/null || true
+		echo ""
 done
 
 rm -f /tmp/fsbshf-ngram-model.txt

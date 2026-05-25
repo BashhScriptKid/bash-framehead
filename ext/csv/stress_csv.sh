@@ -10,16 +10,16 @@ source ./ext/csv/csv.sh
 pass=0 fail=0
 
 check() {
-    local label="$1" expected="$2" actual="$3"
-    if [[ "$expected" == "$actual" ]]; then
-        ((pass++))
-        echo "  PASS  $label"
-    else
-        ((fail++))
-        echo "  FAIL  $label"
-        echo "        expected: [$expected]"
-        echo "        actual:   [$actual]"
-    fi
+		local label="$1" expected="$2" actual="$3"
+		if [[ "$expected" == "$actual" ]]; then
+				((pass++))
+				echo "  PASS  $label"
+		else
+				((fail++))
+				echo "  FAIL  $label"
+				echo "        expected: [$expected]"
+				echo "        actual:   [$actual]"
+		fi
 }
 
 echo "=== 1. Quoted fields with embedded delimiters ==="
@@ -57,19 +57,19 @@ echo ""
 echo "=== 4. Large rows (100 columns x 5 data rows) ==="
 
 gen_wide() {
-    local cols="$1" rows="$2" r c
-    for (( c=0; c<cols; c++ )); do
-        printf 'col%d' "$c"
-        (( c < cols-1 )) && printf ','
-    done
-    printf '\n'
-    for (( r=0; r<rows; r++ )); do
-        for (( c=0; c<cols; c++ )); do
-            printf 'r%dc%d' "$r" "$c"
-            (( c < cols-1 )) && printf ','
-        done
-        printf '\n'
-    done
+		local cols="$1" rows="$2" r c
+		for (( c=0; c<cols; c++ )); do
+				printf 'col%d' "$c"
+				(( c < cols-1 )) && printf ','
+		done
+		printf '\n'
+		for (( r=0; r<rows; r++ )); do
+				for (( c=0; c<cols; c++ )); do
+						printf 'r%dc%d' "$r" "$c"
+						(( c < cols-1 )) && printf ','
+				done
+				printf '\n'
+		done
 }
 
 wide_data="$(gen_wide 100 5)"
@@ -83,19 +83,19 @@ echo ""
 echo "=== 5. Deep rows (200 data rows x 10 cols) with timing ==="
 
 gen_deep() {
-    local cols="$1" rows="$2" r c
-    for (( c=0; c<cols; c++ )); do
-        printf 'col%d' "$c"
-        (( c < cols-1 )) && printf ','
-    done
-    printf '\n'
-    for (( r=0; r<rows; r++ )); do
-        for (( c=0; c<cols; c++ )); do
-            printf 'r%dc%d' "$r" "$c"
-            (( c < cols-1 )) && printf ','
-        done
-        printf '\n'
-    done
+		local cols="$1" rows="$2" r c
+		for (( c=0; c<cols; c++ )); do
+				printf 'col%d' "$c"
+				(( c < cols-1 )) && printf ','
+		done
+		printf '\n'
+		for (( r=0; r<rows; r++ )); do
+				for (( c=0; c<cols; c++ )); do
+						printf 'r%dc%d' "$r" "$c"
+						(( c < cols-1 )) && printf ','
+				done
+				printf '\n'
+		done
 }
 
 deep_data="$(gen_deep 10 200)"
