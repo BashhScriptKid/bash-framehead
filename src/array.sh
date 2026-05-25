@@ -3,9 +3,7 @@
 # Requires: runtime.sh (runtime::is_minimum_bash)
 # shellcheck disable=SC2206
 #
-# ==============================================================================
-# USAGE PATTERNS
-# ==============================================================================
+# --- USAGE PATTERNS ---
 #
 # Bash arrays cannot be passed by value. This module supports two patterns:
 #
@@ -20,16 +18,12 @@
 # The ::fast variants use nameref to write results directly into variables
 # without spawning subshells. This is significantly faster for large arrays.
 #
-# ==============================================================================
-# BASH 5 FEATURES
-# ==============================================================================
+# --- BASH 5 FEATURES ---
 # Some functions use associative arrays only available in Bash 5+.
 # These are guarded with runtime::is_minimum_bash 5 and will print an
 # error and return 1 if called on an older version.
 
-# ==============================================================================
-# CONSTRUCTION
-# ==============================================================================
+# --- CONSTRUCTION ---
 
 # Build an array from a delimited string
 # Usage: array::from_string delimiter string
@@ -75,9 +69,7 @@ array::range() {
 		done
 }
 
-# ==============================================================================
-# INSPECTION
-# ==============================================================================
+# --- INSPECTION ---
 
 # Number of elements
 # Usage: array::length el1 el2 ...
@@ -205,9 +197,7 @@ array::count_of::fast() {
 		_array_count_of_result=$count
 }
 
-# ==============================================================================
-# TRANSFORMATION
-# ==============================================================================
+# --- TRANSFORMATION ---
 
 # Print each element on its own line (normalise for piping)
 array::print() {
@@ -421,9 +411,7 @@ array::insert_at::fast() {
 		[[ "$i" -le "$idx" ]] && _array_insert_at_result+=("$val")
 }
 
-# ==============================================================================
-# FILTERING
-# ==============================================================================
+# --- FILTERING ---
 
 # Filter elements matching a regex
 # Usage: array::filter regex el1 el2 ...
@@ -484,9 +472,7 @@ array::compact::fast() {
 		done
 }
 
-# ==============================================================================
-# AGGREGATION
-# ==============================================================================
+# --- AGGREGATION ---
 
 # Join elements with a delimiter
 # Usage: array::join delimiter el1 el2 ...
@@ -578,9 +564,7 @@ array::max::fast() {
 		_array_max_result=$max
 }
 
-# ==============================================================================
-# SET OPERATIONS
-# ==============================================================================
+# --- SET OPERATIONS ---
 
 # Intersection — elements present in both arrays
 # Usage: array::intersect "el1 el2 el3" "el2 el3 el4"
@@ -662,9 +646,7 @@ array::union::fast() {
 		fi
 }
 
-# ==============================================================================
-# SORTING
-# ==============================================================================
+# --- SORTING ---
 
 # Sort elements alphabetically
 # Usage: array::sort el1 el2 ...
@@ -796,9 +778,7 @@ array::chunk::fast() {
 		[[ -n "$chunk" ]] && _array_chunk_result+=("$chunk")
 }
 
-# ==============================================================================
-# BASH 5+ FEATURES
-# ==============================================================================
+# --- BASH 5+ FEATURES ---
 
 # Remove duplicate elements (preserves first occurrence order)
 # Usage: array::unique el1 el2 ...
@@ -827,9 +807,7 @@ array::unique::fast() {
 		done
 }
 
-# ==============================================================================
-# CLEAR
-# ==============================================================================
+# --- CLEAR ---
 
 # Remove all elements from an array while keeping the variable.
 # For indexed arrays: falls back to arr=() on pre-5.2 Bash.
@@ -844,3 +822,4 @@ array::clear() {
 				_array_clear_ref=()
 		fi
 }
+

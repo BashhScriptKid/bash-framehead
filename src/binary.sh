@@ -11,9 +11,7 @@
 #   binary::u32be 0x12345678 | xxd -p    # 12345678
 #   binary::u16le 256 | od -An -tx1       # 00 01
 
-# ==============================================================================
-# INTERNAL
-# ==============================================================================
+# --- INTERNAL ---
 
 # Emit an integer as raw bytes to stdout.
 # Usage: _binary::pack <width> <value> <endian>
@@ -41,9 +39,7 @@ _binary::pack() {
 		printf '%b' "$fmt"
 }
 
-# ==============================================================================
-# LITTLE-ENDIAN (LSB first)
-# ==============================================================================
+# --- LITTLE-ENDIAN (LSB first) ---
 
 # Emit a 16-bit unsigned integer in little-endian byte order.
 # Usage: binary::u16le <value>
@@ -57,9 +53,7 @@ binary::u32le() { _binary::pack 4 "$1" le; }
 # Usage: binary::u64le <value>
 binary::u64le() { _binary::pack 8 "$1" le; }
 
-# ==============================================================================
-# BIG-ENDIAN (MSB first)
-# ==============================================================================
+# --- BIG-ENDIAN (MSB first) ---
 
 # Emit a 16-bit unsigned integer in big-endian byte order.
 # Usage: binary::u16be <value>
@@ -73,9 +67,7 @@ binary::u32be() { _binary::pack 4 "$1" be; }
 # Usage: binary::u64be <value>
 binary::u64be() { _binary::pack 8 "$1" be; }
 
-# ==============================================================================
-# STRING-TO-BINARY
-# ==============================================================================
+# --- STRING-TO-BINARY ---
 
 # Internal: emit unsigned integer as minimal-width little-endian bytes.
 # Usage: _binary::from_uint <value>
@@ -174,3 +166,4 @@ binary::from_int() {
 		printf -v fmt '\\x%02x' "${octets[@]}"
 		printf '%b' "$fmt"
 }
+

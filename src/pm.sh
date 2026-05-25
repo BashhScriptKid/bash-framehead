@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# Usage: pm::install package...
 pm::install() {
 	local packages=("$@")
 	local pm
@@ -22,6 +23,7 @@ pm::install() {
 	esac
 }
 
+# Usage: pm::sync
 pm::sync() {
 	local pm
 	pm=$(runtime::pm)
@@ -44,6 +46,7 @@ pm::sync() {
 	esac
 }
 
+# Usage: pm::update
 pm::update() {
 	local pm
 	pm=$(runtime::pm)
@@ -66,6 +69,7 @@ pm::update() {
 	esac
 }
 
+# Usage: pm::uninstall package...
 pm::uninstall() {
 	local packages=("$@")
 	local pm
@@ -89,6 +93,7 @@ pm::uninstall() {
 	esac
 }
 
+# Usage: pm::search query
 pm::search() {
 	local query="$1"
 	local pm

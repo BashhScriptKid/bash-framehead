@@ -5,9 +5,7 @@
 #
 # Requires: runtime.sh
 
-# ==============================================================================
-# COLOUR SETUP (shared by all debug functions)
-# ==============================================================================
+# --- COLOUR SETUP (shared by all debug functions) ---
 
 # Resolve colour mode from positional argument.
 # Usage: _debug::resolve_colour <autocolour|colour|mono>
@@ -40,9 +38,7 @@ _debug::colour_vars() {
 		fi
 }
 
-# ==============================================================================
-# VARDUMP
-# ==============================================================================
+# --- VARDUMP ---
 
 # Pretty-print a variable's contents and metadata to stdout.
 #
@@ -146,9 +142,7 @@ debug::vardump() {
 		return 0
 }
 
-# ==============================================================================
-# STACKTRACE
-# ==============================================================================
+# --- STACKTRACE ---
 
 # Print a formatted call-stack trace to stdout.
 #
@@ -190,12 +184,10 @@ debug::stacktrace() {
 		return 0
 }
 
-# ==============================================================================
 # TRACE REDIRECTION
 #
 # BASH_XTRACEFD (Bash 4.1+) redirects set -x output to a file descriptor
 # instead of stderr. Useful for debugging without polluting terminal output.
-# ==============================================================================
 
 # Track active trace fd for cleanup.
 declare -i _DEBUG_TRACE_FD=0
@@ -228,3 +220,4 @@ debug::trace_off() {
 				_DEBUG_TRACE_FD=0
 		fi
 }
+

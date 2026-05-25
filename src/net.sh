@@ -2,9 +2,7 @@
 # net.sh — bash-frameheader networking lib
 # Requires: runtime.sh (runtime::has_command)
 
-# ==============================================================================
-# CONNECTIVITY
-# ==============================================================================
+# --- CONNECTIVITY ---
 
 # Check if the system has a working internet connection
 # Tries multiple endpoints in case one is down
@@ -70,9 +68,7 @@ net::port::scan() {
 		done
 }
 
-# ==============================================================================
-# IP ADDRESS
-# ==============================================================================
+# --- IP ADDRESS ---
 
 # Get local IP address (first non-loopback)
 net::ip::local() {
@@ -156,9 +152,7 @@ net::ip::is_loopback() {
 		[[ "$1" == "127."* || "$1" == "::1" ]]
 }
 
-# ==============================================================================
-# HOSTNAME / DNS
-# ==============================================================================
+# --- HOSTNAME / DNS ---
 
 # Get the system hostname
 net::hostname() {
@@ -244,9 +238,7 @@ net::dns::propagation() {
 		done
 }
 
-# ==============================================================================
-# NETWORK INTERFACES
-# ==============================================================================
+# --- NETWORK INTERFACES ---
 
 # List all network interfaces
 net::interface::list() {
@@ -341,9 +333,7 @@ net::interface::stat::tx() {
 }
 
 
-# ==============================================================================
-# FETCH / DOWNLOAD
-# ==============================================================================
+# --- FETCH / DOWNLOAD ---
 
 # Fetch URL contents — curl/wget with fallback
 # Usage: net::fetch url [output_file]
@@ -419,9 +409,7 @@ net::http::headers() {
 		fi
 }
 
-# ==============================================================================
-# WHOIS / GEO
-# ==============================================================================
+# --- WHOIS / GEO ---
 
 # Basic whois lookup
 net::whois() {
@@ -440,3 +428,4 @@ net::ip::geo() {
 		local url="http://ip-api.com/json/${ip}"
 		net::fetch "$url" 2>/dev/null
 }
+

@@ -2,9 +2,7 @@
 # hardware.sh — bash-frameheader hardware lib
 # Requires: runtime.sh (runtime::os, runtime::has_command)
 
-# ==============================================================================
-# CPU
-# ==============================================================================
+# --- CPU ---
 
 hardware::cpu::name() {
 		case "$(runtime::os)" in
@@ -182,9 +180,7 @@ hardware::cpu::temp() {
 		esac
 }
 
-# ==============================================================================
-# GPU
-# ==============================================================================
+# --- GPU ---
 
 hardware::gpu() {
 		case "$(runtime::os)" in
@@ -243,9 +239,7 @@ hardware::gpu::vramMB() {
 		esac
 }
 
-# ==============================================================================
-# RAM
-# ==============================================================================
+# --- RAM ---
 
 hardware::ram::totalSpaceMB() {
 		case "$(runtime::os)" in
@@ -350,9 +344,7 @@ hardware::ram::percentage() {
 		awk "BEGIN { printf \"%.1f\n\", ($used / $total) * 100 }"
 }
 
-# ==============================================================================
-# DISK
-# ==============================================================================
+# --- DISK ---
 
 hardware::disk::devices() {
 		case "$(runtime::os)" in
@@ -428,10 +420,8 @@ hardware::disk::name() {
 		esac
 }
 
-# ==============================================================================
 # PARTITIONS
 # df flags vary per OS/version — detect them like neofetch does
-# ==============================================================================
 
 _hardware::df_flags() {
 		local df_version
@@ -501,9 +491,7 @@ hardware::partition::usagePercent() {
 		df "$device" 2>/dev/null | awk 'NR==2 { gsub(/%/,"",$5); print $5 }'
 }
 
-# ==============================================================================
-# SWAP
-# ==============================================================================
+# --- SWAP ---
 
 hardware::swap::totalSpaceMB() {
 		case "$(runtime::os)" in
@@ -560,10 +548,8 @@ hardware::swap::freeSpaceMB() {
 		esac
 }
 
-# ==============================================================================
 # BATTERY
 # Uses dynamic discovery of BAT*, axp288_fuel_gauge, CMB* (tablets/embedded)
-# ==============================================================================
 
 _hardware::battery::find_bat() {
 		# neofetch covers BAT*, axp288_fuel_gauge, and CMB* (embedded/tablet devices)
@@ -771,3 +757,4 @@ hardware::battery::health() {
 				;;
 		esac
 }
+

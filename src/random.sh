@@ -14,9 +14,7 @@
 # are subject to signed overflow on very large values — results may differ
 # from reference C implementations.
 
-# ==============================================================================
-# HELPERS
-# ==============================================================================
+# --- HELPERS ---
 
 # Mask a value to unsigned 32-bit range
 _random::mask32() {
@@ -46,11 +44,9 @@ random::seed64() {
 				|| echo "$(( RANDOM * 32768 + RANDOM ))"
 }
 
-# ==============================================================================
 # NATIVE
 # Period: 2^15. Quality: poor. Use: quick throwaway needs only.
 # Bash's built-in $RANDOM — 15-bit LCG, reseeds from PID+time on subshell.
-# ==============================================================================
 
 random::native() {
 		echo "$RANDOM"
@@ -63,12 +59,10 @@ random::native::range() {
 		echo $(( (RANDOM % (max - min + 1)) + min ))
 }
 
-# ==============================================================================
 # SECURE
 # Quality: cryptographic. Use: security-sensitive.
 # Bash 5.1+ $SRANDOM — 32-bit CSRNG via getrandom()/getentropy().
 # Unlike $RANDOM (15-bit LCG), this is suitable for tokens, keys, and nonces.
-# ==============================================================================
 
 # Echo a 32-bit cryptographically secure random integer.
 # Usage: random::secure
@@ -89,12 +83,10 @@ random::secure::range() {
 		echo $(( (SRANDOM % (max - min + 1)) + min ))
 }
 
-# ==============================================================================
 # MIDDLE SQUARE
 # Period: variable, often very short. Quality: very poor. Use: historical demo.
 # John von Neumann, 1946. The original PRNG. Notorious for degenerating to
 # zero for many seeds. Use only for educational purposes.
-# ==============================================================================
 
 # Usage: random::middle_square seed
 # Returns: next value (4-digit middle square extract)
@@ -105,12 +97,10 @@ random::middle_square() {
 		echo $(( (squared / 100) % 10000 ))
 }
 
-# ==============================================================================
 # LINEAR CONGRUENTIAL GENERATOR (LCG)
 # Period: 2^32. Quality: poor-moderate. Use: simple simulations, not security.
 # Classic algorithm, used in early C stdlib rand() implementations.
 # Numerical Recipes parameters (Press et al.)
-# ==============================================================================
 
 # Usage: random::lcg state
 # Returns: next state (also the output value)
@@ -123,11 +113,9 @@ random::lcg::glibc() {
 		_random::mask32 $(( $1 * 1103515245 + 12345 ))
 }
 
-# ==============================================================================
 # XORSHIFT32
 # Period: 2^32-1. Quality: moderate. Use: fast non-secure generation.
 # George Marsaglia, 2003. Simple bitwise operations only.
-# ==============================================================================
 
 # Usage: random::xorshift32 state
 # Returns: next state (also the output value)
@@ -140,11 +128,9 @@ random::xorshift32() {
 		echo "$x"
 }
 
-# ==============================================================================
 # XORSHIFT64
 # Period: 2^64-1. Quality: moderate. Use: fast non-secure generation.
 # George Marsaglia, 2003. 64-bit variant.
-# ==============================================================================
 
 # Usage: random::xorshift64 state
 # Returns: next state (also the output value)
@@ -156,12 +142,10 @@ random::xorshift64() {
 		echo "$x"
 }
 
-# ==============================================================================
 # XORSHIFT128+
 # Period: 2^128-1. Quality: good (passes most BigCrush tests). Use: general purpose.
 # Sebastiano Vigna, 2014. Used in V8, SpiderMonkey, and WebKit Math.random().
 # State: two 64-bit values (s0, s1).
-# ==============================================================================
 
 # Usage: random::xorshiftr128plus s0 s1
 # Returns: "result s0_new s1_new"
@@ -178,11 +162,9 @@ random::xorshiftr128plus() {
 		echo "$result $s0 $s1"
 }
 
-# ==============================================================================
 # XOSHIRO256** (star-star)
 # Period: 2^256-1. Quality: excellent. Use: general purpose, floating point.
 # Blackman & Vigna, 2018. Successor to xorshift128+. State: four 64-bit values.
-# ==============================================================================
 
 # Usage: random::xoshiro256ss s0 s1 s2 s3
 # Returns: "result s0_new s1_new s2_new s3_new"
@@ -223,12 +205,10 @@ random::xoshiro256p() {
 		echo "$result $s0 $s1 $s2 $s3"
 }
 
-# ==============================================================================
 # PCG32 (Permuted Congruential Generator)
 # Period: 2^64. Quality: excellent. Use: general purpose, simulation.
 # Melissa O'Neill, 2014. LCG base with permutation output function.
 # Passes all known statistical tests. inc must be odd (enforced internally).
-# ==============================================================================
 
 # Usage: random::pcg32 state inc
 # Returns: "result new_state"
@@ -264,12 +244,10 @@ random::pcg32::fast() {
 		echo "$result $state"
 }
 
-# ==============================================================================
 # SPLITMIX64
 # Period: 2^64. Quality: good. Use: seeding other PRNGs, fast generation.
 # Guy Steele, Doug Lea, Christine Flood — Java 8, 2014.
 # Particularly useful for expanding a single seed into multi-word PRNG state.
-# ==============================================================================
 
 # Usage: random::splitmix64 state
 # Returns: "result new_state"
@@ -296,11 +274,9 @@ random::splitmix64::seed_xoshiro() {
 		echo "$s0 $s1 $s2 $s3"
 }
 
-# ==============================================================================
 # MULBERRY32
 # Period: 2^32. Quality: good for 32-bit. Use: simple fast 32-bit generation.
 # Tommy Ettinger. Single 32-bit state, excellent avalanche properties.
-# ==============================================================================
 
 # Usage: random::mulberry32 state
 # Returns: "result new_state"
@@ -313,11 +289,9 @@ random::mulberry32() {
 		echo "$(( z ^ (z >> 14) )) $state"
 }
 
-# ==============================================================================
 # WYRAND
 # Period: 2^64. Quality: excellent. Use: hashing, fast generation.
 # Wang Yi, 2019. Passes BigCrush. The output function of the wyhash family.
-# ==============================================================================
 
 # Usage: random::wyrand state
 # Returns: "result new_state"
@@ -331,12 +305,10 @@ random::wyrand() {
 		echo "$result $state"
 }
 
-# ==============================================================================
 # WELL512 (Well Equidistributed Long-period Linear)
 # Period: 2^512-1. Quality: excellent. Use: simulation, games.
 # Panneton, L'Ecuyer & Matsumoto, 2006. Better equidistribution than Mersenne
 # Twister at similar speed. State: 16 x 32-bit words + index.
-# ==============================================================================
 
 # Initialise WELL512 state from a single seed via splitmix64
 # Usage: random::well512::init seed
@@ -379,14 +351,12 @@ random::well512() {
 		echo "$result $index ${s[*]}"
 }
 
-# ==============================================================================
 # ISAAC (Indirection, Shift, Accumulate, Add, Count)
 # Period: 2^8295. Quality: cryptographic-adjacent. Use: security-adjacent tasks.
 # Robert Jenkins, 1996. Not considered cryptographically secure by modern
 # standards but far stronger than the other algorithms here.
 # NOTE: Full ISAAC requires 256-word state — this is a simplified single-round
 # demonstration using a 8-word state for educational purposes.
-# ==============================================================================
 
 # Initialise simplified ISAAC state
 # Usage: random::isaac::init seed
@@ -425,3 +395,4 @@ random::isaac() {
 
 		echo "$result $a $b $c ${s[*]}"
 }
+

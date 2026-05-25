@@ -423,9 +423,7 @@ runtime::pm() {
 	fi
 }
 
-# ==============================================================================
-# COPROC
-# ==============================================================================
+# --- COPROC ---
 
 # Active coproc tracking array.
 declare -a _RUNTIME_COPROCS=()
@@ -518,11 +516,9 @@ runtime::coproc::list() {
 		done
 }
 
-# ==============================================================================
 # JOB CONTROL
 #
 # Wrappers around wait -n (Bash 4.3) and wait -p (Bash 5.1).
-# ==============================================================================
 
 # Wait for the next background job, return its exit code.
 # Usage: runtime::wait::next
@@ -568,12 +564,10 @@ runtime::wait::any::pid() {
 		return $_ret
 }
 
-# ==============================================================================
 # AUTO-ALLOCATED FILE DESCRIPTORS
 #
 # Wrappers around exec {var}<>file (Bash 4.1+). Bash picks a free fd number
 # and stores it in the named variable — no risk of collision with fds 3–9.
-# ==============================================================================
 
 # Open a file and get back a free fd number.
 # Usage: runtime::fd::open /path/to/file [r|rw]
@@ -607,11 +601,9 @@ runtime::fd::with() {
 		return $_ret
 }
 
-# ==============================================================================
 # CLOCKS
 #
 # High-precision clock sources and timing utilities.
-# ==============================================================================
 
 # Monotonic clock — never goes backward, immune to NTP/leap seconds.
 # Requires: Bash 5.3+
@@ -674,11 +666,9 @@ runtime::timestamp() {
 		printf "%(%Y-%m-%dT%H:%M:%S)T.%s" "$_sec" "$_us"
 }
 
-# ==============================================================================
 # SHELL PROCESS
 #
 # Wrappers around shell special variables for process introspection.
-# ==============================================================================
 
 # Current subshell PID — unlike $$ which is frozen to the parent shell.
 # Usage: runtime::pid_current
@@ -720,12 +710,10 @@ runtime::recurselimit::set() {
 		FUNCNEST="$1"
 }
 
-# ==============================================================================
 # PATH CONTROL
 #
 # EXECIGNORE (Bash 5.0+) — colon-separated glob patterns. Executables matching
 # any pattern are skipped during PATH command lookup.
-# ==============================================================================
 
 # Add a pattern to EXECIGNORE.
 # Usage: runtime::execignore::add '*.py'
@@ -755,3 +743,4 @@ runtime::execignore::list() {
 runtime::execignore::clear() {
 		EXECIGNORE=""
 }
+

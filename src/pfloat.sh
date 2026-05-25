@@ -648,10 +648,8 @@ _pfloat::_ln_approx() {
 	echo "$y"
 }
 
-# ==============================================================================
 # BACKWARD COMPATIBILITY WRAPPERS
 # These aliases maintain compatibility with code using pfloat::* directly
-# ==============================================================================
 
 pfloat::add() { pfloat::fixed::add "$@"; }
 pfloat::sub() { pfloat::fixed::sub "$@"; }
@@ -700,11 +698,9 @@ pfloat::factorial() { pfloat::fixed::factorial "$@"; }
 pfloat::sigmoid() { pfloat::fixed::sigmoid "$@"; }
 pfloat::softplus() { pfloat::fixed::softplus "$@"; }
 
-# ==============================================================================
 # IEEE 754 DOUBLE-PRECISION IMPLEMENTATION
 # Pure Bash IEEE 754 floating-point arithmetic
 # Uses 64-bit fixed-point representation internally
-# ==============================================================================
 
 # IEEE 754 Double-precision constants
 readonly IEEE754_SIGN_BIT=63
@@ -1450,3 +1446,4 @@ pfloat::ieee754::round() {
 	# Zero out fractional bits
 	_ieee754::pack "$sign" "$exp" $(( mant & ~frac_mask ))
 }
+

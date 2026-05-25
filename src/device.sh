@@ -2,9 +2,7 @@
 # device.sh — bash-frameheader device lib
 # Requires: runtime.sh (runtime::os, runtime::has_command)
 
-# ==============================================================================
-# INSPECTION
-# ==============================================================================
+# --- INSPECTION ---
 
 # Check if path is any kind of device (block or character)
 device::is_device() {
@@ -80,9 +78,7 @@ device::is_virtual() {
 		esac
 }
 
-# ==============================================================================
-# CLASSIFICATION
-# ==============================================================================
+# --- CLASSIFICATION ---
 
 # Returns the type of a device as a string
 # Possible returns: block, char, loop, ram, disk, partition, nvme,
@@ -223,9 +219,7 @@ device::mount_point() {
 		esac
 }
 
-# ==============================================================================
-# LISTING
-# ==============================================================================
+# --- LISTING ---
 
 # List all block devices
 device::list::block() {
@@ -272,9 +266,7 @@ device::list::mounted() {
 		esac
 }
 
-# ==============================================================================
-# SPECIAL DEVICES
-# ==============================================================================
+# --- SPECIAL DEVICES ---
 
 # Write n bytes of zeros to a device or file (wraps /dev/zero)
 # Usage: device::zero target [bytes]
@@ -300,3 +292,4 @@ device::random() {
 device::null_ok() {
 		echo "" > /dev/null 2>&1
 }
+

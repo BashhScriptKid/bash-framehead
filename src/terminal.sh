@@ -2,9 +2,7 @@
 # terminal.sh — bash-frameheader terminal lib
 # Requires: runtime.sh (runtime::has_command)
 
-# ==============================================================================
-# CAPABILITY DETECTION
-# ==============================================================================
+# --- CAPABILITY DETECTION ---
 
 # Check if stdout is a terminal
 terminal::is_tty() {
@@ -64,9 +62,7 @@ terminal::name() {
 		fi
 }
 
-# ==============================================================================
-# CURSOR
-# ==============================================================================
+# --- CURSOR ---
 
 terminal::cursor::show() {
 		printf '\033[?25h'
@@ -143,9 +139,7 @@ terminal::cursor::home() {
 		printf '\033[H'
 }
 
-# ==============================================================================
-# SCREEN
-# ==============================================================================
+# --- SCREEN ---
 
 # Clear entire screen
 terminal::clear() {
@@ -231,9 +225,7 @@ terminal::bell() {
 		printf '\007'
 }
 
-# ==============================================================================
-# INPUT
-# ==============================================================================
+# --- INPUT ---
 
 # Read a single keypress without requiring Enter
 # Usage: terminal::read_key varname
@@ -382,10 +374,8 @@ terminal::read_password() {
 		printf -v "$_var" '%s' "$_pass"
 }
 
-# ==============================================================================
 # SHOPT WRAPPERS
 # Convenience wrappers around bash's shopt builtin
-# ==============================================================================
 
 # Enable a shopt option, return 1 if unsupported
 terminal::shopt::enable() {
@@ -470,13 +460,11 @@ terminal::shopt::patsub_replacement::disable() { shopt -u patsub_replacement 2>/
 terminal::shopt::dirspell::enable()         { shopt -s dirspell       2>/dev/null; }  # autocorrect dir typos on tab
 terminal::shopt::dirspell::disable()        { shopt -u dirspell       2>/dev/null; }
 
-# ==============================================================================
 # GLOBSORT
 #
 # Bash 5.3+ GLOBSORT variable — controls order of pathname expansion results.
 # Values: name (default), size, blocks, mtime, atime, ctime, numeric, none.
 # Prefix with '-' for descending (e.g. -size).
-# ==============================================================================
 
 terminal::globsort::set() {
 		[[ -n "${1:-}" ]] || { echo "terminal::globsort::set: value required" >&2; return 1; }
@@ -491,3 +479,4 @@ terminal::globsort::get() {
 terminal::globsort::reset() {
 		GLOBSORT=name
 }
+

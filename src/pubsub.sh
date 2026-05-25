@@ -23,15 +23,11 @@
 #   # Count subscribers
 #   pubsub::count "mytopic"
 
-# ==============================================================================
-# CONSTANTS
-# ==============================================================================
+# --- CONSTANTS ---
 
 readonly _PUBSUB_DEFAULT_ROOT="/tmp/fsbshf-pubsub-$$"
 
-# ==============================================================================
-# INTERNAL
-# ==============================================================================
+# --- INTERNAL ---
 
 # Ensure PUBSUB_ROOT is set and the directory exists.
 # Called lazily by subscribe/publish so callers don't need to call pubsub::init.
@@ -57,9 +53,7 @@ _pubsub::validate_pipe() {
 		[[ "$pipe" == "$PUBSUB_ROOT/"* ]] && [[ -p "$pipe" ]]
 }
 
-# ==============================================================================
-# PUBLIC API
-# ==============================================================================
+# --- PUBLIC API ---
 
 # Set PUBSUB_ROOT default if not already configured by the caller.
 # Usage: pubsub::init
@@ -184,3 +178,4 @@ pubsub::count() {
 		[[ -d "$topic_dir" ]] || { echo "0"; return 0; }
 		find "$topic_dir" -type p 2>/dev/null | wc -l
 }
+

@@ -5,9 +5,7 @@
 # date arithmetic uses GNU date where available, falls back to pure bash.
 # Pure bash calendar math works on Bash 3+.
 
-# ==============================================================================
-# INTERNAL HELPERS
-# ==============================================================================
+# --- INTERNAL HELPERS ---
 
 # Detect if GNU date is available
 _timedate::has_gnu_date() {
@@ -35,9 +33,7 @@ _timedate::format() {
 		fi
 }
 
-# ==============================================================================
-# TIMESTAMP
-# ==============================================================================
+# --- TIMESTAMP ---
 
 # Current unix timestamp (seconds since epoch)
 timedate::timestamp::unix() {
@@ -86,9 +82,7 @@ timedate::timestamp::from_human() {
 		fi
 }
 
-# ==============================================================================
-# DATE
-# ==============================================================================
+# --- DATE ---
 
 # Current date in YYYY-MM-DD format
 timedate::date::today() {
@@ -305,9 +299,7 @@ timedate::date::is_between() {
 		! timedate::date::is_after  "$d" "$end"
 }
 
-# ==============================================================================
-# TIME
-# ==============================================================================
+# --- TIME ---
 
 # Current time in HH:MM:SS
 timedate::time::now() {
@@ -423,9 +415,7 @@ timedate::time::stopwatch::stop() {
 		echo $(( now - start ))
 }
 
-# ==============================================================================
-# DURATION
-# ==============================================================================
+# --- DURATION ---
 
 # Format seconds into human-readable duration
 # Usage: timedate::duration::format seconds
@@ -515,9 +505,7 @@ timedate::duration::relative() {
 		$future && echo "in $result" || echo "$result ago"
 }
 
-# ==============================================================================
-# CALENDAR
-# ==============================================================================
+# --- CALENDAR ---
 
 # Check if a year is a leap year
 # Usage: timedate::calendar::is_leap_year year
@@ -648,9 +636,7 @@ timedate::calendar::month() {
 		fi
 }
 
-# ==============================================================================
-# TIMEZONE
-# ==============================================================================
+# --- TIMEZONE ---
 
 # Convert a timestamp to a different timezone
 # Usage: timedate::tz::convert timestamp timezone
@@ -716,3 +702,4 @@ timedate::tz::list() {
 timedate::tz::list::region() {
 		timedate::tz::list | grep "^${1}/"
 }
+

@@ -7,9 +7,7 @@
 # use them for password hashing or security-sensitive applications.
 # Use sha256 or sha512 for anything security-adjacent.
 
-# ==============================================================================
-# INTERNAL HELPERS
-# ==============================================================================
+# --- INTERNAL HELPERS ---
 
 # Feed a string to a hash command portably
 # Usage: _hash::pipe string command [args...]
@@ -35,9 +33,7 @@ _hash::read_input() {
 	fi
 }
 
-# ==============================================================================
-# CRYPTOGRAPHIC
-# ==============================================================================
+# --- CRYPTOGRAPHIC ---
 
 # MD5 hash of a string
 # Usage: hash::md5 string
@@ -123,9 +119,7 @@ hash::blake2b() {
 		fi
 }
 
-# ==============================================================================
-# HMAC
-# ==============================================================================
+# --- HMAC ---
 
 # HMAC-SHA256
 # Usage: hash::hmac::sha256 key message
@@ -166,11 +160,9 @@ hash::hmac::md5() {
 		fi
 }
 
-# ==============================================================================
 # NON-CRYPTOGRAPHIC — pure bash implementations
 # Fast, portable, suitable for hash tables, caching keys, bloom filters.
 # NOT suitable for security use.
-# ==============================================================================
 
 # DJB2 — Daniel J. Bernstein's hash, classic and fast
 # Returns unsigned 32-bit integer
@@ -317,9 +309,7 @@ hash::murmur2() {
 		echo "$h"
 }
 
-# ==============================================================================
-# UTILITY
-# ==============================================================================
+# --- UTILITY ---
 
 # Verify a string against a known hash
 # Usage: hash::verify string expected_hash algorithm
@@ -381,3 +371,4 @@ hash::uuid5() {
 				"$(printf '%x' $(( (16#${raw:16:2} & 0x3f) | 0x80 )))${raw:18:2}" \
 				"${raw:20:12}"
 }
+

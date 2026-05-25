@@ -16,9 +16,7 @@
 #
 # 24-BIT RGB: R,G,B where each is 0-255
 
-# ==============================================================================
-# CAPABILITY DETECTION
-# ==============================================================================
+# --- CAPABILITY DETECTION ---
 
 # Check if the terminal supports any colour
 colour::supports() {
@@ -44,10 +42,8 @@ colour::supports_truecolor() {
 		[[ "$COLORTERM" == "truecolor" || "$COLORTERM" == "24bit" ]]
 }
 
-# ==============================================================================
 # INDEX LOOKUP
 # Internal helpers — returns the numeric colour index for use in escape codes
-# ==============================================================================
 
 # Get 4-bit ANSI colour code index
 # Usage: colour::index::4bit colour_name [fg|bg]
@@ -138,9 +134,7 @@ colour::index::8bit() {
 		return 1
 }
 
-# ==============================================================================
-# ESCAPE CODE GENERATION
-# ==============================================================================
+# --- ESCAPE CODE GENERATION ---
 
 # Generate a raw ANSI escape sequence
 # Usage: colour::esc bit fg_bg colour [colour...]
@@ -193,10 +187,8 @@ colour::esc() {
 		esac
 }
 
-# ==============================================================================
 # ATTRIBUTES
 # Text styling — not colour-depth dependent
-# ==============================================================================
 
 colour::reset()     { printf '\033[0m';  }
 colour::bold()      { printf '\033[1m';  }
@@ -220,10 +212,8 @@ colour::reset::strike()    { printf '\033[29m'; }
 colour::reset::fg()        { printf '\033[39m'; }
 colour::reset::bg()        { printf '\033[49m'; }
 
-# ==============================================================================
 # CONVENIENCE — 4-BIT NAMED SHORTCUTS
 # colour::fg::red, colour::bg::bright_blue etc.
-# ==============================================================================
 
 # Foreground
 colour::fg::black()          { printf '\033[30m'; }
@@ -261,9 +251,7 @@ colour::bg::bright_magenta() { printf '\033[105m'; }
 colour::bg::bright_cyan()    { printf '\033[106m'; }
 colour::bg::bright_white()   { printf '\033[107m'; }
 
-# ==============================================================================
-# HIGHER-LEVEL HELPERS
-# ==============================================================================
+# --- HIGHER-LEVEL HELPERS ---
 
 # Print text wrapped in colour, auto-reset after
 # Usage: colour::print bit fg_bg colour text
@@ -329,3 +317,4 @@ colour::safe_esc() {
 		esac
 		colour::esc "$@"
 }
+

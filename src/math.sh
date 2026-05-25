@@ -27,13 +27,11 @@
 
 MATH_SCALE="${MATH_SCALE:-10}"
 
-# ==============================================================================
 # CONSTANTS
 # 42 digits
 # Some constants are truncated to 42 digits where available —
 # enough for the observable universe with room for Douglas Adams,
 # others are given with their commonly known precision.
-# ==============================================================================
 
 # Fundamental constants
 readonly MATH_PI="3.141592653589793238462643383279502884197169"
@@ -119,9 +117,7 @@ readonly MATH_PROTON_ELECTRON_MASS_RATIO="1836.15267343"
 readonly MATH_LOWER_GAMMA="-0.072815845483676724860586375874901319137736"  # γ₁
 readonly MATH_UPPER_GAMMA="0.989055995327972555395395651500634707939184"   # γ₂
 
-# ==============================================================================
-# ALIASES - Practical alternative names
-# ==============================================================================
+# --- ALIASES - Practical alternative names ---
 
 # Common mathematical names
 readonly MATH_GOLDEN_RATIO="$MATH_PHI"
@@ -150,9 +146,7 @@ readonly MATH_DEG2RAD="$MATH_DEG_TO_RAD"
 readonly MATH_RAD2DEG="$MATH_RAD_TO_DEG"
 
 
-# ==============================================================================
-# BC WRAPPER
-# ==============================================================================
+# --- BC WRAPPER ---
 
 # Check if bc is available
 math::has_bc() {
@@ -174,10 +168,8 @@ math::bc() {
 # Example: math::bc "4 * a(1)" 42
 
 
-# ==============================================================================
 # FLOAT DETECTION HELPER
 # Internal helper — not exported as part of the public math API
-# ==============================================================================
 
 _math::is_float() {
 		[[ "$1" =~ ^-?[0-9]+(\.[0-9]+)?([Ee][+-]?[0-9]+)?$ ]] && [[ "$1" == *"."* || "$1" == *[Ee]* ]]
@@ -193,10 +185,8 @@ math::is_int() {
 		[[ "$n" =~ ^-?[0-9]+$ ]]
 }
 
-# ==============================================================================
 # BASIC INTEGER ARITHMETIC
 # Pure bash — no bc needed
-# ==============================================================================
 
 # Absolute value (integer)
 # Usage: math::abs n
@@ -425,7 +415,6 @@ math::productf() {
 		echo "$result"
 }
 
-# ==============================================================================
 # math::vec2 / math::vec3 — Vector operations
 # Vectors are passed and returned as comma-separated strings: "x,y" or "x,y,z"
 # Integer variants take components directly
@@ -443,7 +432,6 @@ math::productf() {
 #
 #   # Take just one component
 #   IFS=, read -r x _ _ <<< "$(math::vec3::add "$a" "$b")"
-# ==============================================================================
 
 # Internal: split a comma-separated vec2 into positional vars
 # Usage: _math::vec2::split "x,y" → sets _v_x1 _v_y1
@@ -472,9 +460,7 @@ _math::vec3::unpack6() {
 		IFS=, read -r _x2 _y2 _z2 <<< "$8"
 }
 
-# ==============================================================================
-# math::vec2
-# ==============================================================================
+# --- math::vec2 ---
 
 math::vec3::new() {
 		local x="${1:-0}" y="${2:-0}"
@@ -635,9 +621,7 @@ math::vec2::eq() {
 		[[ "$1" == "$2" ]]
 }
 
-# ==============================================================================
-# math::vec3
-# ==============================================================================
+# --- math::vec3 ---
 
 math::vec3::new() {
 		local x="${1:-0}" y="${2:-0}" z="${3:-0}"
@@ -819,7 +803,6 @@ math::vec3::eq() {
 		[[ "$1" == "$2" ]]
 }
 
-# ==============================================================================
 # math::matrix — Matrix operations
 #
 # Dimensions are passed as "RxC" strings: "2x3" = 2 rows, 3 cols
@@ -848,7 +831,6 @@ math::vec3::eq() {
 # Warning: in nameref style, pass the array NAME not the expanded value.
 #   Correct: math::matrix::mul "2x2" "2x2" a b
 #   Wrong:   math::matrix::mul "2x2" "2x2" "${a[@]}" "${b[@]}"
-# ==============================================================================
 
 # ------------------------------------------------------------------------------
 # Internal helpers — parsing and unpacking only, no bc calls
@@ -892,7 +874,6 @@ _math::matrix::unpack2() {
 		fi
 }
 
-# ==============================================================================
 # math::matrix::new - Create a new matrix array
 #
 # Usage:
@@ -900,7 +881,6 @@ _math::matrix::unpack2() {
 #   arr=($(math::matrix::new 3x4 5))        # Creates 3x4 matrix with value 5
 #
 # Returns: Space-separated matrix elements
-# ==============================================================================
 math::matrix::new() {
 		local dimensions="$1"
 		local initial_value="${2:-0}"
@@ -924,7 +904,6 @@ math::matrix::new() {
 		done
 }
 
-# ==============================================================================
 # math::matrix::new::fast - Create a new matrix array using nameref (bash 4.3+)
 #
 # Usage:
@@ -933,7 +912,6 @@ math::matrix::new() {
 # Example:
 #   math::matrix::new::fast my_matrix 3x4
 #   math::matrix::new::fast my_matrix 3x4 5
-# ==============================================================================
 math::matrix::new::fast() {
 		if [[ $# -lt 2 ]]; then
 				echo "Usage: math::matrix::new::fast <array_name> <rows>x<cols> [initial_value]" >&2
@@ -970,9 +948,7 @@ math::matrix::new::fast() {
 }
 
 
-# ==============================================================================
-# math::matrix::add — Element-wise addition
-# ==============================================================================
+# --- math::matrix::add — Element-wise addition ---
 
 # Add two matrices element-wise
 # Usage: math::matrix::add "RxC" a b
@@ -1040,9 +1016,7 @@ math::matrix::addf::fast() {
 		done
 }
 
-# ==============================================================================
-# math::matrix::sub — Element-wise subtraction
-# ==============================================================================
+# --- math::matrix::sub — Element-wise subtraction ---
 
 # Subtract matrix b from matrix a element-wise
 # Usage: math::matrix::sub "RxC" a b
@@ -1110,9 +1084,7 @@ math::matrix::subf::fast() {
 		done
 }
 
-# ==============================================================================
-# math::matrix::scale — Scalar multiplication
-# ==============================================================================
+# --- math::matrix::scale — Scalar multiplication ---
 
 # Multiply every element of a matrix by a scalar
 # Usage: math::matrix::scale "RxC" scalar a
@@ -1180,9 +1152,7 @@ math::matrix::scalef::fast() {
 		done
 }
 
-# ==============================================================================
-# math::matrix::mul — Matrix multiplication
-# ==============================================================================
+# --- math::matrix::mul — Matrix multiplication ---
 
 # Multiply two matrices — cols of a must equal rows of b
 # Usage: math::matrix::mul "RxC" "RxC" a b
@@ -1298,9 +1268,7 @@ math::matrix::mulf::fast() {
 		done
 }
 
-# ==============================================================================
-# math::matrix::transpose
-# ==============================================================================
+# --- math::matrix::transpose ---
 
 # Transpose a matrix — rows become columns
 # Usage: math::matrix::transpose "RxC" a
@@ -1339,9 +1307,7 @@ math::matrix::transpose::fast() {
 		done
 }
 
-# ==============================================================================
-# math::matrix::identity
-# ==============================================================================
+# --- math::matrix::identity ---
 
 # Generate an identity matrix of given size
 # Usage: math::matrix::identity "NxN"
@@ -1375,9 +1341,7 @@ math::matrix::identity::fast() {
 		done
 }
 
-# ==============================================================================
-# math::matrix::eq
-# ==============================================================================
+# --- math::matrix::eq ---
 
 # Check if two matrices are equal element-wise
 # Usage: math::matrix::eq "RxC" a b
@@ -1395,9 +1359,7 @@ math::matrix::eq() {
 		return 0
 }
 
-# ==============================================================================
-# math::matrix::is_square
-# ==============================================================================
+# --- math::matrix::is_square ---
 
 # Check if a matrix is square (rows == cols)
 # Usage: math::matrix::is_square "RxC"
@@ -1408,9 +1370,7 @@ math::matrix::is_square() {
 		(( rows == cols ))
 }
 
-# ==============================================================================
-# math::matrix::trace
-# ==============================================================================
+# --- math::matrix::trace ---
 
 # Sum of diagonal elements — square matrices only
 # Usage: math::matrix::trace "NxN" a
@@ -1445,9 +1405,7 @@ math::matrix::tracef() {
 		echo "$sum"
 }
 
-# ==============================================================================
-# math::matrix::diagonal
-# ==============================================================================
+# --- math::matrix::diagonal ---
 
 # Extract diagonal elements as a flat list
 # Usage: math::matrix::diagonal "NxN" a
@@ -1466,9 +1424,7 @@ math::matrix::diagonal() {
 		echo "${_result[@]}"
 }
 
-# ==============================================================================
-# math::matrix::flatten
-# ==============================================================================
+# --- math::matrix::flatten ---
 
 # Flatten a matrix to a newline-separated list (one element per line)
 # Usage: math::matrix::flatten "RxC" a
@@ -1482,9 +1438,7 @@ math::matrix::flatten() {
 		printf '%s\n' "${_a[@]}"
 }
 
-# ==============================================================================
-# math::matrix::print
-# ==============================================================================
+# --- math::matrix::print ---
 
 # Print a matrix in row-major human-readable format
 # Usage: math::matrix::print "RxC" a
@@ -1503,9 +1457,7 @@ math::matrix::print() {
 		done
 }
 
-# ==============================================================================
-# math::matrix::hadamard — Element-wise multiplication
-# ==============================================================================
+# --- math::matrix::hadamard — Element-wise multiplication ---
 
 # Multiply two matrices element-wise (Hadamard product)
 # Usage: math::matrix::hadamard "RxC" a b
@@ -1573,9 +1525,7 @@ math::matrix::hadamardf::fast() {
 		done
 }
 
-# ==============================================================================
-# math::matrix::minor
-# ==============================================================================
+# --- math::matrix::minor ---
 
 # Compute the minor of a matrix — submatrix with row i and col j removed
 # Usage: math::matrix::minor "NxN" row col a
@@ -1600,9 +1550,7 @@ math::matrix::minor() {
 		echo "${_result[@]}"
 }
 
-# ==============================================================================
-# math::matrix::determinant — via LU decomposition (float, requires bc)
-# ==============================================================================
+# --- math::matrix::determinant — via LU decomposition (float, requires bc) ---
 
 # Compute determinant of a square matrix — requires bc
 # Usage: math::matrix::determinant scale "NxN" a
@@ -1681,9 +1629,7 @@ math::matrix::determinant() {
 		math::bc "$det" "$scale"
 }
 
-# ==============================================================================
-# math::matrix::lu — LU decomposition (requires bc)
-# ==============================================================================
+# --- math::matrix::lu — LU decomposition (requires bc) ---
 
 # LU decomposition of a square matrix — requires bc
 # Writes L and U into separate output arrays
@@ -1736,9 +1682,7 @@ math::matrix::lu() {
 		done
 }
 
-# ==============================================================================
-# math::matrix::cofactor
-# ==============================================================================
+# --- math::matrix::cofactor ---
 
 # Compute the cofactor matrix — requires bc
 # Usage: math::matrix::cofactor scale "NxN" a
@@ -1765,9 +1709,7 @@ math::matrix::cofactor() {
 		echo "${_result[@]}"
 }
 
-# ==============================================================================
-# math::matrix::adjugate
-# ==============================================================================
+# --- math::matrix::adjugate ---
 
 # Compute the adjugate (transpose of cofactor matrix) — requires bc
 # Usage: math::matrix::adjugate scale "NxN" a
@@ -1784,9 +1726,7 @@ math::matrix::adjugate() {
 		math::matrix::transpose "$dim" "${cof[@]}"
 }
 
-# ==============================================================================
-# math::matrix::inverse — requires bc
-# ==============================================================================
+# --- math::matrix::inverse — requires bc ---
 
 # Compute the inverse of a square matrix — requires bc
 # Usage: math::matrix::inverse scale "NxN" a
@@ -1814,9 +1754,7 @@ math::matrix::inverse() {
 		math::matrix::scalef "$scale" "$dim" "$inv_det" "${adj[@]}"
 }
 
-# ==============================================================================
-# math::matrix::pow
-# ==============================================================================
+# --- math::matrix::pow ---
 
 # Raise a square matrix to an integer power via repeated multiplication
 # Usage: math::matrix::pow "NxN" exponent a
@@ -1867,9 +1805,7 @@ math::matrix::powf() {
 		echo "${_result[@]}"
 }
 
-# ==============================================================================
-# math::matrix::rank — via row reduction (requires bc)
-# ==============================================================================
+# --- math::matrix::rank — via row reduction (requires bc) ---
 
 # Compute the rank of a matrix via Gaussian elimination — requires bc
 # Usage: math::matrix::rank scale "RxC" a
@@ -1920,9 +1856,7 @@ math::matrix::rank() {
 		echo "$rank"
 }
 
-# ==============================================================================
-# FLOATING POINT (requires bc)
-# ==============================================================================
+# --- FLOATING POINT (requires bc) ---
 
 # Floor — largest integer ≤ n
 math::floor() {
@@ -2061,10 +1995,8 @@ math::softmax() {
 		echo "${softarr[@]}"
 }
 
-# ==============================================================================
 # TRIGONOMETRY (requires bc)
 # All angles in radians unless noted
-# ==============================================================================
 
 math::sin() {
 		math::bc "s($1)"
@@ -2108,9 +2040,7 @@ math::rad_to_deg() {
 		math::bc "$n * 180 / $MATH_PI"
 }
 
-# ==============================================================================
-# PERCENTAGE / RATIO
-# ==============================================================================
+# --- PERCENTAGE / RATIO ---
 
 # Calculate percentage: (part / total) * 100
 # Usage: math::percent part total [scale]
@@ -2133,9 +2063,7 @@ math::percent_change() {
 		math::bc "(($new - $old) / $old) * 100" "$scale"
 }
 
-# ==============================================================================
-# INTERPOLATION / MAPPING
-# ==============================================================================
+# --- INTERPOLATION / MAPPING ---
 
 # Linear interpolation between a and b by factor t (0.0 - 1.0)
 # Usage: math::lerp a b t [scale]
@@ -2163,9 +2091,7 @@ math::normalize() {
 		math::bc "($v - $lo) / ($hi - $lo)" "$scale"
 }
 
-# ==============================================================================
-# NUMBER THEORY / COMBINATORICS
-# ==============================================================================
+# --- NUMBER THEORY / COMBINATORICS ---
 
 # Binomial coefficient C(n, k) — "n choose k"
 # Usage: math::choose n k
@@ -2707,9 +2633,7 @@ math::unitconvert() {
 		math::bc "$expr" "$scale"
 }
 
-# ==============================================================================
-# TENSOR
-# ==============================================================================
+# --- TENSOR ---
 # Format: "shape N M K: v1 v2 v3 ..."  (row-major, space-separated)
 # Generalizes math::matrix ("NxM" "a b c d") to N dimensions.
 
@@ -2945,3 +2869,4 @@ math::tensor::reduce::max() {
 		done
 		echo "shape ${nd[*]}: ${res[*]}"
 }
+

@@ -37,9 +37,7 @@
 #   log::warn  "Config not found, using defaults"
 #   log::error "Failed to connect" 1   # logs then exits 1
 
-# ==============================================================================
-# CONSTANTS
-# ==============================================================================
+# --- CONSTANTS ---
 
 readonly LOG_DEBUG=0
 readonly LOG_INFO=1
@@ -53,9 +51,7 @@ readonly _LOG_COLOUR_YELLOW='\033[0;33m'
 readonly _LOG_COLOUR_RED='\033[0;31m'
 readonly _LOG_COLOUR_RESET='\033[0m'
 
-# ==============================================================================
-# DEFAULTS
-# ==============================================================================
+# --- DEFAULTS ---
 
 # Initialise config vars if not already set by the caller
 log::init() {
@@ -72,9 +68,7 @@ log::init() {
 		fi
 }
 
-# ==============================================================================
-# INTERNAL
-# ==============================================================================
+# --- INTERNAL ---
 
 # Strip ANSI escape codes from a string
 # Usage: _log::strip_colour string
@@ -142,9 +136,7 @@ _log::emit() {
 		fi
 }
 
-# ==============================================================================
-# PUBLIC API
-# ==============================================================================
+# --- PUBLIC API ---
 
 # Log a debug message
 # Useful for verbose tracing during development — typically suppressed in production
@@ -196,3 +188,4 @@ log::error() {
 log::fatal() {
 		log::error "$1" "${2:-1}"
 }
+

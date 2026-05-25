@@ -2,9 +2,7 @@
 # process.sh — bash-frameheader process management lib
 # Requires: runtime.sh (runtime::has_command)
 
-# ==============================================================================
-# QUERY
-# ==============================================================================
+# --- QUERY ---
 
 # Check if a process is running by PID
 # Usage: process::is_running pid
@@ -124,9 +122,7 @@ process::tree() {
 		fi
 }
 
-# ==============================================================================
-# RESOURCE USAGE
-# ==============================================================================
+# --- RESOURCE USAGE ---
 
 # Get CPU usage percentage for a PID
 # Usage: process::cpu pid
@@ -183,9 +179,7 @@ process::uptime() {
 		fi
 }
 
-# ==============================================================================
-# CONTROL
-# ==============================================================================
+# --- CONTROL ---
 
 # Send a signal to a process
 # Usage: process::signal pid signal
@@ -274,9 +268,7 @@ process::renice() {
 		renice -n "$2" -p "$1" 2>/dev/null
 }
 
-# ==============================================================================
-# BACKGROUND JOBS
-# ==============================================================================
+# --- BACKGROUND JOBS ---
 
 # Run a command in the background, print its PID
 # Usage: process::run_bg command [args...]
@@ -328,10 +320,8 @@ process::job::status() {
 		echo $?
 }
 
-# ==============================================================================
 # LOCKING
 # Prevent concurrent execution of a script/function
-# ==============================================================================
 
 # Acquire a lock — returns 1 if already locked
 # Usage: process::lock::acquire lockname
@@ -380,9 +370,7 @@ process::lock::wait() {
 		return 0
 }
 
-# ==============================================================================
-# DAEMON / SERVICE
-# ==============================================================================
+# --- DAEMON / SERVICE ---
 
 # Check if a systemd service is running
 # Usage: process::service::is_running service_name
@@ -430,9 +418,7 @@ process::service::is_enabled() {
 		fi
 }
 
-# ==============================================================================
-# MISC
-# ==============================================================================
+# --- MISC ---
 
 # Run a command and return its execution time in seconds
 # Usage: process::time command [args...]
@@ -495,13 +481,11 @@ process::singleton() {
 		fi
 }
 
-# ==============================================================================
 # CACHED STAT PARSING (migrated from runtime::process::)
 #
 # These functions parse /proc/<pid>/stat once and cache all fields in an
 # associative array, avoiding repeated /proc reads when querying multiple
 # attributes of the same process.
-# ==============================================================================
 
 # Cache for /proc/<pid>/stat parsing: _PROCESS_STAT_CACHE[<pid>:<field>]
 declare -A _PROCESS_STAT_CACHE
@@ -627,3 +611,4 @@ process::info() {
 				printf '%s=%s\n' "$field" "${_PROCESS_STAT_CACHE[$pid:$field]:-}"
 		done
 }
+

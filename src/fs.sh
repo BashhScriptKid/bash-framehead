@@ -2,10 +2,8 @@
 # fs.sh — bash-frameheader filesystem lib
 # Requires: runtime.sh (runtime::has_command)
 
-# ==============================================================================
 # PATH MANIPULATION
 # Pure string operations — no filesystem access required
-# ==============================================================================
 
 # Join path components
 # Usage: fs::path::join part1 part2 ...
@@ -91,9 +89,7 @@ fs::path::is_relative() {
 		[[ "$1" != /* ]]
 }
 
-# ==============================================================================
-# FILE / DIR CHECKS
-# ==============================================================================
+# --- FILE / DIR CHECKS ---
 
 fs::exists()        { [[ -e "$1" ]]; }
 fs::is_file()       { [[ -f "$1" ]]; }
@@ -109,9 +105,7 @@ fs::is_same() {
 		[[ "$(stat -c '%d:%i' "$1" 2>/dev/null)" == "$(stat -c '%d:%i' "$2" 2>/dev/null)" ]]
 }
 
-# ==============================================================================
-# FILE INFO
-# ==============================================================================
+# --- FILE INFO ---
 
 # File size in bytes
 fs::size() {
@@ -197,9 +191,7 @@ fs::symlink::resolve() {
 		readlink -f "$1" 2>/dev/null
 }
 
-# ==============================================================================
-# OPERATIONS
-# ==============================================================================
+# --- OPERATIONS ---
 
 # Copy file or directory
 # Usage: fs::copy src dst
@@ -254,9 +246,7 @@ fs::trash() {
 		mv "$1" "$trash_dir/$(fs::path::basename "$1").$(date +%s)"
 }
 
-# ==============================================================================
-# TEMP FILES
-# ==============================================================================
+# --- TEMP FILES ---
 
 # Create a temporary file, print its path
 # Usage: tmpfile=$(fs::temp::file [prefix])
@@ -291,9 +281,7 @@ fs::temp::dir::auto() {
 		echo "$tmp"
 }
 
-# ==============================================================================
-# READING / WRITING
-# ==============================================================================
+# --- READING / WRITING ---
 
 # Read entire file contents
 fs::read() {
@@ -373,9 +361,7 @@ fs::prepend() {
 		mv "$tmp" "$1"
 }
 
-# ==============================================================================
-# DIRECTORY OPERATIONS
-# ==============================================================================
+# --- DIRECTORY OPERATIONS ---
 
 # List directory contents (one per line)
 fs::ls() {
@@ -447,9 +433,7 @@ fs::dir::is_empty() {
 		[[ -z "$(ls -A "${1:-.}" 2>/dev/null)" ]]
 }
 
-# ==============================================================================
-# WATCHING
-# ==============================================================================
+# --- WATCHING ---
 
 # Watch a file for changes, run callback on change
 # Usage: fs::watch path callback [interval_seconds]
@@ -491,9 +475,7 @@ fs::watch::timeout() {
 		done
 }
 
-# ==============================================================================
-# CHECKSUMS
-# ==============================================================================
+# --- CHECKSUMS ---
 
 fs::checksum::md5() {
 		if runtime::has_command md5sum; then
@@ -526,3 +508,4 @@ fs::is_identical() {
 		sum2=$(fs::checksum::sha256 "$2")
 		[[ "$sum1" == "$sum2" ]]
 }
+

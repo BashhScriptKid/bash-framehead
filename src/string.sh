@@ -2,9 +2,7 @@
 # string.sh — bash-frameheader string lib
 # Pure bash where possible — no external tools unless noted.
 
-# ==============================================================================
-# STDIN HELPER
-# ==============================================================================
+# --- STDIN HELPER ---
 
 # Internal: read primary input from arg or stdin
 # Usage: _string::read_input result_var [arg]
@@ -22,9 +20,7 @@ _string::read_input() {
 	fi
 }
 
-# ==============================================================================
-# INSPECTION
-# ==============================================================================
+# --- INSPECTION ---
 
 # Length of a string
 # Usage: string::length str
@@ -131,9 +127,7 @@ string::is_alpha() {
 	[[ "$input" =~ ^[a-zA-Z]+$ ]]
 }
 
-# ==============================================================================
-# CASE
-# ==============================================================================
+# --- CASE ---
 
 # Convert to uppercase
 # Usage: string::upper str
@@ -214,12 +208,10 @@ string::title::fast() {
 	_string_title_result=$(echo "$2" | awk '{for(i=1;i<=NF;i++) $i=toupper(substr($i,1,1)) tolower(substr($i,2)); print}')
 }
 
-# ==============================================================================
 # PARAMETER TRANSFORMATIONS
 #
 # Wrappers around Bash 4.4+ ${var@operator} parameter expansions.
 # These are among the most underused features in modern Bash.
-# ==============================================================================
 
 # Shell-quote a value for safe reuse in eval/command construction.
 # Usage: string::quote str
@@ -300,7 +292,6 @@ string::assoc_kv() {
 	echo "${_string_assoc_kv_ref[@]@k}"
 }
 
-# ==============================================================================
 # NAMING CONVENTION CONVERSION
 #
 # Naming matrix — all pairwise conversions:
@@ -316,7 +307,6 @@ string::assoc_kv() {
 #
 # Conversion helpers — split any known format into words array
 # then reassemble into target format.
-# ==============================================================================
 
 # Internal: split any common convention into space-separated words (lowercase)
 _string::to_words() {
@@ -1231,9 +1221,7 @@ string::path_to_dot::fast() {
 	_string_path_to_dot_result="${2//\//.}"
 }
 
-# ==============================================================================
-# TRIMMING
-# ==============================================================================
+# --- TRIMMING ---
 
 # Trim leading whitespace
 # Usage: string::trim_left str
@@ -1310,9 +1298,7 @@ string::strip_spaces::fast() {
 	_string_strip_spaces_result="${2//[[:space:]]/}"
 }
 
-# ==============================================================================
-# SUBSTRINGS
-# ==============================================================================
+# --- SUBSTRINGS ---
 
 # Extract substring
 # Usage: string::substr str start [length]
@@ -1419,9 +1405,7 @@ string::after_last::fast() {
 	_string_after_last_result="${2##*"$3"}"
 }
 
-# ==============================================================================
-# MANIPULATION
-# ==============================================================================
+# --- MANIPULATION ---
 
 # Replace first occurrence of search with replace
 # Usage: string::replace str search replace
@@ -1707,9 +1691,7 @@ string::truncate::fast() {
 	_string_truncate_result="${_str:0:$available_chars}${suffix}"
 }
 
-# ==============================================================================
-# SPLITTING / JOINING
-# ==============================================================================
+# --- SPLITTING / JOINING ---
 
 # Split a string by delimiter into lines (one element per line)
 # Usage: string::split str delimiter
@@ -1774,9 +1756,7 @@ string::join::fast() {
 	_string_join_result="$result"
 }
 
-# ==============================================================================
-# ENCODING / HASHING
-# ==============================================================================
+# --- ENCODING / HASHING ---
 
 # URL-encode a string
 # Usage: string::url_encode str
@@ -2046,9 +2026,7 @@ string::sha256() {
 	fi
 }
 
-# ==============================================================================
-# GENERATION
-# ==============================================================================
+# --- GENERATION ---
 
 # Generate a random alphanumeric string of given length
 # Usage: string::random [length]
@@ -2078,10 +2056,8 @@ string::uuid() {
 	fi
 }
 
-# ==============================================================================
 # COLON-SEPARATED VARIABLES
 # Manage $PATH-style colon-delimited lists
-# ==============================================================================
 
 # Add a directory to a colon-separated value
 # Usage: string::colon::add value dir [after|before]
@@ -2245,3 +2221,4 @@ string::colon::clean::fast() {
 	local IFS=:
 	_string_colon_clean_result="${_out[*]}"
 }
+
