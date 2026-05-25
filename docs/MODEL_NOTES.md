@@ -8,11 +8,11 @@ Read this first — carries context forward so each Claude instance picks up whe
 
 | Field | Value |
 |-------|-------|
-| **Date** | 2026-05-21 |
-| **Base commit** | `e809942` — "Reorganise tools into tools/ with shared tokeniser.sh" |
+| **Date** | 2026-05-25 |
+| **Base commit** | `70c0e78` — "add compile_bare + implementation reference pitch to README" |
 | **Branch** | `master` |
-| **API pages** | 1117 functions across 18 modules |
-| **Guide pages** | 20 files: landing page, 18 per-module guides, recipes |
+| **API functions** | ~1,300 functions across 21 modules |
+| **Style guide** | [STYLING.md](../STYLING.md) — authoritative; supersedes inline comments |
 
 ## Doc Structure
 
@@ -51,6 +51,8 @@ bash tools/api-gen.sh src docs/api
 - **`tools/wiki-gen.sh`** is the old generator — superseded by `tools/api-gen.sh`
 - **API pages track source comments** — thin comments → thin API docs. The guide pages are where rich descriptions live
 - **`docs/api_bak/`** may exist as reference from the old generator; safe to delete
+- **`compile_bare`** — `./main.sh compile_bare "json::*" out.sh` emits only what a pattern transitively needs. Uses fixed-point call-graph discovery (functions + globals).
+- **IEEE 754** is fully integrated into `src/pfloat.sh` — no longer a stashed WIP
 
 ## For the Next Model
 

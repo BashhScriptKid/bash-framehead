@@ -10,9 +10,17 @@ source ./bash-framehead.sh
 
 # Option B: dev mode — sources all modules directly (no compile needed)
 source ./main.sh
+
+# Option C: bare-minimum — only what you need (call-graph tracing)
+./main.sh compile_bare "json::*" json_bare.sh && source ./json_bare.sh
 ```
 
 All modules depend on `runtime.sh`; it loads first automatically.
+
+## Style
+
+Follow [STYLING.md](../STYLING.md). Key points: tabs for indentation, soft 80-col
+limit, `# --- Section ---` separators, self-documenting variable names.
 
 ## Naming
 

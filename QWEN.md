@@ -2,11 +2,13 @@
 
 ## Project Overview
 
-**bash::framehead** is a comprehensive Bash runtime standard library consisting of ~1000+ functions across 18 modules. It provides utilities for string manipulation, mathematics, filesystem operations, networking, Git, hardware introspection, terminal/colour handling, time/date operations, process management, and more — all compiled into a single sourceable Bash file.
+**bash::framehead** is a comprehensive Bash runtime standard library consisting of ~1,300 functions across 21 modules. It provides utilities for string manipulation, mathematics, filesystem operations, networking, Git, hardware introspection, terminal/colour handling, time/date operations, process management, and more — all compiled into a single sourceable Bash file.
 
 **Philosophy:**
 - **Single file distribution** — No dependencies, no installation, just `source compiled.sh`
-- **Modular architecture** — 18 independent modules in `src/`, minimal coupling (only `runtime.sh` is required by all)
+- **Modular architecture** — 21 independent modules in `src/`, minimal coupling (only `runtime.sh` is required by all)
+- **Implementation reference** — Every function is self-documenting; copy one and it works standalone
+- **Bare-minimum compilation** — `./main.sh compile_bare "json::*"` emits only what's needed
 - **Graceful degradation** — Runtime checks for required tools with helpful error messages
 - **Consistent naming** — `module::function` convention throughout
 - **Pure Bash where possible** — Integer math, string ops, arrays use no external tools; floating point uses `bc` when needed
@@ -15,9 +17,10 @@
 
 ```
 bash-framehead/
-├── main.sh              # Homemade toolstack (auto-sourcer, compiler, stats, test runner)
+├── main.sh              # Homemade toolstack (auto-sourcer, compiler, compile_bare, stats, test runner)
 ├── tester.sh            # Test framework (~2000 lines of tests)
-├── src/                 # Source modules (18 .sh files)
+├── STYLING.md           # Authoritative style guide
+├── src/                 # Source modules (21 .sh files)
 │   ├── runtime.sh       # REQUIRED — base utilities all modules depend on
 │   ├── array.sh         # Array operations (+ ::fast nameref variants)
 │   ├── colour.sh        # ANSI colour/terminal styling
@@ -45,15 +48,24 @@ bash-framehead/
 
 ### Compile Modules
 
-**Recommended syntax for automation:**
+**Standard compilation:**
 ```bash
-# Full automation mode (no prompts, auto-generates version)
 OPTIMIZE=0/1 MINIFY=0/1 ./main.sh compile {out.sh} << ''
-
-# Examples:
-OPTIMIZE=0 MINIFY=0 ./main.sh compile bash-framehead.sh << ''   # Fast dev build
-OPTIMIZE=1 MINIFY=1 ./main.sh compile bash-framehead.sh << ''   # Production build
 ```
+
+**Bare-minimum compilation (call-graph tracing):**
+```bash
+# Compile only what 'json::*' transitively depends on
+./main.sh compile_bare "json::*" json_bare.sh
+
+# Or a single function + its helpers + its globals
+./main.sh compile_bare "string::trim" trim.sh
+```
+
+`compile_bare` loads all functions and globals from `src/` and `ext/`, seeds
+candidates from a glob pattern, then runs a fixed-point loop to discover
+transitive dependencies (function calls + global variable references).  The
+output is a minimal, self-contained script — no framework lock-in.
 
 **Parameters:**
 - `OPTIMIZE=0` — Skip optimization (faster compilation, larger output)
@@ -298,16 +310,17 @@ You are optimizing for **long-term maintainability**, not short-term test passes
 If in doubt: **STOP, summarize the conflict, and ask for guidance**.
 
 ## Qwen Added Memories
-### IEEE 754 Implementation (WIP)
-- **Stashed**: `git stash@{0}: ieee754-implementation-wip` (src/pfloat.sh, tester.sh)
-- **Backup**: `bash-framehead_ieee754_wip.sh` (352KB compiled)
-- **Status**: 
-  - ✅ `pfloat::fixed::*` — 46 functions refactored, all working
-  - ✅ `pfloat::fixed::` backward-compat wrappers added
-  - ⚠️ `pfloat::ieee754::*` — 22 functions implemented, mul/div need debugging
-  - ✅ 13 IEEE 754 test cases added
-- **Functions**: `add`, `sub`, `mul`, `div`, `sqrt`, `eq`, `ne`, `lt`, `le`, `gt`, `ge`, `is_nan`, `is_inf`, `is_finite`, `is_zero`, `is_negative`, `is_positive`, `neg`, `abs`, `sign`, `from_string`, `to_string`
-- **Known bugs**: IEEE 754 `mul`/`div` produce incorrect results (conversion issue)
+### Coding Style
+- See [STYLING.md](STYLING.md) for the authoritative style guide.
+- **Indentation**: tabs only. **Separators**: `# --- Section ---`.
+- **Variable naming**: self-documenting; exemptions for loop counters, coords, colors, PRNG state, Unix abbrevs.
+- **Algebraic leeway**: `{letter}_{disambiguated}` for math (`_W_weights`, `_lr_learning_rate`).
+- **Niche-context**: obscure domains use explicit names (`_codepoint` over `_cp`).
+
+### IEEE 754 Implementation
+- ✅ Fully integrated into `src/pfloat.sh` — no longer stashed WIP.
+- **Functions**: `add`, `sub`, `mul`, `div`, `sqrt`, `eq`, `ne`, `lt`, `le`, `gt`, `ge`, `is_nan`, `is_inf`, `is_finite`, `is_zero`, `is_negative`, `is_positive`, `neg`, `abs`, `sign`, `from_string`, `to_string`, `dump`, `from_binary`, `to_binary`, `trunc`, `round`
+- Bit-manipulation constants kept as `readonly` for clarity.
 
 ### Compiler Automation Syntax
 - **Command**: `OPTIMIZE=0/1 MINIFY=0/1 ./main.sh compile {out.sh} << ''`
