@@ -830,7 +830,8 @@ tester() {
     local passed=0 failed=0 skipped=0 untested=0
     local -a untested_fn
     local -a unrun_tests
-    local -r _COL=12
+    # STATUSSTATUS_COLUMN_WIDTHUMN_WIDTH: width of the PASS/FAIL/SKIP status column for alignment
+    local -r STATUSSTATUS_COLUMN_WIDTHUMN_WIDTH=12
     local is_tty=false
     [[ -t 1 ]] && is_tty=true
 
@@ -932,13 +933,13 @@ tester() {
         fi
 
         if (( _T_IS_SUB )); then
-            printf "%s%$(( _COL - ${#_raw} ))s%s\n" "$_disp" "" "$_dn"
+            printf "%s%$(( STATUS_COLUMN_WIDTH - ${#_raw} ))s%s\n" "$_disp" "" "$_dn"
         elif $is_tty; then
-            printf "%${_COL}s%s" "" "$_dn"
-            _pad=$(( _COL - ${#_raw} ))
+            printf "%${STATUS_COLUMN_WIDTH}s%s" "" "$_dn"
+            _pad=$(( STATUS_COLUMN_WIDTH - ${#_raw} ))
             printf "\r%s%${_pad}s%s\n" "$_disp" "" "$_dn"
         else
-            printf "%s%$(( _COL - ${#_raw} ))s%s\n" "$_disp" "" "$_dn"
+            printf "%s%$(( STATUS_COLUMN_WIDTH - ${#_raw} ))s%s\n" "$_disp" "" "$_dn"
         fi
 
         case $_raw in
@@ -1020,7 +1021,6 @@ tester() {
                 continue
             fi
             mapfile -t SNAP_PRE < <(declare -F | awk '{print $3}')
-            source "$_ext_mod"
             source "$_ext_test"
             local -a EXT_NEW=()
             _delta SNAP_PRE EXT_NEW
@@ -1104,6 +1104,19 @@ tester() {
         done
         (( _dup )) || unrun_tests+=("$_fn")
     done
+
+    # Deduplicate untested_fn array before reporting
+    if (( ${#untested_fn[@]} > 0 )); then
+        local -A _untested_map=()
+        local -a _untested_unique=()
+        for _fn in "${untested_fn[@]}"; do
+            [[ -n "${_untested_map[$_fn]:-}" ]] && continue
+            _untested_map["$_fn"]=1
+            _untested_unique+=("$_fn")
+        done
+        untested_fn=("${_untested_unique[@]}")
+        untested=${#untested_fn[@]}
+    fi
 
     if (( untested > 0 )); then
         echo "=== UNTESTED FUNCTIONS ==="
