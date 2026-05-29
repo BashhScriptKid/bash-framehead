@@ -428,6 +428,28 @@ compile_extended() {
         # ---- Append ---------------------------------------------------------
         buffer+=$'\n'$'\n'"$ext_content"
 
+        # ---- Append sub-modules (*.sh in ext dir, excluding main/test/bench) -
+        local _sub_mod
+        for _sub_mod in "$ext_dir"/*.sh; do
+            [[ -f "$_sub_mod" ]] || continue
+            [[ "$_sub_mod" == "$ext_file" ]] && continue
+            [[ "$_sub_mod" == *test_ext.sh || "$_sub_mod" == *benchmark.sh ]] && continue
+            local _sub_content
+            _sub_content=$(cat "$_sub_mod")
+            if [[ "$_sub_content" =~ ^#! ]]; then
+                _sub_content="${_sub_content#*$'\n'}"
+            fi
+            _sub_content=$(sed '1,/^# --- end guard ---$/d' <<< "$_sub_content")
+            if [[ "${OPTIMIZE:-0}" == "1" ]]; then
+                local _sub_opt
+                _sub_opt=$(optimize - <<< "$_sub_content")
+                if bash -n <<< "$_sub_opt" 2>/dev/null; then
+                    _sub_content="$_sub_opt"
+                fi
+            fi
+            buffer+=$'\n'$'\n'"$_sub_content"
+        done
+
         echo " ok${issue_str_file}"
         (( ext_count++ ))
     done
@@ -1014,12 +1036,18 @@ tester() {
             done
         else
             # Live-source the extension
-            if ! (source "$_ext_mod" >/dev/null 2>&1); then
+            if ! source "$_ext_mod" >/dev/null 2>&1; then
                 echo "--- ext/$_ext_name ---"
                 echo "  skip: extension failed to load"
                 echo ""
                 continue
             fi
+            # Collect extension API functions before loading tests
+            while IFS= read -r _fn; do
+                [[ "$_fn" =~ ^${_ext_name}:: ]] || continue
+                [[ "$_fn" =~ ^_ ]] && continue
+                EXT_API+=("$_fn")
+            done < <(declare -F | awk '{print $3}')
             mapfile -t SNAP_PRE < <(declare -F | awk '{print $3}')
             source "$_ext_test"
             local -a EXT_NEW=()
@@ -1045,8 +1073,8 @@ tester() {
         echo "--- ext/$_ext_name ---"
 
         # Extension globals + per-function (same module-transition pattern)
+        local -A _global_ran=()
         if (( ${#EXT_API[@]} > 0 )); then
-            local -A _global_ran=()
             local _prev_mod="" _mod _gts
             for _fn in "${EXT_API[@]}"; do
                 _mod="$(_extract_module "$_fn")"
