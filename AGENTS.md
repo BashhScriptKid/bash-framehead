@@ -33,7 +33,12 @@
 
 ## Testing Guidelines
 - Tests live in `tester.sh`; each test is `test::module::function()`.
-- Use `_assert "label" "expected" "actual"`; call `_sub_done` after grouped asserts; `_skip "reason"` for environment-sensitive cases.
+- Single-assertion tests: use the simple `_pass`/`_fail` pattern, not subtests:
+  ```bash
+  test::module::function() { if [[ "$(module::function)" == "expected" ]]; then _pass; else _fail; fi; }
+  ```
+- Multi-assertion tests: use `_assert "label" "expected" "actual"` and call `_sub_done` at the end.
+- Write APIs that would modify kernel/system state must use `_skip "reason"` so auto-discovery lists them as skipped, not untested.
 - Run `./main.sh test ./bash-framehead.sh` after changes; keep new public functions covered.
 
 ## Commit & Pull Request Guidelines
