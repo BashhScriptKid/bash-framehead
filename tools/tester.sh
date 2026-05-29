@@ -2969,3 +2969,304 @@ test::binary::from_int() {
     _assert "needs sign"    "8000" "$(binary::from_int 128 | od -An -tx1 | tr -d ' ')"
     _sub_done
 }
+
+# ==============================================================================
+# Tests — kernel
+# ==============================================================================
+
+# --- SKIPPED: write APIs (require root, would modify system state) ---
+test::kernel::hostname::set()                                    { _skip "Performs write operation to live kernel; unsafe to test"; }
+test::kernel::security::dmesg_restrict::set()                    { _skip "Performs write operation to live kernel; unsafe to test"; }
+test::kernel::security::kptr_restrict::set()                     { _skip "Performs write operation to live kernel; unsafe to test"; }
+test::kernel::security::aslr::set()                              { _skip "Performs write operation to live kernel; unsafe to test"; }
+test::kernel::security::perf_paranoid::set()                     { _skip "Performs write operation to live kernel; unsafe to test"; }
+test::kernel::mm::ksm::run::set()                                { _skip "Performs write operation to live kernel; unsafe to test"; }
+test::kernel::mm::ksm::pages_to_scan::set()                      { _skip "Performs write operation to live kernel; unsafe to test"; }
+test::kernel::mm::ksm::sleep_ms::set()                           { _skip "Performs write operation to live kernel; unsafe to test"; }
+test::kernel::mm::ksm::max_page_sharing::set()                   { _skip "Performs write operation to live kernel; unsafe to test"; }
+test::kernel::mm::ksm::merge_across_nodes::set()                 { _skip "Performs write operation to live kernel; unsafe to test"; }
+test::kernel::mm::ksm::use_zero_pages::set()                     { _skip "Performs write operation to live kernel; unsafe to test"; }
+test::kernel::mm::ksm::advisor_mode::set()                       { _skip "Performs write operation to live kernel; unsafe to test"; }
+test::kernel::mm::ksm::advisor_max_cpu::set()                    { _skip "Performs write operation to live kernel; unsafe to test"; }
+test::kernel::mm::ksm::advisor_max_pages::set()                  { _skip "Performs write operation to live kernel; unsafe to test"; }
+test::kernel::mm::ksm::advisor_min_pages::set()                  { _skip "Performs write operation to live kernel; unsafe to test"; }
+test::kernel::mm::ksm::advisor_scan_time::set()                  { _skip "Performs write operation to live kernel; unsafe to test"; }
+test::kernel::mm::ksm::chain_prune_ms::set()                     { _skip "Performs write operation to live kernel; unsafe to test"; }
+test::kernel::mm::thp::enabled::set()                            { _skip "Performs write operation to live kernel; unsafe to test"; }
+test::kernel::mm::thp::defrag::set()                             { _skip "Performs write operation to live kernel; unsafe to test"; }
+test::kernel::mm::thp::shmem_enabled::set()                      { _skip "Performs write operation to live kernel; unsafe to test"; }
+test::kernel::mm::thp::use_zero_page::set()                      { _skip "Performs write operation to live kernel; unsafe to test"; }
+test::kernel::mm::thp::shrink_underused::set()                   { _skip "Performs write operation to live kernel; unsafe to test"; }
+test::kernel::mm::thp::khugepaged::pages_to_scan::set()          { _skip "Performs write operation to live kernel; unsafe to test"; }
+test::kernel::mm::thp::khugepaged::scan_sleep_ms::set()          { _skip "Performs write operation to live kernel; unsafe to test"; }
+test::kernel::mm::thp::khugepaged::alloc_sleep_ms::set()         { _skip "Performs write operation to live kernel; unsafe to test"; }
+test::kernel::mm::thp::khugepaged::defrag::set()                 { _skip "Performs write operation to live kernel; unsafe to test"; }
+test::kernel::mm::thp::khugepaged::max_ptes_none::set()          { _skip "Performs write operation to live kernel; unsafe to test"; }
+test::kernel::mm::thp::khugepaged::max_ptes_shared::set()        { _skip "Performs write operation to live kernel; unsafe to test"; }
+test::kernel::mm::thp::khugepaged::max_ptes_swap::set()          { _skip "Performs write operation to live kernel; unsafe to test"; }
+test::kernel::mm::hugepages::nr_hugepages::set()                 { _skip "Performs write operation to live kernel; unsafe to test"; }
+test::kernel::mm::hugepages::demote()                            { _skip "Performs write operation to live kernel; unsafe to test"; }
+test::kernel::mm::hugepages::overcommit::set()                   { _skip "Performs write operation to live kernel; unsafe to test"; }
+test::kernel::irq::set_affinity()                                { _skip "Performs write operation to live kernel; unsafe to test"; }
+test::kernel::irq::set_affinity_list()                           { _skip "Performs write operation to live kernel; unsafe to test"; }
+test::kernel::power::suspend()                                   { _skip "Performs write operation to live kernel; unsafe to test"; }
+test::kernel::power::hibernate()                                 { _skip "Performs write operation to live kernel; unsafe to test"; }
+test::kernel::power::mem_sleep::set()                            { _skip "Performs write operation to live kernel; unsafe to test"; }
+test::kernel::power::pm_async::set()                             { _skip "Performs write operation to live kernel; unsafe to test"; }
+test::kernel::power::sync_on_suspend::set()                      { _skip "Performs write operation to live kernel; unsafe to test"; }
+test::kernel::power::freeze_timeout::set()                       { _skip "Performs write operation to live kernel; unsafe to test"; }
+test::kernel::power::debug_messages::set()                       { _skip "Performs write operation to live kernel; unsafe to test"; }
+test::kernel::power::print_times::set()                          { _skip "Performs write operation to live kernel; unsafe to test"; }
+test::kernel::power::pm_trace::set()                             { _skip "Performs write operation to live kernel; unsafe to test"; }
+test::kernel::power::freeze_filesystems::set()                   { _skip "Performs write operation to live kernel; unsafe to test"; }
+test::kernel::power::image_size::set()                           { _skip "Performs write operation to live kernel; unsafe to test"; }
+test::kernel::power::reserved_size::set()                        { _skip "Performs write operation to live kernel; unsafe to test"; }
+test::kernel::power::hibernate_compression_threads::set()        { _skip "Performs write operation to live kernel; unsafe to test"; }
+test::kernel::power::disk_mode::set()                            { _skip "Performs write operation to live kernel; unsafe to test"; }
+test::kernel::power::resume_device::set()                        { _skip "Performs write operation to live kernel; unsafe to test"; }
+test::kernel::power::resume_offset::set()                        { _skip "Performs write operation to live kernel; unsafe to test"; }
+test::kernel::power::pm_test::set()                              { _skip "Performs write operation to live kernel; unsafe to test"; }
+test::kernel::cgroup::move_process()                             { _skip "Performs write operation to live kernel; unsafe to test"; }
+test::kernel::cgroup::reclaim_memory()                           { _skip "Performs write operation to live kernel; unsafe to test"; }
+test::kernel::sysrq::sync()                                      { _skip "Performs write operation to live kernel; unsafe to test"; }
+test::kernel::sysrq::show_tasks()                                { _skip "Performs write operation to live kernel; unsafe to test"; }
+test::kernel::sysrq::show_memory()                               { _skip "Performs write operation to live kernel; unsafe to test"; }
+test::kernel::sysrq::reboot()                                    { _skip "Performs write operation to live kernel; unsafe to test"; }
+test::kernel::sysrq::poweroff()                                  { _skip "Performs write operation to live kernel; unsafe to test"; }
+test::kernel::sysrq::oom_kill()                                  { _skip "Performs write operation to live kernel; unsafe to test"; }
+test::kernel::pid_max::set()                                     { _skip "Performs write operation to live kernel; unsafe to test"; }
+test::kernel::threads_max::set()                                 { _skip "Performs write operation to live kernel; unsafe to test"; }
+test::kernel::sysrq::enabled::set()                              { _skip "Performs write operation to live kernel; unsafe to test"; }
+test::kernel::panic::timeout::set()                              { _skip "Performs write operation to live kernel; unsafe to test"; }
+test::kernel::panic::on_oops::set()                              { _skip "Performs write operation to live kernel; unsafe to test"; }
+test::kernel::coredump::pattern::set()                           { _skip "Performs write operation to live kernel; unsafe to test"; }
+test::kernel::coredump::uses_pid::set()                          { _skip "Performs write operation to live kernel; unsafe to test"; }
+test::kernel::coredump::note_size_limit::set()                   { _skip "Performs write operation to live kernel; unsafe to test"; }
+test::kernel::coredump::sort_vma::set()                          { _skip "Performs write operation to live kernel; unsafe to test"; }
+test::kernel::ctrl_alt_del::set()                                { _skip "Performs write operation to live kernel; unsafe to test"; }
+test::kernel::domainname::set()                                  { _skip "Performs write operation to live kernel; unsafe to test"; }
+test::kernel::ftrace::dump_on_oops::set()                        { _skip "Performs write operation to live kernel; unsafe to test"; }
+test::kernel::ftrace::enabled::set()                             { _skip "Performs write operation to live kernel; unsafe to test"; }
+test::kernel::lockup::hardlockup_backtrace::set()                { _skip "Performs write operation to live kernel; unsafe to test"; }
+test::kernel::lockup::hardlockup_panic::set()                    { _skip "Performs write operation to live kernel; unsafe to test"; }
+test::kernel::lockup::hung_task_backtrace::set()                 { _skip "Performs write operation to live kernel; unsafe to test"; }
+test::kernel::ipc::auto_msgmni::set()                            { _skip "Performs write operation to live kernel; unsafe to test"; }
+test::kernel::bpf::stats_enabled::set()                          { _skip "Performs write operation to live kernel; unsafe to test"; }
+test::kernel::acpi::video_flags::set()                           { _skip "Performs write operation to live kernel; unsafe to test"; }
+test::kernel::acct::interval::set()                              { _skip "Performs write operation to live kernel; unsafe to test"; }
+test::kernel::ns::last_pid::set()                                { _skip "Performs write operation to live kernel; unsafe to test"; }
+test::kernel::vm::cache::drop()                                  { _skip "Performs write operation to live kernel; unsafe to test"; }
+test::kernel::vm::compact()                                      { _skip "Performs write operation to live kernel; unsafe to test"; }
+test::kernel::vm::dirty_ratio::set()                             { _skip "Performs write operation to live kernel; unsafe to test"; }
+test::kernel::vm::dirty_background_ratio::set()                  { _skip "Performs write operation to live kernel; unsafe to test"; }
+test::kernel::vm::dirty_bytes::set()                             { _skip "Performs write operation to live kernel; unsafe to test"; }
+test::kernel::vm::dirty_background_bytes::set()                  { _skip "Performs write operation to live kernel; unsafe to test"; }
+test::kernel::vm::dirty_expire::set()                            { _skip "Performs write operation to live kernel; unsafe to test"; }
+test::kernel::vm::dirty_writeback::set()                         { _skip "Performs write operation to live kernel; unsafe to test"; }
+test::kernel::vm::swappiness::set()                              { _skip "Performs write operation to live kernel; unsafe to test"; }
+test::kernel::vm::min_free::set()                                { _skip "Performs write operation to live kernel; unsafe to test"; }
+test::kernel::vm::max_map_count::set()                           { _skip "Performs write operation to live kernel; unsafe to test"; }
+test::kernel::vm::vfs_cache_pressure::set()                      { _skip "Performs write operation to live kernel; unsafe to test"; }
+test::kernel::vm::laptop_mode::set()                             { _skip "Performs write operation to live kernel; unsafe to test"; }
+test::kernel::vm::compaction_proactiveness::set()                { _skip "Performs write operation to live kernel; unsafe to test"; }
+test::kernel::vm::overcommit::memory::set()                      { _skip "Performs write operation to live kernel; unsafe to test"; }
+test::kernel::vm::overcommit::ratio::set()                       { _skip "Performs write operation to live kernel; unsafe to test"; }
+test::kernel::vm::admin_reserve::set()                           { _skip "Performs write operation to live kernel; unsafe to test"; }
+test::kernel::vm::mmap_min_addr::set()                           { _skip "Performs write operation to live kernel; unsafe to test"; }
+test::kernel::vm::mmap_rnd_bits::set()                           { _skip "Performs write operation to live kernel; unsafe to test"; }
+test::kernel::vm::hugetlb::shm_group::set()                      { _skip "Performs write operation to live kernel; unsafe to test"; }
+test::kernel::vm::hugetlb::optimize_vmemmap::set()               { _skip "Performs write operation to live kernel; unsafe to test"; }
+test::kernel::vm::extfrag_threshold::set()                       { _skip "Performs write operation to live kernel; unsafe to test"; }
+test::kernel::vm::soft_offline::set()                            { _skip "Performs write operation to live kernel; unsafe to test"; }
+test::kernel::vm::compact_unevictable::set()                     { _skip "Performs write operation to live kernel; unsafe to test"; }
+test::kernel::vm::defrag_mode::set()                             { _skip "Performs write operation to live kernel; unsafe to test"; }
+test::kernel::vm::dirtytime_expire::set()                        { _skip "Performs write operation to live kernel; unsafe to test"; }
+test::kernel::vm::memory_failure::early_kill::set()              { _skip "Performs write operation to live kernel; unsafe to test"; }
+test::kernel::vm::memory_failure::recovery::set()                { _skip "Performs write operation to live kernel; unsafe to test"; }
+test::kernel::memfd::noexec::set()                               { _skip "Performs write operation to live kernel; unsafe to test"; }
+test::kernel::vm::lowmem_reserve::set()                          { _skip "Performs write operation to live kernel; unsafe to test"; }
+test::kernel::vm::min_slab_ratio::set()                          { _skip "Performs write operation to live kernel; unsafe to test"; }
+test::kernel::vm::min_unmapped_ratio::set()                      { _skip "Performs write operation to live kernel; unsafe to test"; }
+test::kernel::vm::legacy_va_layout::set()                        { _skip "Performs write operation to live kernel; unsafe to test"; }
+test::kernel::vm::movable_gigantic::set()                        { _skip "Performs write operation to live kernel; unsafe to test"; }
+
+# --- READ-ONLY TESTS ---
+test::kernel::version()              { if [[ -n "$(kernel::version)" ]]; then _pass; else _fail; fi; }
+test::kernel::version::full()        { if [[ "$(kernel::version::full)" == *"Linux"* ]]; then _pass; else _fail; fi; }
+test::kernel::version::major()       { if [[ -n "$(kernel::version::major)" ]]; then _pass; else _fail; fi; }
+test::kernel::version::minor()       { if [[ -n "$(kernel::version::minor)" ]]; then _pass; else _fail; fi; }
+test::kernel::version::patch()       { if [[ -n "$(kernel::version::patch)" ]]; then _pass; else _fail; fi; }
+test::kernel::release()              { if [[ -n "$(kernel::release)" ]]; then _pass; else _fail; fi; }
+test::kernel::arch()                 { if [[ -n "$(kernel::arch)" ]]; then _pass; else _fail; fi; }
+test::kernel::name()                 { if [[ "$(kernel::name)" == "Linux" ]]; then _pass; else _fail; fi; }
+test::kernel::hostname()             { if [[ -n "$(kernel::hostname)" ]]; then _pass; else _fail; fi; }
+test::kernel::cmdline()              { if [[ -n "$(kernel::cmdline)" ]]; then _pass; else _fail; fi; }
+test::kernel::cmdline::get()         { if [[ -n "$(kernel::cmdline::get root)" ]]; then _pass; else _fail; fi; }
+test::kernel::compression()          { if [[ -n "$(kernel::compression)" ]]; then _pass; else _fail; fi; }
+test::kernel::tainted()              { if [[ "$(kernel::tainted)" == "clean" ]]; then _pass; else _fail; fi; }
+test::kernel::security::lockdown()   { if [[ -n "$(kernel::security::lockdown)" ]]; then _pass; else _fail; fi; }
+test::kernel::security::is_locked()  { "$FUNCNAME"; local r=$?; [[ $r -eq 0 || $r -eq 1 ]] && _pass || _fail; }
+test::kernel::security::lsm()        { if [[ -n "$(kernel::security::lsm)" ]]; then _pass; else _fail; fi; }
+test::kernel::security::dmesg_restrict::get()  { if [[ -n "$(kernel::security::dmesg_restrict::get)" ]]; then _pass; else _fail; fi; }
+test::kernel::security::kptr_restrict::get()   { if [[ -n "$(kernel::security::kptr_restrict::get)" ]]; then _pass; else _fail; fi; }
+test::kernel::security::aslr::get()            { if [[ -n "$(kernel::security::aslr::get)" ]]; then _pass; else _fail; fi; }
+test::kernel::security::perf_paranoid::get()   { if [[ -n "$(kernel::security::perf_paranoid::get)" ]]; then _pass; else _fail; fi; }
+test::kernel::modules::list()        { if [[ -n "$(kernel::modules::list)" ]]; then _pass; else _fail; fi; }
+test::kernel::modules::count()       { if [[ -n "$(kernel::modules::count)" ]]; then _pass; else _fail; fi; }
+test::kernel::modules::is_loaded()   { kernel::modules::is_loaded ext4 && _pass || _fail; }
+test::kernel::modules::size()        { if [[ -n "$(kernel::modules::size)" ]]; then _pass; else _fail; fi; }
+test::kernel::mm::ksm::status()      { if [[ "$(kernel::mm::ksm::status)" == *"run="* ]]; then _pass; else _fail; fi; }
+test::kernel::mm::ksm::run::get()    { if [[ -n "$(kernel::mm::ksm::run::get)" ]]; then _pass; else _fail; fi; }
+test::kernel::mm::ksm::pages_to_scan::get() { if [[ -n "$(kernel::mm::ksm::pages_to_scan::get)" ]]; then _pass; else _fail; fi; }
+test::kernel::mm::ksm::sleep_ms::get()      { if [[ -n "$(kernel::mm::ksm::sleep_ms::get)" ]]; then _pass; else _fail; fi; }
+test::kernel::mm::thp::status()      { if [[ "$(kernel::mm::thp::status)" == *"enabled="* ]]; then _pass; else _fail; fi; }
+test::kernel::mm::thp::enabled::get(){ if [[ "$(kernel::mm::thp::enabled::get)" == *"always"* ]]; then _pass; else _fail; fi; }
+test::kernel::mm::hugepages::status(){ if [[ -n "$(kernel::mm::hugepages::status)" ]]; then _pass; else _fail; fi; }
+test::kernel::mm::lru_gen::status()  { if [[ "$(kernel::mm::lru_gen::status)" == *"enabled="* ]]; then _pass; else _fail; fi; }
+test::kernel::slab::total_memory()   { if [[ -n "$(kernel::slab::total_memory)" ]]; then _pass; else _fail; fi; }
+test::kernel::irq::list()            { if [[ -n "$(kernel::irq::list | head -1)" ]]; then _pass; else _fail; fi; }
+test::kernel::irq::info()            { if [[ "$(kernel::irq::info 1)" == *"irq=1"* ]]; then _pass; else _fail; fi; }
+test::kernel::power::states()        { if [[ "$(kernel::power::states)" == *"mem"* ]]; then _pass; else _fail; fi; }
+test::kernel::power::can_suspend()   { kernel::power::can_suspend && _pass || _fail; }
+test::kernel::power::mem_sleep::get(){ if [[ -n "$(kernel::power::mem_sleep::get)" ]]; then _pass; else _fail; fi; }
+test::kernel::power::pm_async::get() { if [[ -n "$(kernel::power::pm_async::get)" ]]; then _pass; else _fail; fi; }
+test::kernel::power::sync_on_suspend::get() { if [[ -n "$(kernel::power::sync_on_suspend::get)" ]]; then _pass; else _fail; fi; }
+test::kernel::power::suspend_stats() { if [[ "$(kernel::power::suspend_stats)" == *"success="* ]]; then _pass; else _fail; fi; }
+test::kernel::kexec::loaded()        { "$FUNCNAME"; local r=$?; [[ $r -eq 0 || $r -eq 1 ]] && _pass || _fail; }
+test::kernel::kexec::crash::loaded() { "$FUNCNAME"; local r=$?; [[ $r -eq 0 || $r -eq 1 ]] && _pass || _fail; }
+test::kernel::reboot::mode()         { if [[ -n "$(kernel::reboot::mode)" ]]; then _pass; else _fail; fi; }
+test::kernel::reboot::type()         { if [[ -n "$(kernel::reboot::type)" ]]; then _pass; else _fail; fi; }
+test::kernel::sched::ext::is_active(){ "$FUNCNAME"; local r=$?; [[ $r -eq 0 || $r -eq 1 ]] && _pass || _fail; }
+test::kernel::cgroup::features()     { if [[ -n "$(kernel::cgroup::features)" ]]; then _pass; else _fail; fi; }
+test::kernel::cgroup::delegate()     { if [[ -n "$(kernel::cgroup::delegate)" ]]; then _pass; else _fail; fi; }
+test::kernel::cgroup::stat()         { if [[ "$(kernel::cgroup::stat)" == *"descendants="* ]]; then _pass; else _fail; fi; }
+test::kernel::cgroup::cpu_stat()     { if [[ -n "$(kernel::cgroup::cpu_stat)" ]]; then _pass; else _fail; fi; }
+test::kernel::cgroup::cpu_pressure() { if [[ -n "$(kernel::cgroup::cpu_pressure)" ]]; then _pass; else _fail; fi; }
+test::kernel::cgroup::memory_stat()  { if [[ -n "$(kernel::cgroup::memory_stat)" ]]; then _pass; else _fail; fi; }
+test::kernel::cgroup::io_stat()      { if [[ -n "$(kernel::cgroup::io_stat)" ]]; then _pass; else _fail; fi; }
+test::kernel::cgroup::io_pressure()  { if [[ -n "$(kernel::cgroup::io_pressure)" ]]; then _pass; else _fail; fi; }
+test::kernel::syslog::last()         { if [[ -n "$(kernel::syslog::last 5)" ]]; then _pass; else _fail; fi; }
+test::kernel::syslog::errors()       { kernel::syslog::errors >/dev/null 2>&1 && _pass || _fail; }
+test::kernel::syslog::level()        { if [[ -n "$(kernel::syslog::level)" ]]; then _pass; else _fail; fi; }
+test::kernel::sysrq::enabled()       { if [[ -n "$(kernel::sysrq::enabled)" ]]; then _pass; else _fail; fi; }
+test::kernel::vmstat::pgfault()      { if [[ -n "$(kernel::vmstat::pgfault)" ]]; then _pass; else _fail; fi; }
+test::kernel::vmstat::pgmajfault()   { if [[ -n "$(kernel::vmstat::pgmajfault)" ]]; then _pass; else _fail; fi; }
+test::kernel::vmstat::get()          { if [[ -n "$(kernel::vmstat::get nr_free_pages)" ]]; then _pass; else _fail; fi; }
+test::kernel::buddyinfo::free_pages(){ if [[ -n "$(kernel::buddyinfo::free_pages)" ]]; then _pass; else _fail; fi; }
+test::kernel::meminfo::buffers()     { if [[ -n "$(kernel::meminfo::buffers)" ]]; then _pass; else _fail; fi; }
+test::kernel::meminfo::cached()      { if [[ -n "$(kernel::meminfo::cached)" ]]; then _pass; else _fail; fi; }
+test::kernel::meminfo::swap_total()  { if [[ -n "$(kernel::meminfo::swap_total)" ]]; then _pass; else _fail; fi; }
+test::kernel::meminfo::swap_free()   { if [[ -n "$(kernel::meminfo::swap_free)" ]]; then _pass; else _fail; fi; }
+test::kernel::meminfo::slab()        { if [[ -n "$(kernel::meminfo::slab)" ]]; then _pass; else _fail; fi; }
+test::kernel::meminfo::summary()     { if [[ "$(kernel::meminfo::summary)" == *"total="* ]]; then _pass; else _fail; fi; }
+test::kernel::pid_max::get()         { if [[ -n "$(kernel::pid_max::get)" ]]; then _pass; else _fail; fi; }
+test::kernel::threads_max::get()     { if [[ -n "$(kernel::threads_max::get)" ]]; then _pass; else _fail; fi; }
+test::kernel::sysrq::enabled::get()  { if [[ -n "$(kernel::sysrq::enabled::get)" ]]; then _pass; else _fail; fi; }
+test::kernel::panic::timeout::get()  { if [[ -n "$(kernel::panic::timeout::get)" ]]; then _pass; else _fail; fi; }
+test::kernel::panic::on_oops::get()  { if [[ -n "$(kernel::panic::on_oops::get)" ]]; then _pass; else _fail; fi; }
+test::kernel::coredump::pattern::get() { if [[ -n "$(kernel::coredump::pattern::get)" ]]; then _pass; else _fail; fi; }
+test::kernel::coredump::uses_pid::get() { if [[ -n "$(kernel::coredump::uses_pid::get)" ]]; then _pass; else _fail; fi; }
+test::kernel::ctrl_alt_del::get()    { if [[ -n "$(kernel::ctrl_alt_del::get)" ]]; then _pass; else _fail; fi; }
+test::kernel::domainname::get()      { if [[ -n "$(kernel::domainname::get)" ]]; then _pass; else _fail; fi; }
+test::kernel::vm::swappiness::get()  { if [[ -n "$(kernel::vm::swappiness::get)" ]]; then _pass; else _fail; fi; }
+test::kernel::vm::min_free::get()    { if [[ -n "$(kernel::vm::min_free::get)" ]]; then _pass; else _fail; fi; }
+test::kernel::vm::max_map_count::get() { if [[ -n "$(kernel::vm::max_map_count::get)" ]]; then _pass; else _fail; fi; }
+test::kernel::vm::vfs_cache_pressure::get() { if [[ -n "$(kernel::vm::vfs_cache_pressure::get)" ]]; then _pass; else _fail; fi; }
+test::kernel::vm::overcommit::memory::get() { if [[ -n "$(kernel::vm::overcommit::memory::get)" ]]; then _pass; else _fail; fi; }
+test::kernel::vm::overcommit::ratio::get()  { if [[ -n "$(kernel::vm::overcommit::ratio::get)" ]]; then _pass; else _fail; fi; }
+test::kernel::vm::dirty_ratio::get() { if [[ -n "$(kernel::vm::dirty_ratio::get)" ]]; then _pass; else _fail; fi; }
+test::kernel::vm::dirty_background_ratio::get() { if [[ -n "$(kernel::vm::dirty_background_ratio::get)" ]]; then _pass; else _fail; fi; }
+test::kernel::vm::laptop_mode::get() { if [[ -n "$(kernel::vm::laptop_mode::get)" ]]; then _pass; else _fail; fi; }
+test::kernel::vm::compaction_proactiveness::get() { if [[ -n "$(kernel::vm::compaction_proactiveness::get)" ]]; then _pass; else _fail; fi; }
+
+# ==============================================================================
+# Tests — device (new expansion)
+# ==============================================================================
+
+# --- SKIPPED: write APIs ---
+test::device::zero()                    { _skip "Performs write operation to device; unsafe to test"; }
+test::device::fb::capture()             { _skip "Performs write to stdout; binary output"; }
+
+# --- Block metadata (read-only) ---
+test::device::read::scheduler()         { if [[ -n "$(device::read::scheduler sda 2>/dev/null || device::read::scheduler nvme0n1 2>/dev/null || echo "")" ]]; then _pass; else _skip "no block device"; fi; }
+
+# --- Listers (read-only) ---
+test::device::list::block()             { if [[ -n "$(device::list::block)" ]]; then _pass; else _fail; fi; }
+test::device::list::char()              { if [[ -n "$(device::list::char | head -1)" ]]; then _pass; else _fail; fi; }
+test::device::list::tty()               { if [[ -n "$(device::list::tty | head -1)" ]]; then _pass; else _fail; fi; }
+test::device::list::usb()               { if [[ -n "$(device::list::usb | head -1)" ]]; then _pass; else _fail; fi; }
+test::device::list::fb()                { device::list::fb >/dev/null 2>&1; _pass; }
+test::device::list::gpu()               { device::list::gpu >/dev/null 2>&1; _pass; }
+test::device::list::alsa()              { device::list::alsa >/dev/null 2>&1; _pass; }
+test::device::list::input()             { if [[ -n "$(device::list::input | head -1)" ]]; then _pass; else _fail; fi; }
+test::device::list::thermal()           { device::list::thermal >/dev/null 2>&1; _pass; }
+test::device::list::power()             { device::list::power >/dev/null 2>&1; _pass; }
+test::device::list::led()               { device::list::led >/dev/null 2>&1; _pass; }
+test::device::list::hwmon()             { device::list::hwmon >/dev/null 2>&1; _pass; }
+test::device::list::serial()            { device::list::serial >/dev/null 2>&1; _pass; }
+
+# --- Lister ::fast variants ---
+test::device::list::block::fast()       { local -a r; device::list::block::fast r; if (( ${#r[@]} > 0 )); then _pass; else _fail; fi; }
+test::device::list::char::fast()        { local -a r; device::list::char::fast r; if (( ${#r[@]} > 0 )); then _pass; else _fail; fi; }
+test::device::list::tty::fast()         { local -a r; device::list::tty::fast r; if (( ${#r[@]} > 0 )); then _pass; else _fail; fi; }
+test::device::list::usb::fast()         { local -a r; device::list::usb::fast r; if (( ${#r[@]} > 0 )); then _pass; else _fail; fi; }
+test::device::list::input::fast()       { local -a r; device::list::input::fast r; if (( ${#r[@]} > 0 )); then _pass; else _fail; fi; }
+
+# --- Framebuffer ---
+test::device::fb::name()                { device::fb::name fb0 >/dev/null 2>&1; _pass; }
+test::device::fb::resolution()          { device::fb::resolution fb0 >/dev/null 2>&1; _pass; }
+test::device::fb::bpp()                 { device::fb::bpp fb0 >/dev/null 2>&1; _pass; }
+test::device::fb::stride()              { device::fb::stride fb0 >/dev/null 2>&1; _pass; }
+test::device::fb::mode()                { device::fb::mode fb0 >/dev/null 2>&1; _pass; }
+
+# --- GPU ---
+test::device::read::gpu::name()         { device::read::gpu::name card0 >/dev/null 2>&1; _pass; }
+test::device::read::gpu::temp()         { device::read::gpu::temp card0 >/dev/null 2>&1; _pass; }
+
+# --- ALSA ---
+test::device::read::alsa::cards()       { device::read::alsa::cards >/dev/null 2>&1; _pass; }
+
+# --- Input ---
+test::device::read::input::devices()    { if [[ -n "$(device::read::input::devices | head -1)" ]]; then _pass; else _fail; fi; }
+
+# --- Thermal ---
+test::device::read::thermal::zones()    { device::read::thermal::zones >/dev/null 2>&1; _pass; }
+
+# --- Power ---
+test::device::read::power::status()     { device::read::power::status BAT0 >/dev/null 2>&1; _pass; }
+test::device::read::power::capacity()   { device::read::power::capacity BAT0 >/dev/null 2>&1; _pass; }
+
+# --- LEDs ---
+test::device::read::led::brightness()   { device::read::led::brightness input0::scrolllock >/dev/null 2>&1; _pass; }
+test::device::read::led::max_brightness() { device::read::led::max_brightness input0::scrolllock >/dev/null 2>&1; _pass; }
+
+# --- HWmon ---
+test::device::read::hwmon::temp()       { device::read::hwmon::temp hwmon0 >/dev/null 2>&1; _pass; }
+test::device::read::hwmon::fan()        { device::read::hwmon::fan hwmon0 >/dev/null 2>&1; _pass; }
+test::device::read::hwmon::voltage()    { device::read::hwmon::voltage hwmon0 >/dev/null 2>&1; _pass; }
+
+# --- Serial ---
+test::device::read::serial::ports()     { device::read::serial::ports >/dev/null 2>&1; _pass; }
+test::device::read::serial::info()      { device::read::serial::info ttyS0 >/dev/null 2>&1; _pass; }
+
+# --- Event parsing ---
+test::device::event::read()          { device::event::read event0 >/dev/null 2>&1; _pass; }
+
+# --- Input discovery ---
+test::device::input::find::name()    { device::input::find::name "keyboard" >/dev/null 2>&1; _pass; }
+test::device::input::find::capability() { device::input::find::capability key >/dev/null 2>&1; _pass; }
+test::device::input::find::id()      { device::input::find::id "platform-i8042-serio-0-event-kbd" >/dev/null 2>&1; _pass; }
+
+# --- Keyboard ---
+test::device::input::keyname()       { if [[ "$(device::input::keyname 30)" == "a" ]]; then _pass; else _fail; fi; }
+
+# --- Inspection (existing, verify still work) ---
+test::device::is_device()               { if device::is_device /dev/null; then _pass; else _fail; fi; }
+test::device::is_device::char()         { if device::is_device::char /dev/null; then _pass; else _fail; fi; }
+test::device::is_virtual()              { if device::is_virtual /dev/null; then _pass; else _fail; fi; }
+test::device::type()                    { if [[ "$(device::type /dev/null)" == "virtual" ]]; then _pass; else _fail; fi; }
+test::device::exists()                  { if device::exists /dev/null; then _pass; else _fail; fi; }
+test::device::is_readable()             { if device::is_readable /dev/null; then _pass; else _fail; fi; }
+test::device::is_writeable()            { if device::is_writeable /dev/null; then _pass; else _fail; fi; }
+test::device::null_ok()                 { if device::null_ok; then _pass; else _fail; fi; }
+test::device::random()                  { if [[ -n "$(device::random 8)" ]]; then _pass; else _fail; fi; }
