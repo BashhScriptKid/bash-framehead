@@ -4,9 +4,9 @@
 # Requires: runtime string
 #
 # All parser state lives in an associative array _ctx, passed by the caller.
-# Char access is inlined at every call site — no helper abstraction that
-# fights bash's nameref/scoping rules.  Explicit, self-contained, zero
-# hidden state.
+# Char access is inlined at every call site.
+# Auto-detects GNU grep for C-speed large-container scanning.
+# Force pure bash: NOGREP=1 or _ctx[no_grep]=1.
 
 # --- Guard ---
 
@@ -34,6 +34,19 @@ done
 
 unset _guard_core_deps _guard_ext_deps _guard_dep
 # --- end guard ---
+
+# --- Grep detection ---
+# Auto-detect GNU grep with -b flag.  Override: NOGREP=1 or _ctx[no_grep]=1.
+
+_json_has_grep=0
+if [[ "${NOGREP:-0}" != "1" ]]; then
+	if command -v grep &>/dev/null; then
+		# Verify grep -b works (GNU grep); macOS BSD grep lacks -b
+		if echo '{}' | grep -ob '[{}]' &>/dev/null 2>&1; then
+			_json_has_grep=1
+		fi
+	fi
+fi
 
 declare -A _JSON_CLOSER=(["{"]="}" ["["]="]")
 
@@ -466,49 +479,60 @@ _json::_navigate() {
 
 _json::_grep_len() {
 	local -n _cr="$1"
-	local _opener="$2" _depth=0 _in_string=0 _count=0 _first=1 _bo _bc _gl
-	local _buf="${_cr[buf]}" _pos="${_cr[pos]}"
-	while IFS= read -r _gl; do
-		_bo="${_gl%%:*}"; _bc="${_gl#*:}"
-		(( _first )) && _first=0 && continue
-		(( _in_string )) && { [[ "$_bc" == '"' ]] && _in_string=0; continue; }
-		case "$_bc" in
-			'"') _in_string=1 ;;
-			'{'|'[') ((_depth++)) ;;
-			'}'|']')
-				(( _depth == 0 )) && { [[ "$_opener" == '[' ]] && echo "$((_count+1))" || echo "$_count"; return 0; }
-				((_depth--)) ;;
-			',') (( ! _depth && _opener == '[' )) && ((_count++)) ;;
-			':') (( ! _depth && _opener == '{' )) && ((_count++)) ;;
-		esac
-	done < <(printf '%s' "${_buf:_pos}" | grep -ob '[][{}",:]')
+	local _use_grep=$_json_has_grep
+	(( ${_cr[no_grep]:-0} )) && _use_grep=0
+	if (( _use_grep )); then
+		local _opener="$2" _depth=0 _in_string=0 _count=0 _first=1 _bo _bc _gl
+		local _buf="${_cr[buf]}" _pos="${_cr[pos]}"
+		while IFS= read -r _gl; do
+			_bo="${_gl%%:*}"; _bc="${_gl#*:}"
+			(( _first )) && _first=0 && continue
+			(( _in_string )) && { [[ "$_bc" == '"' ]] && _in_string=0; continue; }
+			case "$_bc" in
+				'"') _in_string=1 ;;
+				'{'|'[') ((_depth++)) ;;
+				'}'|']')
+					(( _depth == 0 )) && { [[ "$_opener" == '[' ]] && echo "$((_count+1))" || echo "$_count"; return 0; }
+					((_depth--)) ;;
+				',') (( ! _depth && _opener == '[' )) && ((_count++)) ;;
+				':') (( ! _depth && _opener == '{' )) && ((_count++)) ;;
+			esac
+		done < <(printf '%s' "${_buf:_pos}" | grep -ob '[][{}",:]')
+	else
+		local _opener="$2" _depth=0 _in_string=0 _count=0
+		local _buf="${_cr[buf]}" _pos="${_cr[pos]}" _len="${_cr[len]}" _i="$((_pos+1))" _ch
+		while (( _i < _len )); do
+			_ch="${_buf:_i:1}"
+			if (( _in_string )); then
+				if [[ "$_ch" == '"' ]]; then _in_string=0
+				elif [[ "$_ch" == '\' ]]; then ((_i++))
+				fi
+				((_i++)); continue
+			fi
+			case "$_ch" in
+				'"') _in_string=1 ;;
+				'{'|'[') ((_depth++)) ;;
+				'}'|']')
+					(( _depth == 0 )) && {
+						[[ "$_opener" == '[' ]] && echo "$((_count+1))" || echo "$_count"
+						return 0
+					}
+					((_depth--)) ;;
+				',') (( ! _depth && _opener == '[' )) && ((_count++)) ;;
+				':') (( ! _depth && _opener == '{' )) && ((_count++)) ;;
+			esac
+			((_i++))
+		done
+		echo "$_count"
+	fi
 }
 
 _json::_grep_skip_container() {
 	local -n _cr="$1"
-	local _opener="${_cr[buf]:${_cr[pos]}:1}" _depth=1 _in_string=0 _first=1 _bo _bc _gl
-	while IFS= read -r _gl; do
-		_bo="${_gl%%:*}"; _bc="${_gl#*:}"
-		(( _first )) && _first=0 && continue
-		(( _in_string )) && { [[ "$_bc" == '"' ]] && _in_string=0; continue; }
-		case "$_bc" in
-			'"') _in_string=1 ;;
-			'{'|'[') ((_depth++)) ;;
-			'}'|']')
-				((_depth--))
-				(( _depth == 0 )) && { _cr[pos]=$((_cr[pos]+_bo+1)); return 0; }
-				;;
-		esac
-	done < <(printf '%s' "${_cr[buf]:${_cr[pos]}}" | grep -ob '[][{}",:]')
-	return 1
-}
-
-_json::_grep_keys() {
-	local -n _cr="$1"
-	local _opener="${_cr[buf]:${_cr[pos]}:1}" _depth=1 _in_string=0 _first=1
-	local _ks=0 _abs _raw _ke _bo _bc _gl _buf="${_cr[buf]}" _len="${_cr[len]}"
-	if [[ "$_opener" == '[' ]]; then
-		local _idx=0
+	local _use_grep=$_json_has_grep
+	(( ${_cr[no_grep]:-0} )) && _use_grep=0
+	if (( _use_grep )); then
+		local _opener="${_cr[buf]:${_cr[pos]}:1}" _depth=1 _in_string=0 _first=1 _bo _bc _gl
 		while IFS= read -r _gl; do
 			_bo="${_gl%%:*}"; _bc="${_gl#*:}"
 			(( _first )) && _first=0 && continue
@@ -518,36 +542,151 @@ _json::_grep_keys() {
 				'{'|'[') ((_depth++)) ;;
 				'}'|']')
 					((_depth--))
-					(( _depth == 0 )) && { printf '%d\n' "$_idx"; _cr[pos]=$((_cr[pos]+_bo+1)); return 0; } ;;
-				',') (( _depth == 1 )) && { printf '%d\n' "$_idx"; ((_idx++)); } ;;
+					(( _depth == 0 )) && { _cr[pos]=$((_cr[pos]+_bo+1)); return 0; }
+					;;
+			esac
+		done < <(printf '%s' "${_cr[buf]:${_cr[pos]}}" | grep -ob '[][{}",:]')
+		return 1
+	else
+		local _opener="${_cr[buf]:${_cr[pos]}:1}" _closer="${_JSON_CLOSER[${_cr[buf]:${_cr[pos]}:1}]}"
+		local _depth=1 _in_string=0
+		local _buf="${_cr[buf]}" _len="${_cr[len]}" _i=$((_cr[pos]+1)) _ch
+		while (( _i < _len )); do
+			_ch="${_buf:_i:1}"
+			if (( _in_string )); then
+				if [[ "$_ch" == '"' ]]; then _in_string=0
+				elif [[ "$_ch" == '\' ]]; then ((_i++))
+				fi
+				((_i++)); continue
+			fi
+			case "$_ch" in
+				'"') _in_string=1 ;;
+				"$_opener") ((_depth++)) ;;
+				"$_closer")
+					((_depth--))
+					(( _depth == 0 )) && { _cr[pos]=$((_i+1)); return 0; }
+					;;
+			esac
+			((_i++))
+		done
+		return 1
+	fi
+}
+
+_json::_grep_keys() {
+	local -n _cr="$1"
+	local _use_grep=$_json_has_grep
+	(( ${_cr[no_grep]:-0} )) && _use_grep=0
+	local _opener="${_cr[buf]:${_cr[pos]}:1}"
+	if (( _use_grep )); then
+		local _depth=1 _in_string=0 _first=1
+		local _ks=0 _abs _raw _ke _bo _bc _gl _buf="${_cr[buf]}" _len="${_cr[len]}"
+		if [[ "$_opener" == '[' ]]; then
+			local _idx=0
+			while IFS= read -r _gl; do
+				_bo="${_gl%%:*}"; _bc="${_gl#*:}"
+				(( _first )) && _first=0 && continue
+				(( _in_string )) && { [[ "$_bc" == '"' ]] && _in_string=0; continue; }
+				case "$_bc" in
+					'"') _in_string=1 ;;
+					'{'|'[') ((_depth++)) ;;
+					'}'|']')
+						((_depth--))
+						(( _depth == 0 )) && { printf '%d\n' "$_idx"; _cr[pos]=$((_cr[pos]+_bo+1)); return 0; } ;;
+					',') (( _depth == 1 )) && { printf '%d\n' "$_idx"; ((_idx++)); } ;;
+				esac
+			done < <(printf '%s' "${_buf:${_cr[pos]}}" | grep -ob '[][{}",:]')
+			return 0
+		fi
+		while IFS= read -r _gl; do
+			_bo="${_gl%%:*}"; _bc="${_gl#*:}"
+			(( _first )) && _first=0 && continue
+			if (( _in_string )); then
+				if [[ "$_bc" == '"' ]]; then
+					_in_string=0
+					if (( _depth == 1 && _ks > 0 )); then
+						_abs=$((_cr[pos]+_bo)); _raw="${_buf:_ks:$((_abs-_ks))}"
+						_ke=$((_abs+1))
+						while (( _ke < _len )) && [[ "${_buf:_ke:1}" == [[:space:]] ]]; do ((_ke++)); done
+						(( _ke < _len )) && [[ "${_buf:_ke:1}" == ':' ]] && printf '%s\n' "$_raw"
+						_ks=0
+					fi
+				fi
+				continue
+			fi
+			case "$_bc" in
+				'"') _in_string=1; (( _depth == 1 )) && _ks=$((_cr[pos]+_bo+1)) ;;
+				'{'|'[') ((_depth++)) ;;
+				'}'|']')
+					((_depth--))
+					(( _depth == 0 )) && { _cr[pos]=$((_cr[pos]+_bo+1)); return 0; } ;;
 			esac
 		done < <(printf '%s' "${_buf:${_cr[pos]}}" | grep -ob '[][{}",:]')
-		return 0
-	fi
-	while IFS= read -r _gl; do
-		_bo="${_gl%%:*}"; _bc="${_gl#*:}"
-		(( _first )) && _first=0 && continue
-		if (( _in_string )); then
-			if [[ "$_bc" == '"' ]]; then
-				_in_string=0
-				if (( _depth == 1 && _ks > 0 )); then
-					_abs=$((_cr[pos]+_bo)); _raw="${_buf:_ks:$((_abs-_ks))}"
-					_ke=$((_abs+1))
-					while (( _ke < _len )) && [[ "${_buf:_ke:1}" == [[:space:]] ]]; do ((_ke++)); done
-					(( _ke < _len )) && [[ "${_buf:_ke:1}" == ':' ]] && printf '%s\n' "$_raw"
-					_ks=0
+	else
+		local _depth=1 _in_string=0
+		local _buf="${_cr[buf]}" _len="${_cr[len]}" _i _ch
+		if [[ "$_opener" == '[' ]]; then
+			local _idx=0
+			_i=$((_cr[pos]+1))
+			while (( _i < _len )); do
+				_ch="${_buf:_i:1}"
+				if (( _in_string )); then
+					if [[ "$_ch" == '"' ]]; then _in_string=0
+					elif [[ "$_ch" == '\' ]]; then ((_i++))
+					fi
+					((_i++)); continue
 				fi
-			fi
-			continue
+				case "$_ch" in
+					'"') _in_string=1 ;;
+					'{'|'[') ((_depth++)) ;;
+					'}'|']')
+						((_depth--))
+						(( _depth == 0 )) && { printf '%d\n' "$_idx"; _cr[pos]=$((_i+1)); return 0; } ;;
+					',')
+						if (( _depth == 1 )); then
+							printf '%d\n' "$_idx"
+							((_idx++))
+						fi ;;
+				esac
+				((_i++))
+			done
+			return 0
 		fi
-		case "$_bc" in
-			'"') _in_string=1; (( _depth == 1 )) && _ks=$((_cr[pos]+_bo+1)) ;;
-			'{'|'[') ((_depth++)) ;;
-			'}'|']')
-				((_depth--))
-				(( _depth == 0 )) && { _cr[pos]=$((_cr[pos]+_bo+1)); return 0; } ;;
-		esac
-	done < <(printf '%s' "${_buf:${_cr[pos]}}" | grep -ob '[][{}",:]')
+		local _key_start=0 _abs _raw _ke
+		_i=$((_cr[pos]+1))
+		while (( _i < _len )); do
+			_ch="${_buf:_i:1}"
+			if (( _in_string )); then
+				if [[ "$_ch" == '"' ]]; then
+					_in_string=0
+					if (( _depth == 1 && _key_start > 0 )); then
+						_abs=$_i
+						_raw="${_buf:_key_start:$((_abs-_key_start))}"
+						_ke=$((_abs+1))
+						while (( _ke < _len )) && [[ "${_buf:_ke:1}" == [[:space:]] ]]; do ((_ke++)); done
+						if (( _ke < _len )) && [[ "${_buf:_ke:1}" == ':' ]]; then
+							printf '%s\n' "$_raw"
+						fi
+						_key_start=0
+					fi
+				elif [[ "$_ch" == '\' ]]; then ((_i++))
+				fi
+				((_i++)); continue
+			fi
+			case "$_ch" in
+				'"')
+					_in_string=1
+					if (( _depth == 1 )); then
+						_key_start=$((_i+1))
+					fi ;;
+				'{'|'[') ((_depth++)) ;;
+				'}'|']')
+					((_depth--))
+					(( _depth == 0 )) && { _cr[pos]=$((_i+1)); return 0; } ;;
+			esac
+			((_i++))
+		done
+	fi
 }
 
 # --- Public API ---

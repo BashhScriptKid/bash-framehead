@@ -7,7 +7,20 @@ without pulling in a heavyweight runtime.
 ## Dependencies
 
 - **bash-framehead core**: `runtime`, `string` (specifically `string::is_integer`, `string::split::fast`)
-- **External**: `grep` (GNU grep with `-b` flag for byte-offset reporting)
+- **External (optional)**: GNU `grep` with `-b` flag for C-speed large-container scanning. Auto-detected at source time. Pure bash fallback when unavailable.
+
+### Forcing pure bash (no grep)
+
+Three ways to disable the grep-accelerated path:
+
+```bash
+NOGREP=1 source ./ext/json/json.sh          # env var at source time
+NOGREP=1 json::get _ctx "$json" "a.b"       # env var per call
+declare -A _ctx=( [no_grep]=1 )             # context flag
+json::get _ctx "$json" "a.b"
+```
+
+The pure bash path is slower for large containers (> 64 bytes) but removes the GNU grep dependency entirely — useful on macOS (BSD grep) or minimal systems.
 
 ## Usage
 
@@ -254,9 +267,9 @@ The parser uses a hybrid approach:
 
 - **Shallow / small containers** (< 64 bytes): pure Bash character walker with optional
   indexed array for O(1) single-byte access. No external processes.
-- **Large containers**: delegates to `grep -ob` which scans structural characters
-  (`{}[]",:`) at C speed. Bash only iterates over the ~10% of bytes that are
-  structurally significant.
+- **Large containers**: delegates to `grep -ob` when GNU grep is available, scanning
+  structural characters (`{}[]",:`) at C speed. Falls back to a pure bash
+  character-by-character scan when grep is unavailable (`NOGREP=1` or no GNU grep).
 
 Rough numbers vs `jq` on a 2.2 MB GeoJSON file:
 
@@ -278,8 +291,9 @@ The trade-off is zero install footprint vs raw speed.
 - **No streaming**: the entire JSON must fit in a Bash string. For files over
   ~10 MB, Bash's string handling becomes the bottleneck.
 - **Bash 4.3+** required (associative arrays, namerefs).
-- **GNU grep required**: the `-b` flag for byte offsets is not POSIX. macOS
-  users need `brew install grep`.
+- **GNU grep optional**: the `-b` flag for byte offsets enables C-speed scanning of large
+  containers. Without it, the parser falls back to pure bash (slower but functional).
+  macOS users don't need `brew install grep`.
 - **Number validation**: lenient — leading zeros (`01`), trailing commas,
   and malformed numbers are now rejected, but top-level scalars (bare `"hello"`)
   are accepted despite the spec requiring an array or object root.
