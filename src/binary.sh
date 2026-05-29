@@ -167,3 +167,195 @@ binary::from_int() {
 		printf '%b' "$fmt"
 }
 
+# --- BUFFER ---
+
+# Lazy-initialised hex lookup table (byte 0–255 → '00'–'ff').
+declare -a _binary_hex256
+
+_binary::hex256_init() {
+	if [[ ${#_binary_hex256[@]} -eq 0 ]]; then
+		local i
+		for ((i = 0; i < 256; i++)); do
+			printf -v _binary_hex256[i] '%02x' "$i"
+		done
+	fi
+}
+
+# Initialise (or clear) a named buffer.
+# Usage: binary::buffer::init <name>
+binary::buffer::init() {
+	local -n _bbuf_ref="_binary_buffer_${1}"
+	_bbuf_ref=()
+}
+
+# --- INSERT VARIANTS ---
+
+# Append raw byte values.
+# Usage: binary::buffer::insert::raw <name> <byte1> <byte2> ...
+binary::buffer::insert::raw() {
+	local -n _bbuf_ref="_binary_buffer_${1}"
+	shift
+	_bbuf_ref+=("$@")
+}
+
+# Append bytes from a hex string.
+# Usage: binary::buffer::insert::hex <name> <hexstring>
+#   "414243" → 0x41, 0x42, 0x43
+binary::buffer::insert::hex() {
+	local -n _bbuf_ref="_binary_buffer_${1}"
+	local hex=$2 i pad=0 val
+	(( ${#hex} % 2 != 0 )) && hex="0$hex"
+	for ((i = 0; i < ${#hex}; i += 2)); do
+		_bbuf_ref+=($((16#${hex:i:2})))
+	done
+}
+
+# Append an unsigned integer (fixed-width, little-endian by default).
+# Usage: binary::buffer::insert::uint <name> <value> <width> [endian=le]
+binary::buffer::insert::uint() {
+	local name=$1 value=$2 width=$3 endian=${4:-le}
+	local -n _bbuf_ref="_binary_buffer_${name}"
+
+	local i
+	if [[ $endian == le ]]; then
+		for ((i = 0; i < width; i++)); do
+			_bbuf_ref+=($(( (value >> (8 * i)) & 0xFF )))
+		done
+	else
+		local idx
+		for ((idx = width - 1; idx >= 0; idx--)); do
+			_bbuf_ref+=($(( (value >> (8 * idx)) & 0xFF )))
+		done
+	fi
+}
+
+# Append a signed integer (two's complement, fixed-width).
+# Usage: binary::buffer::insert::int <name> <value> <width> [endian=le]
+binary::buffer::insert::int() {
+	binary::buffer::insert::uint "$@"
+}
+
+# Compatibility alias.
+# Usage: binary::buffer::insert <name> <value> <width> [endian=le]
+binary::buffer::insert() {
+	binary::buffer::insert::uint "$@"
+}
+
+# --- WRITE / READ / LENGTH ---
+
+# Internal: emit array of decimal byte values as raw binary to stdout.
+# Usage: _binary::_emit_raw <array_nameref>
+_binary::_emit_raw() {
+	_binary::hex256_init
+	local -n _ber_arr="$1"
+	local _ber_len=${#_ber_arr[@]}
+	(( _ber_len == 0 )) && return
+	local _ber_fmt="" i
+	for ((i = 0; i < _ber_len; i++)); do
+		_ber_fmt+="\\x${_binary_hex256[_ber_arr[i]]}"
+	done
+	printf '%b' "$_ber_fmt"
+}
+
+# Flush buffer contents to stdout and clear.
+# Usage: binary::buffer::write <name>
+binary::buffer::write() {
+	local -n _bbuf_ref="_binary_buffer_${1}"
+	_binary::_emit_raw _bbuf_ref
+	_bbuf_ref=()
+}
+
+# Echo buffer contents without clearing (space-separated decimal values).
+# Usage: binary::buffer::read <name>
+binary::buffer::read() {
+	local -n _bbuf_ref="_binary_buffer_${1}"
+	printf '%s' "${_bbuf_ref[*]}"
+}
+
+# Echo current buffer length in bytes.
+# Usage: binary::buffer::length <name>
+binary::buffer::length() {
+	local -n _bbuf_ref="_binary_buffer_${1}"
+	echo "${#_bbuf_ref[@]}"
+}
+
+# --- CONCAT ---
+
+# Append all bytes from <src> buffer to <dst> buffer.
+# Usage: binary::buffer::concat <dst> <src>
+binary::buffer::concat() {
+	local -n _bbuf_dst="_binary_buffer_${1}"
+	local -n _bbuf_src="_binary_buffer_${2}"
+	_bbuf_dst+=("${_bbuf_src[@]}")
+}
+
+# --- PEEK ---
+
+# Read a byte slice without clearing.
+# Usage: binary::buffer::peek <name> <offset> <length> [mode=dec]
+#   mode: dec — space-separated decimal values (default)
+#         hex — unspaced lowercase hex string
+#         raw — raw bytes written to stdout
+binary::buffer::peek() {
+	local -n _bbuf_ref="_binary_buffer_${1}"
+	local offset=$2 length=$3 mode=${4:-dec}
+	local slice=("${_bbuf_ref[@]:offset:length}")
+
+	case $mode in
+		raw)
+			_binary::_emit_raw slice
+			;;
+		hex)
+			local _bpo_b
+			for _bpo_b in "${slice[@]}"; do
+				printf '%02x' "$_bpo_b"
+			done
+			;;
+		dec|*)
+			printf '%s' "${slice[*]}"
+			;;
+	esac
+}
+
+# --- SHIFT ---
+
+# Remove <count> bytes from the front of the buffer.
+# Usage: binary::buffer::shift::l <name> <count>
+binary::buffer::shift::l() {
+	local -n _bbuf_ref="_binary_buffer_${1}"
+	local count=$2
+	_bbuf_ref=("${_bbuf_ref[@]:count}")
+}
+
+# Remove <count> bytes from the end of the buffer.
+# Usage: binary::buffer::shift::r <name> <count>
+binary::buffer::shift::r() {
+	local -n _bbuf_ref="_binary_buffer_${1}"
+	local count=$2 len=${#_bbuf_ref[@]}
+	(( count > len )) && count=$len
+	_bbuf_ref=("${_bbuf_ref[@]:0:len-count}")
+}
+
+# --- SERIALISATION ---
+
+# Write raw buffer bytes to a file.
+# Usage: binary::buffer::serialised::save <name> <filepath>
+binary::buffer::serialised::save() {
+	local -n _bbuf_ref="_binary_buffer_${1}"
+	local file=$2
+	if (( ${#_bbuf_ref[@]} > 0 )); then
+		_binary::_emit_raw _bbuf_ref > "$file"
+	fi
+}
+
+# Load raw bytes from a file into the buffer (replaces contents).
+# Usage: binary::buffer::serialised::load <name> <filepath>
+binary::buffer::serialised::load() {
+	local -n _bbuf_ref="_binary_buffer_${1}"
+	local file=$2
+	_bbuf_ref=()
+	if [[ -f "$file" && -r "$file" ]]; then
+		local byte_data; byte_data=$(LC_ALL=C od -An -tu1 -v "$file")
+		read -r -a _bbuf_ref <<< "$byte_data"
+	fi
+}
