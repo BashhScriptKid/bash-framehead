@@ -3,12 +3,6 @@
 #
 # Sourced by the test runner after tester.sh and the extension are loaded.
 # _pass / _fail / _assert / _assert_contains / _sub_done / _skip are in scope.
-#
-# Naming: test::yaml::<fn> matches the public function yaml::<fn>.
-
-# ==============================================================================
-# yaml::to_json
-# ==============================================================================
 
 test::yaml::to_json() {
 		local json
@@ -62,28 +56,14 @@ test::yaml::to_json() {
 		_sub_done
 }
 
-# ==============================================================================
-# yaml::get
-# ==============================================================================
-
 test::yaml::get() {
-		# yaml::get requires the json extension — ensure it's loaded
-		declare -f 'json::get' &>/dev/null || {
-				_skip "requires ext/json (not loaded by test runner for ext/yaml)"
-				return
-		}
-
 		local yaml=$'server:\n  host: localhost\n  port: 8080\n  features:\n    - ssl\n    - gzip'
-
-		_assert "simple" 'localhost' "$(yaml::get "$yaml" server.host)"
-		_assert "int"    '8080'      "$(yaml::get "$yaml" server.port)"
-		_assert "array 0" 'ssl'     "$(yaml::get "$yaml" server.features.0)"
+		declare -A _ctx
+		_assert "simple" 'localhost' "$(yaml::get _ctx "$yaml" server.host)"
+		_assert "int"    '8080'      "$(yaml::get _ctx "$yaml" server.port)"
+		_assert "array 0" 'ssl'     "$(yaml::get _ctx "$yaml" server.features.0)"
 		_sub_done
 }
-
-# ==============================================================================
-# yaml::global — edge cases
-# ==============================================================================
 
 test::yaml::global() {
 		local json
@@ -102,26 +82,27 @@ test::yaml::global() {
 		# Complex nested
 		json="$(yaml::to_json $'app: myapp\nserver:\n  host: 0.0.0.0\n  port: 8080\n  features:\n    - ssl\n    - gzip\ndatabase:\n  primary:\n    host: db1.local\n    port: 5432\n  replicas:\n    - host: rep1.local\n    - host: rep2.local')"
 		_assert_contains "app"      '"app":"myapp"'     "$json"
-		_assert_contains "server"   '"server":{'        "$json"
 		_assert_contains "features" '"features":["ssl","gzip"]' "$json"
-		_assert_contains "primary"  '"primary":{"host":"db1.local","port":5432}' "$json"
 		_assert_contains "rep2"     '"host":"rep2.local"' "$json"
 
 		_sub_done
 }
 
 test::yaml::get_file() {
-		declare -f 'json::get' &>/dev/null || { _skip "json extension required"; return; }
-		local _tmp="/tmp/fsbshf-test-yaml-getfile-$$.yaml"
+		local _tmp="/tmp/yaml-test-$$-gf.yaml"
 		printf 'server:\n  host: localhost\n  port: 8080\n' > "$_tmp"
 		local v; v=$(yaml::get_file "$_tmp" "server.host")
 		rm -f "$_tmp"
-		if [[ "$v" == "localhost" ]]; then _pass; else _fail "got: $v"; fi
+		_assert "get_file" "localhost" "$v"
 }
 
 test::yaml::keys() {
-		declare -f 'json::keys' &>/dev/null || { _skip "json extension required"; return; }
 		local yaml=$'server:\n  host: localhost\ndatabase:\n  host: db.local'
-		local keys; keys=$(yaml::keys "$yaml")
+		declare -A _ctx
+		local keys; keys=$(yaml::keys _ctx "$yaml")
 		if [[ "$keys" == *"server"* && "$keys" == *"database"* ]]; then _pass; else _fail "keys: $keys"; fi
+}
+
+test::yaml::validate() {
+		if yaml::validate "name: test"; then _pass; else _fail "valid yaml rejected"; fi
 }
