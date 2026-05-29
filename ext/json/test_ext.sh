@@ -3,29 +3,36 @@
 #
 # Sourced by the test runner after tester.sh and the extension are loaded.
 # _pass / _fail / _assert / _sub_done / _skip are already in scope.
+#
+# Public API: all functions take a context (_ctx) as first parameter.
+# Usage: local -A _ctx; json::get _ctx "$json" "$path"
+
+# --- Helper: create a fresh context ---
+_new_ctx() { local -n _r="$1"; declare -A _r=(); }
 
 # ==============================================================================
 # json::get
 # ==============================================================================
 
 test::json::get() {
-		_assert "string"   'hello' "$(json::get '{"k":"hello"}'   k)"
-		_assert "number"   '42'    "$(json::get '{"k":42}'        k)"
-		_assert "true"     'true'  "$(json::get '{"k":true}'      k)"
-		_assert "false"    'false' "$(json::get '{"k":false}'     k)"
-		_assert "null"     'null'  "$(json::get '{"k":null}'      k)"
-		_assert "negative" '-17'   "$(json::get '{"k":-17}'       k)"
-		_assert "float"    '3.14'  "$(json::get '{"k":3.14}'      k)"
-		_assert "idx 0"    'a'     "$(json::get '["a","b","c"]' 0)"
-		_assert "idx 2"    'c'     "$(json::get '["a","b","c"]' 2)"
-		_assert "last"     '30'    "$(json::get '[10,20,30]' 2)"
-		_assert "obj.obj"  'deep'  "$(json::get '{"a":{"b":"deep"}}'  a.b)"
-		_assert "obj.arr"  '2'     "$(json::get '{"a":[1,2,3]}'       a.1)"
-		_assert "arr.obj"  'hi'    "$(json::get '[{"x":1},{"x":"hi"}]' 1.x)"
-		_assert "newline"  $'hello\nworld' "$(json::get '{"m":"hello\nworld"}' m)"
-		_assert "tab"      $'a\tb'         "$(json::get '{"m":"a\tb"}'         m)"
-		_assert "full obj" '{"a":1}' "$(json::get '{"a":1}' '')"
-		_assert "full arr" '[1,2]'   "$(json::get '[1,2]'   '')"
+		local -A _ctx
+		_new_ctx _ctx; _assert "string"   'hello' "$(json::get _ctx '{"k":"hello"}'   k)"
+		_new_ctx _ctx; _assert "number"   '42'    "$(json::get _ctx '{"k":42}'        k)"
+		_new_ctx _ctx; _assert "true"     'true'  "$(json::get _ctx '{"k":true}'      k)"
+		_new_ctx _ctx; _assert "false"    'false' "$(json::get _ctx '{"k":false}'     k)"
+		_new_ctx _ctx; _assert "null"     'null'  "$(json::get _ctx '{"k":null}'      k)"
+		_new_ctx _ctx; _assert "negative" '-17'   "$(json::get _ctx '{"k":-17}'       k)"
+		_new_ctx _ctx; _assert "float"    '3.14'  "$(json::get _ctx '{"k":3.14}'      k)"
+		_new_ctx _ctx; _assert "idx 0"    'a'     "$(json::get _ctx '["a","b","c"]' 0)"
+		_new_ctx _ctx; _assert "idx 2"    'c'     "$(json::get _ctx '["a","b","c"]' 2)"
+		_new_ctx _ctx; _assert "last"     '30'    "$(json::get _ctx '[10,20,30]' 2)"
+		_new_ctx _ctx; _assert "obj.obj"  'deep'  "$(json::get _ctx '{"a":{"b":"deep"}}'  a.b)"
+		_new_ctx _ctx; _assert "obj.arr"  '2'     "$(json::get _ctx '{"a":[1,2,3]}'       a.1)"
+		_new_ctx _ctx; _assert "arr.obj"  'hi'    "$(json::get _ctx '[{"x":1},{"x":"hi"}]' 1.x)"
+		_new_ctx _ctx; _assert "newline"  $'hello\nworld' "$(json::get _ctx '{"m":"hello\nworld"}' m)"
+		_new_ctx _ctx; _assert "tab"      $'a\tb'         "$(json::get _ctx '{"m":"a\tb"}'         m)"
+		_new_ctx _ctx; _assert "full obj" '{"a":1}' "$(json::get _ctx '{"a":1}' '')"
+		_new_ctx _ctx; _assert "full arr" '[1,2]'   "$(json::get _ctx '[1,2]'   '')"
 		_sub_done
 }
 
@@ -34,12 +41,13 @@ test::json::get() {
 # ==============================================================================
 
 test::json::type() {
-		_assert "object"  'object'  "$(json::type '{}'          '')"
-		_assert "array"   'array'   "$(json::type '[]'          '')"
-		_assert "string"  'string'  "$(json::type '{"a":"x"}'   a)"
-		_assert "number"  'number'  "$(json::type '{"a":1}'     a)"
-		_assert "boolean" 'boolean' "$(json::type '{"a":true}'  a)"
-		_assert "null"    'null'    "$(json::type '{"a":null}'  a)"
+		local -A _ctx
+		_new_ctx _ctx; _assert "object"  'object'  "$(json::type _ctx '{}'          '')"
+		_new_ctx _ctx; _assert "array"   'array'   "$(json::type _ctx '[]'          '')"
+		_new_ctx _ctx; _assert "string"  'string'  "$(json::type _ctx '{"a":"x"}'   a)"
+		_new_ctx _ctx; _assert "number"  'number'  "$(json::type _ctx '{"a":1}'     a)"
+		_new_ctx _ctx; _assert "boolean" 'boolean' "$(json::type _ctx '{"a":true}'  a)"
+		_new_ctx _ctx; _assert "null"    'null'    "$(json::type _ctx '{"a":null}'  a)"
 		_sub_done
 }
 
@@ -48,12 +56,13 @@ test::json::type() {
 # ==============================================================================
 
 test::json::keys() {
-		_assert "obj keys"    $'a\nb\nc' "$(json::keys '{"a":1,"b":2,"c":3}')"
-		_assert "arr keys"    $'0\n1\n2' "$(json::keys '[10,20,30]')"
-		_assert "empty obj"   ''         "$(json::keys '{}')"
-		_assert "empty arr"   ''         "$(json::keys '[]')"
-		_assert "nested obj"  $'x\ny'    "$(json::keys '{"p":{"x":1,"y":2}}' p)"
-		_assert "nested arr"  $'0\n1'    "$(json::keys '{"a":[10,20]}' a)"
+		local -A _ctx
+		_new_ctx _ctx; _assert "obj keys"    $'a\nb\nc' "$(json::keys _ctx '{"a":1,"b":2,"c":3}')"
+		_new_ctx _ctx; _assert "arr keys"    $'0\n1\n2' "$(json::keys _ctx '[10,20,30]')"
+		_new_ctx _ctx; _assert "empty obj"   ''         "$(json::keys _ctx '{}')"
+		_new_ctx _ctx; _assert "empty arr"   ''         "$(json::keys _ctx '[]')"
+		_new_ctx _ctx; _assert "nested obj"  $'x\ny'    "$(json::keys _ctx '{"p":{"x":1,"y":2}}' p)"
+		_new_ctx _ctx; _assert "nested arr"  $'0\n1'    "$(json::keys _ctx '{"a":[10,20]}' a)"
 		_sub_done
 }
 
@@ -62,11 +71,12 @@ test::json::keys() {
 # ==============================================================================
 
 test::json::len() {
-		_assert "obj"        '3' "$(json::len '{"a":1,"b":2,"c":3}')"
-		_assert "arr"        '4' "$(json::len '[1,2,3,4]')"
-		_assert "empty obj"  '0' "$(json::len '{}')"
-		_assert "empty arr"  '0' "$(json::len '[]')"
-		_assert "nested"     '2' "$(json::len '{"x":[1,2]}' x)"
+		local -A _ctx
+		_new_ctx _ctx; _assert "obj"        '3' "$(json::len _ctx '{"a":1,"b":2,"c":3}')"
+		_new_ctx _ctx; _assert "arr"        '4' "$(json::len _ctx '[1,2,3,4]')"
+		_new_ctx _ctx; _assert "empty obj"  '0' "$(json::len _ctx '{}')"
+		_new_ctx _ctx; _assert "empty arr"  '0' "$(json::len _ctx '[]')"
+		_new_ctx _ctx; _assert "nested"     '2' "$(json::len _ctx '{"x":[1,2]}' x)"
 		_sub_done
 }
 
@@ -76,129 +86,136 @@ test::json::len() {
 
 test::json::get_file() {
 		echo '{"file":"found"}' > /tmp/json-test-file.json
-		_assert "get_file" 'found' "$(json::get_file /tmp/json-test-file.json file)"
+		local -A _ctx; _new_ctx _ctx
+		_assert "get_file" 'found' "$(json::get_file _ctx /tmp/json-test-file.json file)"
 		_sub_done
 }
 
 # ==============================================================================
-# json::global — error handling, edge cases, stress
+# json::global — error handling, edge cases
 # ==============================================================================
 
 test::json::global() {
+		local -A _ctx
 		# --- error handling ---
-		if ! json::get '{"a":1}' missing >/dev/null 2>&1; then _sub_pass "missing key"; else _sub_fail "missing key"; fi
-		if ! json::type '{"a":1}' x.y >/dev/null 2>&1; then _sub_pass "bad path"; else _sub_fail "bad path"; fi
-		if ! json::get '[1]' 5 >/dev/null 2>&1;       then _sub_pass "array OOB"; else _sub_fail "array OOB"; fi
-		if ! json::len '"hi"' '' >/dev/null 2>&1;     then _sub_pass "len on scalar"; else _sub_fail "len on scalar"; fi
+		_new_ctx _ctx
+		if ! json::get _ctx '{"a":1}' missing >/dev/null 2>&1; then _sub_pass "missing key"; else _sub_fail "missing key"; fi
+		_new_ctx _ctx
+		if ! json::type _ctx '{"a":1}' x.y >/dev/null 2>&1; then _sub_pass "bad path"; else _sub_fail "bad path"; fi
+		_new_ctx _ctx
+		if ! json::get _ctx '[1]' 5 >/dev/null 2>&1;       then _sub_pass "array OOB"; else _sub_fail "array OOB"; fi
+		_new_ctx _ctx
+		if ! json::len _ctx '"hi"' '' >/dev/null 2>&1;     then _sub_pass "len on scalar"; else _sub_fail "len on scalar"; fi
 
 		_sub_done
 }
 
 test::json::validate() {
-		if json::validate '{"a":1}'; then _pass; else _fail "valid json rejected"; fi
+		local -A _ctx; _new_ctx _ctx
+		if json::validate _ctx '{"a":1}'; then _pass; else _fail "valid json rejected"; fi
 }
 
 test::json::kv() {
-		local j='{"name":"Alice","age":30,"scores":[90,95,100]}'
-		json::kv "$j"
+		local -A _ctx; _new_ctx _ctx
+		json::kv _ctx '{"name":"Alice","age":30,"scores":[90,95,100]}'
 		local ok=0
-		[[ -n "${_json_kv_root:-}" ]] && ok=1
+		[[ -n "${_ctx[kv_root]:-}" ]] && ok=1
 		if (( ok )); then _pass; else _fail "kv context not set"; fi
 }
 
 test::json::kv::keys() {
-		local j='{"name":"Alice","age":30}'
-		json::kv "$j"
-		local out; out=$(json::kv::keys)
+		local -A _ctx; _new_ctx _ctx
+		json::kv _ctx '{"name":"Alice","age":30}'
+		local out; out=$(json::kv::keys _ctx)
 		if [[ "$out" == *"name"* && "$out" == *"age"* ]]; then _pass; else _fail "keys: $out"; fi
 }
 
 test::json::kv::keys::exists() {
-		local j='{"name":"Alice","age":30}'
-		json::kv "$j"
-		if json::kv::keys::exists "name"; then _pass; else _fail "name not found"; fi
+		local -A _ctx; _new_ctx _ctx
+		json::kv _ctx '{"name":"Alice","age":30}'
+		if json::kv::keys::exists _ctx "name"; then _pass; else _fail "name not found"; fi
 }
 
 test::json::kv::keys::remove() {
-		local j='{"name":"Alice","age":30}'
-		json::kv "$j"
-		json::kv::keys::remove "age"
-		local out; out=$(json::kv::keys)
+		local -A _ctx; _new_ctx _ctx
+		json::kv _ctx '{"name":"Alice","age":30}'
+		json::kv::keys::remove _ctx "age"
+		local out; out=$(json::kv::keys _ctx)
 		if [[ "$out" != *"age"* ]]; then _pass; else _fail "age not removed: $out"; fi
 }
 
 test::json::kv::keys::rename() {
-		local j='{"name":"Alice","age":30}'
-		json::kv "$j"
-		json::kv::keys::rename "age" "years"
-		local out; out=$(json::kv::keys)
+		local -A _ctx; _new_ctx _ctx
+		json::kv _ctx '{"name":"Alice","age":30}'
+		json::kv::keys::rename _ctx "age" "years"
+		local out; out=$(json::kv::keys _ctx)
 		if [[ "$out" == *"years"* && "$out" != *"age"* ]]; then _pass; else _fail "rename failed: $out"; fi
 }
 
 test::json::kv::value::get() {
-		local j='{"name":"Alice","age":30}'
-		json::kv "$j"
-		local v; v=$(json::kv::value::get "name")
+		local -A _ctx; _new_ctx _ctx
+		json::kv _ctx '{"name":"Alice","age":30}'
+		local v; v=$(json::kv::value::get _ctx "name")
 		_assert "get name" "Alice" "$v"
 		_sub_done
 }
 
 test::json::kv::value::set() {
-		local j='{"name":"Alice"}'
-		json::kv "$j"
-		json::kv::value::set "age" "30"
-		local v; v=$(json::kv::value::get "age")
+		local -A _ctx; _new_ctx _ctx
+		json::kv _ctx '{"name":"Alice"}'
+		json::kv::value::set _ctx "age" "30"
+		local v; v=$(json::kv::value::get _ctx "age")
 		_assert "set age" "30" "$v"
 		_sub_done
 }
 
 test::json::kv::value::type() {
-		local j='{"name":"Alice","age":30,"active":true,"tags":null}'
-		json::kv "$j"
-		_assert "type string"  "string"  "$(json::kv::value::type "name")"
-		_assert "type number"  "number"  "$(json::kv::value::type "age")"
-		_assert "type boolean" "boolean" "$(json::kv::value::type "active")"
-		_assert "type null"    "null"    "$(json::kv::value::type "tags")"
+		local -A _ctx; _new_ctx _ctx
+		json::kv _ctx '{"name":"Alice","age":30,"active":true,"tags":null}'
+		_assert "type string"  "string"  "$(json::kv::value::type _ctx "name")"
+		_assert "type number"  "number"  "$(json::kv::value::type _ctx "age")"
+		_assert "type boolean" "boolean" "$(json::kv::value::type _ctx "active")"
+		_assert "type null"    "null"    "$(json::kv::value::type _ctx "tags")"
 		_sub_done
 }
 
 test::json::kv::count() {
-		local j='{"a":1,"b":2,"c":3}'
-		json::kv "$j"
-		_assert "count 3" "3" "$(json::kv::count)"
+		local -A _ctx; _new_ctx _ctx
+		json::kv _ctx '{"a":1,"b":2,"c":3}'
+		_assert "count 3" "3" "$(json::kv::count _ctx)"
 		_sub_done
 }
 
 test::json::kv::list() {
-		local j='{"name":"Alice","age":30}'
-		json::kv "$j"
-		local out; out=$(json::kv::list)
+		local -A _ctx; _new_ctx _ctx
+		json::kv _ctx '{"name":"Alice","age":30}'
+		local out; out=$(json::kv::list _ctx)
 		if [[ -n "$out" ]]; then _pass; else _fail "empty list"; fi
 }
 
 test::json::kv::at() {
-		local j='{"user":{"name":"Alice","scores":[90,95]}}'
-		json::kv "$j"
-		json::kv::at "user"
-		local v; v=$(json::kv::value::get "name")
+		local -A _ctx; _new_ctx _ctx
+		json::kv _ctx '{"user":{"name":"Alice","scores":[90,95]}}'
+		json::kv::at _ctx "user"
+		local v; v=$(json::kv::value::get _ctx "name")
 		_assert "nested get" "Alice" "$v"
 		_sub_done
 }
 
 test::json::kv::parent() {
-		local j='{"user":{"name":"Alice"}}'
-		json::kv "$j"
-		json::kv::at "user"
-		json::kv::parent
-		local out; out=$(json::kv::keys)
+		local -A _ctx; _new_ctx _ctx
+		json::kv _ctx '{"user":{"name":"Alice"}}'
+		json::kv::at _ctx "user"
+		json::kv::parent _ctx
+		local out; out=$(json::kv::keys _ctx)
 		if [[ "$out" == *"user"* ]]; then _pass; else _fail "parent failed: $out"; fi
 }
 
 test::json::kv::root() {
-		local j='{"user":{"name":"Alice"}}'
-		json::kv "$j"
-		json::kv::at "user"
-		json::kv::root
-		local out; out=$(json::kv::keys)
+		local -A _ctx; _new_ctx _ctx
+		json::kv _ctx '{"user":{"name":"Alice"}}'
+		json::kv::at _ctx "user"
+		json::kv::root _ctx
+		local out; out=$(json::kv::keys _ctx)
 		if [[ "$out" == *"user"* ]]; then _pass; else _fail "root failed: $out"; fi
 }

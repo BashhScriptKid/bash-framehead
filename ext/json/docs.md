@@ -16,78 +16,108 @@ source ./bash-framehead.sh
 source ./ext/json/json.sh
 ```
 
+## Architecture
+
+All parser state lives in an associative array (`_ctx`) owned by the caller. No module-level
+mutable state — every function receives the context as its first parameter. This makes the
+parser reentrant and the state visible:
+
+```bash
+declare -A _ctx
+json::get _ctx "$json" "a.b"    # caller owns _ctx
+json::type _ctx "$json" ""      # each call is independent
+```
+
+The KV API is stateful by design — the caller provides a context, and kv functions mutate it
+across calls. The state (`kv_root`, `kv_path`, `kv_cstart`, `kv_cend`, `kv_ctype`) lives
+inside the same `_ctx`:
+
+```bash
+declare -A _ctx
+json::kv _ctx "$json"           # initialise kv state in _ctx
+json::kv::at _ctx "user"        # mutate _ctx[kv_path]
+json::kv::value::get _ctx "name" # read from current position
+```
+
 ## API Reference
 
 ### Stateless API
 
-All stateless functions take a JSON string as the first argument and a **dot-notation path** as
-the second. Bracket notation `foo[0].bar` is normalised to the equivalent `foo.0.bar`. An empty
-path refers to the root of the document. Every call re-parses from the beginning.
+All stateless functions take a context (`_ctx`) as the first argument, a JSON string as the
+second, and a **dot-notation path** as the third. Bracket notation `foo[0].bar` is normalised
+to the equivalent `foo.0.bar`. An empty path refers to the root of the document. Every call
+re-parses from the beginning.
 
-### `json::get <json> <path>`
+### `json::get <ctx> <json> <path>`
 
 Extract a value. Strings are decoded (escape sequences resolved). Everything else
 (objects, arrays, numbers, booleans, null) is returned as raw JSON.
 
 ```bash
-json::get '{"a":{"b":42}}' a.b          # → 42
-json::get '["x","y","z"]' 2             # → z
-json::get '{"msg":"hello\nworld"}' msg  # → hello<newline>world
+declare -A _ctx
+json::get _ctx '{"a":{"b":42}}' a.b          # → 42
+json::get _ctx '["x","y","z"]' 2             # → z
+json::get _ctx '{"msg":"hello\nworld"}' msg  # → hello<newline>world
 ```
 
-### `json::get_file <file> <path>`
+### `json::get_file <ctx> <file> <path>`
 
 Same as `json::get` but reads JSON from a file.
 
 ```bash
-json::get_file /path/to/config.json server.port
+declare -A _ctx
+json::get_file _ctx /path/to/config.json server.port
 ```
 
-### `json::type <json> <path>`
+### `json::type <ctx> <json> <path>`
 
 Return the JSON type of a value: `object`, `array`, `string`, `number`, `boolean`, or `null`.
 
 ```bash
-json::type '{"x": [1,2,3]}' x   # → array
-json::type '{"x": null}'    x   # → null
+declare -A _ctx
+json::type _ctx '{"x": [1,2,3]}' x   # → array
+json::type _ctx '{"x": null}'    x   # → null
 ```
 
-### `json::keys <json> [path]`
+### `json::keys <ctx> <json> [path]`
 
 List keys (for objects) or indices (for arrays) at the given path. One per line.
 
 ```bash
-json::keys '{"a":1,"b":2,"c":3}'       # → a\nb\nc
-json::keys '[10,20,30]'                 # → 0\n1\n2
-json::keys '{"p":{"x":1,"y":2}}' p     # → x\ny
+declare -A _ctx
+json::keys _ctx '{"a":1,"b":2,"c":3}'       # → a\nb\nc
+json::keys _ctx '[10,20,30]'                 # → 0\n1\n2
+json::keys _ctx '{"p":{"x":1,"y":2}}' p     # → x\ny
 ```
 
-### `json::len <json> [path]`
+### `json::len <ctx> <json> [path]`
 
 Return the number of entries in a container. Objects: key count. Arrays: element count.
 Scalars produce an error.
 
 ```bash
-json::len '{"a":1,"b":2}'          # → 2
-json::len '[10,20,30,40]'          # → 4
-json::len '{"data": [1,2,3]}' data # → 3
+declare -A _ctx
+json::len _ctx '{"a":1,"b":2}'          # → 2
+json::len _ctx '[10,20,30,40]'          # → 4
+json::len _ctx '{"data": [1,2,3]}' data # → 3
 ```
 
 ### Stateful API (`json::kv`)
 
 The `kv` namespace acts like `cd` for JSON — pre-navigate to a container once, then
-operate from that position without re-walking ancestor paths. All `::*` functions
-share a single global context (re-entering `json::kv` replaces it). Write operations
-mutate the context's JSON string via text splicing.
+operate from that position without re-walking ancestor paths. The caller provides a
+context (`_ctx`) that stores the kv state. All `::*` functions take `_ctx` as their
+first parameter. Write operations mutate the context's JSON string via text splicing.
 
-### `json::kv <json> [path]`
+### `json::kv <ctx> <json> [path]`
 
 Pre-navigate to a container. Silent on success (exit 0). On failure prints to stderr
 and exits 1.
 
 ```bash
-json::kv '{"a":1,"b":{"x":9,"y":8},"c":[1,2,3]}'     # at root object
-json::kv '{"a":1,"b":{"x":9,"y":8}}' b                 # at the 'b' object
+declare -A _ctx
+json::kv _ctx '{"a":1,"b":{"x":9,"y":8},"c":[1,2,3]}'     # at root object
+json::kv _ctx '{"a":1,"b":{"x":9,"y":8}}' b                 # at the 'b' object
 ```
 
 ### `::keys`
@@ -95,7 +125,6 @@ json::kv '{"a":1,"b":{"x":9,"y":8}}' b                 # at the 'b' object
 List keys (object) or indices (array), newline-separated. Requires active kv context.
 
 ```bash
-json::kv '{"a":1,"b":2,"c":3}'
 json::kv::keys                     # → a\nb\nc
 ```
 
@@ -149,8 +178,8 @@ json::kv::count                     # → 3
 Navigate deeper into a nested container. Appends to the current path.
 
 ```bash
-json::kv '{"a":{"b":{"c":"deep"}}}' a
-json::kv::at b && json::kv::keys    # → c
+json::kv _ctx '{"a":{"b":{"c":"deep"}}}' a
+json::kv::at _ctx b && json::kv::keys _ctx    # → c
 ```
 
 ### `::parent`
@@ -158,7 +187,7 @@ json::kv::at b && json::kv::keys    # → c
 Navigate up one level. Strips the last segment from the current path.
 
 ```bash
-json::kv::parent && json::kv::keys  # → a  (back to root object)
+json::kv::parent _ctx && json::kv::keys _ctx  # → a  (back to root object)
 ```
 
 ### `::root`
@@ -166,7 +195,7 @@ json::kv::parent && json::kv::keys  # → a  (back to root object)
 Return to the document root (clear the path).
 
 ```bash
-json::kv::root && json::kv::keys    # → a  (root object keys)
+json::kv::root _ctx && json::kv::keys _ctx    # → a  (root object keys)
 ```
 
 ### `::value::set <key> <raw_json>`
@@ -176,9 +205,8 @@ a number, `'"hello"'` for a string, `'{"nested":true}'` for an object. The mutat
 is applied to the context; subsequent `::*` calls see the modified JSON.
 
 ```bash
-json::kv '{"a":1,"b":2}'
-json::kv::value::set c 3           # → {"a":1,"b":2,"c":3}
-json::kv::value::set a 99          # → {"a":99,"b":2,"c":3}
+json::kv::value::set _ctx c 3           # → {"a":1,"b":2,"c":3}
+json::kv::value::set _ctx a 99          # → {"a":99,"b":2,"c":3}
 ```
 
 ### `::keys::remove <key>`
@@ -186,7 +214,7 @@ json::kv::value::set a 99          # → {"a":99,"b":2,"c":3}
 Delete a key-value pair. Objects only. Fails if the key is not found.
 
 ```bash
-json::kv::keys::remove b           # → {"a":99,"c":3}
+json::kv::keys::remove _ctx b           # → {"a":99,"c":3}
 ```
 
 ### `::keys::rename <old> <new>`
@@ -194,10 +222,10 @@ json::kv::keys::remove b           # → {"a":99,"c":3}
 Rename a key, preserving its value. Objects only. Fails if the old key is not found.
 
 ```bash
-json::kv::keys::rename c d         # → {"a":99,"d":3}
+json::kv::keys::rename _ctx c d         # → {"a":99,"d":3}
 ```
 
-### `json::validate <json>`
+### `json::validate <ctx> <json>`
 
 Return 0 if the input is parseable JSON, 1 otherwise. Errors include the byte
 position. Does not modify kv context. Lenient about trailing commas and
@@ -205,8 +233,9 @@ non-standard number formatting — validates parseability, not strict spec
 compliance.
 
 ```bash
-json::validate '{"a":1}' && echo "valid"    # → valid
-json::validate '{bad}' && echo "valid"      # → json::validate: unexpected character 'b' at 1
+declare -A _ctx
+json::validate _ctx '{"a":1}' && echo "valid"    # → valid
+json::validate _ctx '{bad}' && echo "valid"      # → json::validate: unexpected character 'b' at 1
 ```
 
 ## Path Syntax
