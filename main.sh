@@ -1393,65 +1393,62 @@ if [[ ${1,,} == "obfuscate" ]]; then
     exit $?
 fi
 
-if [[ ${1,,} == "wiki" ]]; then
-    wiki "$2" "$3"
-    exit $?
-fi
-
-if [[ ${1,,} == "help" ]] || [[ -z "$1" ]]; then
-    echo "Usage: ./main.sh <command> [args]"
-    echo ""
-    echo "  compile          [output.sh]         Compile src/ modules into a single file"
-    echo "  compile_bare     <pattern> [output]  Compile only functions reachable from pattern"
-    echo "  compile_extended [output.sh]         Compile src/ + all ext/ with dep checks"
-    echo "  dry_compile      [shellcheck-args]    ShellCheck all modules and extensions"
-    echo "  test             [compiled.sh]        Run the test suite (live-source from src/ if omitted)"
-    echo "  stat             <compiled.sh>        Show diagnostics and function counts"
-    echo "  profile          <compiled.sh>        Profile per-function load times"
-    echo "  optimize         <input> [output]     Optimize a compiled file  (tools/optimize.sh)"
-    echo "  minify           <input> [output]     Minify a compiled file    (tools/obfuscate.sh)"
-    echo "  obfuscate        <input> [output]     Obfuscate a compiled file (tools/obfuscate.sh)"
-    echo "  wiki             <compiled> <dir>     Generate wiki documentation"
-    exit 0
-fi
-
-if [[ ${1,,} == "test" ]]; then
-    tester "${@:2}"
-    exit 0
-fi
-
-if [[ ${1,,} == "stat" ]]; then
-    statistics "$2"
-    exit 0
-fi
-
-if [[ ${1,,} == "profile" ]]; then
-    profiler "$2"
-    exit 0
-fi
-
-if [[ ${1,,} == "optimize" ]]; then
-    optimize_file "$2" "$3"
-    exit $?
-fi
-
-if [[ ${1,,} == "minify" ]]; then
-    minify "$2" "$3"
-    exit $?
-fi
-
+# ── Executed (not sourced) ─────────────────────────────────────────────
 if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
-    # Being executed, not sourced — tell user to source it
-    echo "Usage: source ${0}" >&2
+    if [[ -z "$1" || ${1,,} == "help" ]]; then
+        echo "Usage: ./main.sh <command> [args]"
+        echo ""
+        echo "  compile          [output.sh]         Compile src/ modules into a single file"
+        echo "  compile_bare     <pattern> [output]  Compile only functions reachable from pattern"
+        echo "  compile_extended [output.sh]         Compile src/ + all ext/ with dep checks"
+        echo "  dry_compile      [shellcheck-args]    ShellCheck all modules and extensions"
+        echo "  test             [compiled.sh]        Run the test suite (live-source from src/ if omitted)"
+        echo "  stat             <compiled.sh>        Show diagnostics and function counts"
+        echo "  profile          <compiled.sh>        Profile per-function load times"
+        echo "  optimize         <input> [output]     Optimize a compiled file  (tools/optimize.sh)"
+        echo "  minify           <input> [output]     Minify a compiled file    (tools/obfuscate.sh)"
+        echo "  obfuscate        <input> [output]     Obfuscate a compiled file  (tools/obfuscate.sh)"
+        echo "  wiki             <compiled> <dir>     Generate wiki documentation"
+        echo ""
+        echo "Sourced usage:"
+        echo "  source main.sh              Source all src/ modules into current shell"
+        echo "  source main.sh extended     Source all src/ + ext/ modules into current shell"
+        exit 0
+    fi
+
+    [[ ${1,,} == "compile" ]]          && { compile_files "${@:2}"; exit $?; }
+    [[ ${1,,} == "compile_bare" ]]     && { compile_bare "${@:2}"; exit $?; }
+    [[ ${1,,} == "compile_extended" ]] && { compile_extended "${@:2}"; exit $?; }
+    [[ ${1,,} == "dry_compile" ]]      && { dry_compile "${@:2}"; exit $?; }
+    [[ ${1,,} == "test" ]]             && { tester "${@:2}"; exit $?; }
+    [[ ${1,,} == "stat" ]]             && { statistics "$2"; exit $?; }
+    [[ ${1,,} == "profile" ]]          && { profiler "$2"; exit $?; }
+    [[ ${1,,} == "optimize" ]]         && { optimize_file "$2" "$3"; exit $?; }
+    [[ ${1,,} == "minify" ]]           && { minify "$2" "$3"; exit $?; }
+    [[ ${1,,} == "obfuscate" ]]        && { minify "$2" "$3"; exit $?; }
+    [[ ${1,,} == "wiki" ]]             && { wiki "$2" "$3"; exit $?; }
+
+    echo "Unknown command: $1" >&2
+    echo "Run '$0 help' for usage" >&2
     exit 1
 fi
 
-# source all function files
-src_dir="$(dirname "${BASH_SOURCE[0]}")/src"
-for func_file in "$src_dir"/*.sh; do
-    if [[ -f "$func_file" ]]; then
-        echo -n "Sourcing $func_file..."
-        bash -n "$func_file" || { echo "Failed Bash dry check." && return 1; }
-        source "$func_file" && echo "ok"
-    fi
+# ── Sourced into current shell ─────────────────────────────────────────
+_src_dir="$(dirname "${BASH_SOURCE[0]}")/src"
+for _func_file in "$_src_dir"/*.sh; do
+    [[ -f "$_func_file" ]] || continue
+    source "$_func_file"
 done
+
+if [[ ${1,,} == "extended" ]]; then
+    _ext_dir="$(dirname "${BASH_SOURCE[0]}")/ext"
+    for _ext_dir_path in "$_ext_dir"/*/; do
+        [[ -d "$_ext_dir_path" ]] || continue
+        _ext_name="$(basename "$_ext_dir_path")"
+        _ext_sh="$_ext_dir_path/${_ext_name}.sh"
+        [[ -f "$_ext_sh" ]] && source "$_ext_sh"
+    done
+fi
+
+unset -v _src_dir _func_file _ext_dir _ext_sh
+return 0
