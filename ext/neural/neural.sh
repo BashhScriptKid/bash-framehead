@@ -36,6 +36,9 @@ done
 unset _guard_core_deps _guard_ext_deps _guard_dep
 # --- end guard ---
 
+# Coproc registry (caller-owned, passed to runtime::coproc::start/stop/list)
+declare -a _NEURAL_COPROCS=()
+
 # ==============================================================================
 # MODE + BC COPROC
 # ==============================================================================
@@ -47,13 +50,13 @@ _NEURAL_MODE="${_NEURAL_MODE:-fixed}"
 neural::mode() {
 		case "$1" in
 				fixed|float)
-						runtime::coproc::stop _neural_bc 2>/dev/null || true
+						runtime::coproc::stop _NEURAL_COPROCS _neural_bc 2>/dev/null || true
 						_NEURAL_MODE=$1
 						;;
 				bc)
 						_NEURAL_MODE=bc
 						if ! runtime::coproc::alive _neural_bc 2>/dev/null; then
-								runtime::coproc::start _neural_bc bc -l
+								runtime::coproc::start _NEURAL_COPROCS _neural_bc bc -l
 						fi
 						;;
 				*)
