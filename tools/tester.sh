@@ -3289,3 +3289,135 @@ test::device::is_readable()             { if device::is_readable /dev/null; then
 test::device::is_writeable()            { if device::is_writeable /dev/null; then _pass; else _fail; fi; }
 test::device::null_ok()                 { if device::null_ok; then _pass; else _fail; fi; }
 test::device::random()                  { if [[ -n "$(device::random 8)" ]]; then _pass; else _fail; fi; }
+
+# ==============================================================================
+# Tests — media (pure bash metadata parsing)
+# ==============================================================================
+
+# --- Helper to create test files ---
+
+_media::_test::create_png() {
+	printf '\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x01\x00\x00\x00\x01\x08\x02\x00\x00\x00\x90wS\xde\x00\x00\x00\x0cIDATx\x9cc\xf8\x0f\x00\x00\x01\x01\x00\x05\x18\xd8N\x00\x00\x00\x00IEND\xaeB`\x82' > "$1"
+}
+
+_media::_test::create_bmp() {
+	printf 'BM\x36\x00\x00\x00\x00\x00\x00\x00\x36\x00\x00\x00\x28\x00\x00\x00\x01\x00\x00\x00\x01\x00\x00\x00\x01\x00\x18\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\xff\x00\x00\x00\x00' > "$1"
+}
+
+_media::_test::create_wav() {
+	printf 'RIFF\x24\x00\x00\x00WAVEfmt \x10\x00\x00\x00\x01\x00\x01\x00\x40\x1f\x00\x00\x40\x1f\x00\x00\x01\x00\x08\x00data\x00\x00\x00\x00' > "$1"
+}
+
+# --- Type detection ---
+
+test::media::type() {
+	local _f="/tmp/test_media_$$.png"
+	_media::_test::create_png "$_f"
+	local _t
+	_t=$(media::type "$_f")
+	rm -f "$_f"
+	if [[ "$_t" == "image" ]]; then _pass; else _fail "expected image, got $_t"; fi
+}
+
+test::media::format() {
+	local _f="/tmp/test_media_$$.png"
+	_media::_test::create_png "$_f"
+	local _fmt
+	_fmt=$(media::format "$_f")
+	rm -f "$_f"
+	if [[ "$_fmt" == "PNG" ]]; then _pass; else _fail "expected PNG, got $_fmt"; fi
+}
+
+# --- Image ---
+
+test::media::image::width() {
+	local _f="/tmp/test_media_$$.png"
+	_media::_test::create_png "$_f"
+	local _w
+	_w=$(media::image::width "$_f")
+	rm -f "$_f"
+	if [[ "$_w" == "1" ]]; then _pass; else _fail "expected 1, got $_w"; fi
+}
+
+test::media::image::height() {
+	local _f="/tmp/test_media_$$.png"
+	_media::_test::create_png "$_f"
+	local _h
+	_h=$(media::image::height "$_f")
+	rm -f "$_f"
+	if [[ "$_h" == "1" ]]; then _pass; else _fail "expected 1, got $_h"; fi
+}
+
+test::media::image::depth() {
+	local _f="/tmp/test_media_$$.png"
+	_media::_test::create_png "$_f"
+	local _d
+	_d=$(media::image::depth "$_f")
+	rm -f "$_f"
+	if [[ "$_d" == "8" ]]; then _pass; else _fail "expected 8, got $_d"; fi
+}
+
+test::media::image::channels() {
+	local _f="/tmp/test_media_$$.png"
+	_media::_test::create_png "$_f"
+	local _c
+	_c=$(media::image::channels "$_f")
+	rm -f "$_f"
+	if [[ "$_c" == "3" ]]; then _pass; else _fail "expected 3, got $_c"; fi
+}
+
+test::media::image::info() {
+	local _f="/tmp/test_media_$$.png"
+	_media::_test::create_png "$_f"
+	local _info
+	_info=$(media::image::info "$_f")
+	rm -f "$_f"
+	if [[ "$_info" == *"width=1"* && "$_info" == *"height=1"* ]]; then _pass; else _fail "info missing dimensions: $_info"; fi
+}
+
+test::media::bmp::width() {
+	local _f="/tmp/test_media_$$.bmp"
+	_media::_test::create_bmp "$_f"
+	local _w
+	_w=$(media::image::width "$_f")
+	rm -f "$_f"
+	if [[ "$_w" == "1" ]]; then _pass; else _fail "expected 1, got $_w"; fi
+}
+
+test::media::bmp::depth() {
+	local _f="/tmp/test_media_$$.bmp"
+	_media::_test::create_bmp "$_f"
+	local _d
+	_d=$(media::image::depth "$_f")
+	rm -f "$_f"
+	if [[ "$_d" == "24" ]]; then _pass; else _fail "expected 24, got $_d"; fi
+}
+
+# --- Audio ---
+
+test::media::wav::sample_rate() {
+	local _f="/tmp/test_media_$$.wav"
+	_media::_test::create_wav "$_f"
+	local _rate
+	_rate=$(media::audio::sample_rate "$_f")
+	rm -f "$_f"
+	if [[ "$_rate" == "8000" ]]; then _pass; else _fail "expected 8000, got $_rate"; fi
+}
+
+test::media::wav::channels() {
+	local _f="/tmp/test_media_$$.wav"
+	_media::_test::create_wav "$_f"
+	local _ch
+	_ch=$(media::audio::channels "$_f")
+	rm -f "$_f"
+	if [[ "$_ch" == "1" ]]; then _pass; else _fail "expected 1, got $_ch"; fi
+}
+
+test::media::wav::bits() {
+	local _f="/tmp/test_media_$$.wav"
+	_media::_test::create_wav "$_f"
+	local _bits
+	_bits=$(media::audio::bits "$_f")
+	rm -f "$_f"
+	if [[ "$_bits" == "8" ]]; then _pass; else _fail "expected 8, got $_bits"; fi
+}
