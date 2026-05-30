@@ -2976,6 +2976,25 @@ test::binary::from_int() {
 
 # --- SKIPPED: write APIs (require root, would modify system state) ---
 test::kernel::hostname::set()                                    { _skip "Performs write operation to live kernel; unsafe to test"; }
+# --- Module loading (write APIs) ---
+test::kernel::modules::load()                    { _skip "Performs write operation to live kernel; unsafe to test"; }
+test::kernel::modules::unload()                  { _skip "Performs write operation to live kernel; unsafe to test"; }
+test::kernel::modules::reload()                  { _skip "Performs write operation to live kernel; unsafe to test"; }
+test::kernel::modules::param::set()              { _skip "Performs write operation to live kernel; unsafe to test"; }
+test::kernel::modules::blacklist()               { _skip "Performs write operation to live kernel; unsafe to test"; }
+
+# --- Module params (read-only) ---
+test::kernel::modules::params()  { kernel::modules::params snd >/dev/null 2>&1; _pass; }
+test::kernel::modules::param::get() { kernel::modules::param::get snd cards_limit >/dev/null 2>&1; _pass; }
+
+# --- Sysctl (read-only) ---
+test::kernel::sysctl::get()      { if [[ -n "$(kernel::sysctl::get kernel.hostname)" ]]; then _pass; else _fail; fi; }
+test::kernel::sysctl::exists()   { kernel::sysctl::exists kernel.hostname && _pass || _fail; }
+test::kernel::sysctl::list()     { kernel::sysctl::list >/dev/null 2>&1; _pass; }
+
+# --- Sysctl (write APIs) ---
+test::kernel::sysctl::set()      { _skip "Performs write operation to live kernel; unsafe to test"; }
+
 test::kernel::security::dmesg_restrict::set()                    { _skip "Performs write operation to live kernel; unsafe to test"; }
 test::kernel::security::kptr_restrict::set()                     { _skip "Performs write operation to live kernel; unsafe to test"; }
 test::kernel::security::aslr::set()                              { _skip "Performs write operation to live kernel; unsafe to test"; }
