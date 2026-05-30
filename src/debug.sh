@@ -188,36 +188,35 @@ debug::stacktrace() {
 #
 # BASH_XTRACEFD (Bash 4.1+) redirects set -x output to a file descriptor
 # instead of stderr. Useful for debugging without polluting terminal output.
+#
+# All functions take/return fd state. Caller manages the fd lifecycle.
+# Usage: read -r _trace_fd <<< "$(debug::trace_to_file /tmp/debug.log "$_trace_fd")"
 
-# Track active trace fd for cleanup.
-declare -i _DEBUG_TRACE_FD=0
-
-# Redirect set -x output to a file.
-# Usage: debug::trace_to_file /tmp/debug.log
+# Redirect set -x output to a file. Echoes the allocated fd.
+# Usage: debug::trace_to_file <path> [prev_fd]
 debug::trace_to_file() {
-		local _path=$1
+		local _path=$1 _prev_fd="${2:-0}"
 		[[ -n "$_path" ]] || { echo "debug::trace_to_file: path required" >&2; return 1; }
 
 		# Close previous trace fd if active.
-		if (( _DEBUG_TRACE_FD > 0 )); then
-				eval "exec ${_DEBUG_TRACE_FD}>&-" 2>/dev/null || true
-				_DEBUG_TRACE_FD=0
+		if (( _prev_fd > 0 )); then
+				eval "exec ${_prev_fd}>&-" 2>/dev/null || true
 		fi
 
 		# Auto-allocate a fd to the log file.
 		local _fd
 		eval "exec {_fd}>'$_path'" || return 1
-		_DEBUG_TRACE_FD=$_fd
 		BASH_XTRACEFD=$_fd
+		echo "$_fd"
 }
 
 # Restore set -x output to stderr and close the trace file.
-# Usage: debug::trace_off
+# Usage: debug::trace_off [fd]
 debug::trace_off() {
+		local _fd="${1:-0}"
 		BASH_XTRACEFD=2
-		if (( _DEBUG_TRACE_FD > 0 )); then
-				eval "exec ${_DEBUG_TRACE_FD}>&-" 2>/dev/null || true
-				_DEBUG_TRACE_FD=0
+		if (( _fd > 0 )); then
+				eval "exec ${_fd}>&-" 2>/dev/null || true
 		fi
 }
 

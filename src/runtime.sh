@@ -469,23 +469,21 @@ runtime::pm() {
 
 # --- COPROC ---
 
-# Active coproc tracking array.
-declare -a _RUNTIME_COPROCS=()
-
-# Start a named coprocess. Stores name for tracking.
-# Usage: runtime::coproc::start <name> <command...>
+# Start a named coprocess. Stores name in caller's registry.
+# Usage: runtime::coproc::start <registry> <name> <command...>
 runtime::coproc::start() {
-		local name=$1; shift
-		if [[ -z "$name" ]]; then
+		local -n _registry="$1"; shift
+		local _name=$1; shift
+		if [[ -z "$_name" ]]; then
 				echo "runtime::coproc::start: name required" >&2
 				return 1
 		fi
-		if [[ " ${_RUNTIME_COPROCS[*]} " == *" $name "* ]]; then
-				echo "runtime::coproc::start: coproc '$name' already exists" >&2
+		if [[ " ${_registry[*]} " == *" $_name "* ]]; then
+				echo "runtime::coproc::start: coproc '$_name' already exists" >&2
 				return 1
 		fi
-		coproc "$name" { "$@" 2>&1; }
-		_RUNTIME_COPROCS+=("$name")
+		coproc "$_name" { "$@" 2>&1; }
+		_registry+=("$_name")
 }
 
 # Send data to a coproc's stdin.
@@ -530,29 +528,31 @@ runtime::coproc::pid() {
 }
 
 # Stop a named coproc (kill process, close fds).
-# Usage: runtime::coproc::stop <name>
+# Usage: runtime::coproc::stop <registry> <name>
 runtime::coproc::stop() {
-		local name=$1
-		local pid; pid=$(runtime::coproc::pid "$name" 2>/dev/null) || return 1
+		local -n _registry="$1"; shift
+		local _name=$1
+		local pid; pid=$(runtime::coproc::pid "$_name" 2>/dev/null) || return 1
 
-		local -n _cs_fd="${name}[0]" 2>/dev/null && eval "exec ${_cs_fd}<&-" 2>/dev/null
-		local -n _cs_fd1="${name}[1]" 2>/dev/null && eval "exec ${_cs_fd1}>&-" 2>/dev/null
+		local -n _cs_fd="${_name}[0]" 2>/dev/null && eval "exec ${_cs_fd}<&-" 2>/dev/null
+		local -n _cs_fd1="${_name}[1]" 2>/dev/null && eval "exec ${_cs_fd1}>&-" 2>/dev/null
 
 		kill "$pid" 2>/dev/null || true
 		wait "$pid" 2>/dev/null || true
 
 		local i new_arr=()
-		for i in "${_RUNTIME_COPROCS[@]}"; do
-				[[ "$i" != "$name" ]] && new_arr+=("$i")
+		for i in "${_registry[@]}"; do
+				[[ "$i" != "$_name" ]] && new_arr+=("$i")
 		done
-		_RUNTIME_COPROCS=("${new_arr[@]}")
+		_registry=("${new_arr[@]}")
 }
 
 # List active tracked coprocs.
-# Usage: runtime::coproc::list
+# Usage: runtime::coproc::list <registry>
 runtime::coproc::list() {
+		local -n _registry="$1"
 		local name
-		for name in "${_RUNTIME_COPROCS[@]}"; do
+		for name in "${_registry[@]}"; do
 				local pid; pid=$(runtime::coproc::pid "$name" 2>/dev/null)
 				local alive="dead"
 				runtime::coproc::alive "$name" 2>/dev/null && alive="alive"

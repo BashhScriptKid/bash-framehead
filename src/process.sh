@@ -486,20 +486,23 @@ process::singleton() {
 # These functions parse /proc/<pid>/stat once and cache all fields in an
 # associative array, avoiding repeated /proc reads when querying multiple
 # attributes of the same process.
-
-# Cache for /proc/<pid>/stat parsing: _PROCESS_STAT_CACHE[<pid>:<field>]
-declare -A _PROCESS_STAT_CACHE
+#
+# All functions accept an optional cache variable name as the last argument.
+# If omitted, falls back to the module-level _PROCESS_STAT_CACHE default.
+# Caller-managed: declare -A my_cache; process::ppid::cached $$ my_cache
 
 # Internal: parse /proc/<pid>/stat and cache all fields.
+# Usage: _process::parse_stat <pid> [cache_var]
 _process::parse_stat() {
-		local pid=$1
-		local cache_key="${pid}:parsed"
-		[[ -v _PROCESS_STAT_CACHE[$cache_key] ]] && return 0
+		local _pid=$1
+		local -n _pstat_cache="${2:-_PROCESS_STAT_CACHE}"
+		local _cache_key="${_pid}:parsed"
+		[[ -v _pstat_cache[$_cache_key] ]] && return 0
 
 		# Linux-only: /proc filesystem required
 		[[ -d /proc ]] || return 1
 
-		local stat_file="/proc/$pid/stat"
+		local stat_file="/proc/$_pid/stat"
 		[[ -f "$stat_file" ]] || return 1
 
 		local raw; raw=$(cat "$stat_file" 2>/dev/null)
@@ -514,23 +517,23 @@ _process::parse_stat() {
 		local -a fields
 		read -ra fields <<< "$rest"
 
-		_PROCESS_STAT_CACHE["$pid:pid"]="$pid"
-		_PROCESS_STAT_CACHE["$pid:comm"]="$comm_end"
-		_PROCESS_STAT_CACHE["$pid:state"]="${fields[0]}"
-		_PROCESS_STAT_CACHE["$pid:ppid"]="${fields[1]}"
-		_PROCESS_STAT_CACHE["$pid:threads"]="${fields[17]}"
-		_PROCESS_STAT_CACHE["$pid:rss"]="$(( ${fields[21]} * 4 ))"
-		_PROCESS_STAT_CACHE["$pid:vsize"]="${fields[20]}"
-		_PROCESS_STAT_CACHE["$pid:utime"]="${fields[12]}"
-		_PROCESS_STAT_CACHE["$pid:stime"]="${fields[13]}"
-		_PROCESS_STAT_CACHE["$pid:starttime"]="${fields[19]}"
+		_pstat_cache["$_pid:pid"]="$_pid"
+		_pstat_cache["$_pid:comm"]="$comm_end"
+		_pstat_cache["$_pid:state"]="${fields[0]}"
+		_pstat_cache["$_pid:ppid"]="${fields[1]}"
+		_pstat_cache["$_pid:threads"]="${fields[17]}"
+		_pstat_cache["$_pid:rss"]="$(( ${fields[21]} * 4 ))"
+		_pstat_cache["$_pid:vsize"]="${fields[20]}"
+		_pstat_cache["$_pid:utime"]="${fields[12]}"
+		_pstat_cache["$_pid:stime"]="${fields[13]}"
+		_pstat_cache["$_pid:starttime"]="${fields[19]}"
 
 		local clk_tck=100 uptime boot_ticks
 		uptime=$(awk '{printf "%.0f", $1}' /proc/uptime 2>/dev/null)
-		boot_ticks=$(( ${_PROCESS_STAT_CACHE["$pid:starttime"]} / clk_tck ))
-		_PROCESS_STAT_CACHE["$pid:uptime"]=$(( uptime - boot_ticks ))
+		boot_ticks=$(( ${_pstat_cache["$_pid:starttime"]} / clk_tck ))
+		_pstat_cache["$_pid:uptime"]=$(( uptime - boot_ticks ))
 
-		_PROCESS_STAT_CACHE[$cache_key]=1
+		_pstat_cache[$_cache_key]=1
 }
 
 # Check if a PID exists.
@@ -540,52 +543,59 @@ process::exists() {
 }
 
 # Echo the parent PID (cached — parses /proc/pid/stat once).
-# Usage: process::ppid::cached <pid>
+# Usage: process::ppid::cached <pid> [cache_var]
 process::ppid::cached() {
-		_process::parse_stat "$1" || { echo "0"; return 1; }
-		echo "${_PROCESS_STAT_CACHE[$1:ppid]}"
+		local -n _c="${2:-_PROCESS_STAT_CACHE}"
+		_process::parse_stat "$1" _c || { echo "0"; return 1; }
+		echo "${_c[$1:ppid]}"
 }
 
 # Echo the process state: R/S/D/Z/T (cached).
-# Usage: process::state::cached <pid>
+# Usage: process::state::cached <pid> [cache_var]
 process::state::cached() {
-		_process::parse_stat "$1" || return 1
-		echo "${_PROCESS_STAT_CACHE[$1:state]}"
+		local -n _c="${2:-_PROCESS_STAT_CACHE}"
+		_process::parse_stat "$1" _c || return 1
+		echo "${_c[$1:state]}"
 }
 
 # Echo resident memory in KB.
-# Usage: process::rss <pid>
+# Usage: process::rss <pid> [cache_var]
 process::rss() {
-		_process::parse_stat "$1" || { echo "0"; return 1; }
-		echo "${_PROCESS_STAT_CACHE[$1:rss]}"
+		local -n _c="${2:-_PROCESS_STAT_CACHE}"
+		_process::parse_stat "$1" _c || { echo "0"; return 1; }
+		echo "${_c[$1:rss]}"
 }
 
 # Echo virtual memory in KB.
-# Usage: process::vsize <pid>
+# Usage: process::vsize <pid> [cache_var]
 process::vsize() {
-		_process::parse_stat "$1" || { echo "0"; return 1; }
-		echo "${_PROCESS_STAT_CACHE[$1:vsize]}"
+		local -n _c="${2:-_PROCESS_STAT_CACHE}"
+		_process::parse_stat "$1" _c || { echo "0"; return 1; }
+		echo "${_c[$1:vsize]}"
 }
 
 # Echo the short command name (comm).
-# Usage: process::comm <pid>
+# Usage: process::comm <pid> [cache_var]
 process::comm() {
-		_process::parse_stat "$1" || return 1
-		echo "${_PROCESS_STAT_CACHE[$1:comm]}"
+		local -n _c="${2:-_PROCESS_STAT_CACHE}"
+		_process::parse_stat "$1" _c || return 1
+		echo "${_c[$1:comm]}"
 }
 
 # Echo the thread count.
-# Usage: process::threads <pid>
+# Usage: process::threads <pid> [cache_var]
 process::threads() {
-		_process::parse_stat "$1" || { echo "0"; return 1; }
-		echo "${_PROCESS_STAT_CACHE[$1:threads]}"
+		local -n _c="${2:-_PROCESS_STAT_CACHE}"
+		_process::parse_stat "$1" _c || { echo "0"; return 1; }
+		echo "${_c[$1:threads]}"
 }
 
 # Echo seconds since process start (cached).
-# Usage: process::uptime::cached <pid>
+# Usage: process::uptime::cached <pid> [cache_var]
 process::uptime::cached() {
-		_process::parse_stat "$1" || { echo "0"; return 1; }
-		echo "${_PROCESS_STAT_CACHE[$1:uptime]}"
+		local -n _c="${2:-_PROCESS_STAT_CACHE}"
+		_process::parse_stat "$1" _c || { echo "0"; return 1; }
+		echo "${_c[$1:uptime]}"
 }
 
 # List child PIDs (space-separated).
@@ -597,18 +607,19 @@ process::children() {
 }
 
 # Parse full /proc/<pid>/stat and output all fields or a specific one.
-# Usage: process::info <pid> [field]
+# Usage: process::info <pid> [field] [cache_var]
 process::info() {
-		local pid=$1 field=$2
-		_process::parse_stat "$pid" || return 1
+		local _pid=$1 _field=$2
+		local -n _c="${3:-_PROCESS_STAT_CACHE}"
+		_process::parse_stat "$_pid" _c || return 1
 
-		if [[ -n "$field" ]]; then
-				echo "${_PROCESS_STAT_CACHE[$pid:$field]:-}"
+		if [[ -n "$_field" ]]; then
+				echo "${_c[$_pid:$_field]:-}"
 				return
 		fi
 
-		for field in pid comm state ppid threads rss vsize utime stime uptime; do
-				printf '%s=%s\n' "$field" "${_PROCESS_STAT_CACHE[$pid:$field]:-}"
+		for _field in pid comm state ppid threads rss vsize utime stime uptime; do
+				printf '%s=%s\n' "$_field" "${_c[$_pid:$_field]:-}"
 		done
 }
 

@@ -3,19 +3,20 @@
 # log.sh — bash::framehead logging module
 #
 # Provides levelled logging with configurable format, output routing,
-# and colour support. All behaviour is controlled via environment variables
-# so scripts can configure logging without touching function calls.
+# and colour support. Configuration lives in a caller-owned associative
+# array (TUI _ctx pattern). If no _ctx is provided, falls back to a
+# lazy-initialized default config.
 #
-# CONFIGURATION:
-#   LOG_FMT          Format string using %token% placeholders
-#                    Default: "%datetime% [%severity%] %message%"
-#   LOG_FILE         Path to log file. Empty = no file output.
-#   LOG_TO_STDOUT    Bitmask controlling which levels go to stdout vs stderr.
-#                    Levels not in the mask go to stderr instead.
-#                    Use Bash base notation: 2#0011 = debug + info to stdout
-#                    bit 0 = debug, bit 1 = info, bit 2 = warn, bit 3 = error
-#                    Default: 2#0011 (warn + error → stderr)
-#   LOG_COLOUR       1 = enable colour output, 0 = disable. Default: auto-detect.
+# CONFIGURATION (_ctx keys):
+#   fmt          Format string using %token% placeholders
+#                Default: "%datetime% [%severity%] %message%"
+#   file         Path to log file. Empty = no file output.
+#   stdout_mask  Bitmask controlling which levels go to stdout vs stderr.
+#                Levels not in the mask go to stderr instead.
+#                Use Bash base notation: 2#0011 = debug + info to stdout
+#                bit 0 = debug, bit 1 = info, bit 2 = warn, bit 3 = error
+#                Default: 2#0011 (warn + error -> stderr)
+#   colour       1 = enable colour output, 0 = disable. Default: auto-detect.
 #
 # FORMAT TOKENS:
 #   %timestamp%      Unix timestamp (seconds)
@@ -28,14 +29,18 @@
 #   %line%           Line number of the log call in the calling script
 #   %func%           Function name that made the log call
 #
-# EXAMPLE:
-#   LOG_FMT="%datetime% [%severity%] (%func%:%line%) %message%"
-#   LOG_FILE="/var/log/myscript.log"
-#   LOG_TO_STDOUT=2#1100  # warn + error to stdout, debug + info to stderr
+# USAGE:
+#   # With caller-owned config:
+#   declare -A _log_cfg
+#   _log_cfg[file]="/var/log/myscript.log"
+#   _log_cfg[stdout_mask]="2#1100"
+#   log::init _log_cfg
 #
-#   log::info  "Starting up"
-#   log::warn  "Config not found, using defaults"
-#   log::error "Failed to connect" 1   # logs then exits 1
+#   log::info _log_cfg "Starting up"
+#   log::error _log_cfg "Failed to connect" 1
+#
+#   # With default config (no _ctx):
+#   log::info "Starting up"
 
 # --- CONSTANTS ---
 
@@ -51,21 +56,34 @@ readonly _LOG_COLOUR_YELLOW='\033[0;33m'
 readonly _LOG_COLOUR_RED='\033[0;31m'
 readonly _LOG_COLOUR_RESET='\033[0m'
 
-# --- DEFAULTS ---
+# --- DEFAULT CONFIG ---
 
-# Initialise config vars if not already set by the caller
-log::init() {
-		LOG_FMT="${LOG_FMT:-%datetime% [%severity%] %message%}"
-		LOG_FILE="${LOG_FILE:-}"
-		LOG_TO_STDOUT="${LOG_TO_STDOUT:-2#0011}"
-		if [[ -z "${LOG_COLOUR+x}" ]]; then
-				# Auto-detect: enable if terminal supports colour
-				if [[ -t 1 && "${TERM:-}" != "dumb" && ( -n "${COLORTERM:-}" || "${TERM:-}" == *color* || "${TERM:-}" == *256* ) ]]; then
-						LOG_COLOUR=1
-				else
-						LOG_COLOUR=0
-				fi
+# Lazy-initialized default config (used when no _ctx is provided).
+declare -A _LOG_CONFIG=()
+
+_log::ensure_defaults() {
+		[[ ${#_LOG_CONFIG[@]} -gt 0 ]] && return
+		_LOG_CONFIG[fmt]='%datetime% [%severity%] %message%'
+		_LOG_CONFIG[file]=''
+		_LOG_CONFIG[stdout_mask]='2#0011'
+		if [[ -t 1 && "${TERM:-}" != "dumb" && ( -n "${COLORTERM:-}" || "${TERM:-}" == *color* || "${TERM:-}" == *256* ) ]]; then
+				_LOG_CONFIG[colour]=1
+		else
+				_LOG_CONFIG[colour]=0
 		fi
+}
+
+# --- INIT ---
+
+# Populate a caller's _ctx from defaults, filling blank fields.
+# Usage: log::init _ctx
+log::init() {
+		local -n _lctx="$1"
+		_log::ensure_defaults
+		[[ -z "${_lctx[fmt]:-}" ]]         && _lctx[fmt]="${_LOG_CONFIG[fmt]}"
+		[[ -z "${_lctx[file]:-}" ]]        && _lctx[file]="${_LOG_CONFIG[file]}"
+		[[ -z "${_lctx[stdout_mask]:-}" ]] && _lctx[stdout_mask]="${_LOG_CONFIG[stdout_mask]}"
+		[[ -z "${_lctx[colour]+x}" ]]      && _lctx[colour]="${_LOG_CONFIG[colour]}"
 }
 
 # --- INTERNAL ---
@@ -77,11 +95,12 @@ _log::strip_colour() {
 		sed 's/\x1b\[[0-9;]*m//g' <<< "$1"
 }
 
-# Format a log line using LOG_FMT token substitution
-# Usage: _log::format severity message caller_line caller_func
+# Format a log line using fmt token substitution
+# Usage: _log::format _ctx severity message caller_line caller_func
 _log::format() {
+		local -n _lctx="$1"; shift
 		local severity="$1" msg="$2" caller_line="$3" caller_func="$4"
-		local fmt="${LOG_FMT}"
+		local fmt="${_lctx[fmt]}"
 
 		fmt="${fmt//%timestamp%/$(date +%s)}"
 		fmt="${fmt//%datetime%/$(date '+%Y-%m-%d %H:%M:%S')}"
@@ -97,10 +116,11 @@ _log::format() {
 }
 
 # Apply ANSI colour to a line based on severity
-# Usage: _log::colourise severity line
+# Usage: _log::colourise _ctx severity line
 _log::colourise() {
+		local -n _lctx="$1"; shift
 		local severity="$1" line="$2"
-		(( LOG_COLOUR )) || { echo "$line"; return; }
+		(( ${_lctx[colour]} )) || { echo "$line"; return; }
 		local colour
 		case "$severity" in
 				DEBUG) colour="$_LOG_COLOUR_CYAN"   ;;
@@ -113,26 +133,25 @@ _log::colourise() {
 }
 
 # Core emit function — format, route, and output a log line
-# Usage: _log::emit severity level_bit message caller_line caller_func
+# Usage: _log::emit ctx_name severity level_bit message caller_line caller_func
 _log::emit() {
+		local _ctx_ref="$1"; shift
+		local -n _lctx="$_ctx_ref"
 		local severity="$1" bit="$2" msg="$3" caller_line="$4" caller_func="$5"
 
-		# Ensure defaults are set
-		[[ -z "${LOG_FMT+x}" ]] && log::init
-
 		local line
-		line=$(_log::format "$severity" "$msg" "$caller_line" "$caller_func")
+		line=$(_log::format "$_ctx_ref" "$severity" "$msg" "$caller_line" "$caller_func")
 
-		local should_stdout=$(( (LOG_TO_STDOUT >> bit) & 1 ))
+		local should_stdout=$(( (${_lctx[stdout_mask]} >> bit) & 1 ))
 
 		if (( should_stdout )); then
-				_log::colourise "$severity" "$line" >&1
+				_log::colourise "$_ctx_ref" "$severity" "$line" >&1
 		else
-				_log::colourise "$severity" "$line" >&2
+				_log::colourise "$_ctx_ref" "$severity" "$line" >&2
 		fi
 
-		if [[ -n "$LOG_FILE" ]]; then
-				_log::strip_colour "$line" >> "$LOG_FILE"
+		if [[ -n "${_lctx[file]}" ]]; then
+				_log::strip_colour "$line" >> "${_lctx[file]}"
 		fi
 }
 
@@ -140,40 +159,70 @@ _log::emit() {
 
 # Log a debug message
 # Useful for verbose tracing during development — typically suppressed in production
-# Usage: log::debug message
+# Usage: log::debug [ctx] message
 # Example:
 #   log::debug "processing file: $filename"
+#   log::debug _log_cfg "processing file: $filename"
 log::debug() {
-		_log::emit "DEBUG" $LOG_DEBUG "$*" "${BASH_LINENO[0]}" "${FUNCNAME[1]}"
+		local _ctx_name
+		if [[ $# -gt 0 ]] && declare -p "$1" 2>/dev/null | grep -q 'declare.*-A'; then
+				_ctx_name="$1"; shift
+		else
+				_log::ensure_defaults
+				_ctx_name="_LOG_CONFIG"
+		fi
+		_log::emit "$_ctx_name" "DEBUG" $LOG_DEBUG "$*" "${BASH_LINENO[0]}" "${FUNCNAME[1]}"
 }
 
 # Log an informational message
-# Usage: log::info message
+# Usage: log::info [ctx] message
 # Example:
 #   log::info "server started on port $port"
 log::info() {
-		_log::emit "INFO" $LOG_INFO "$*" "${BASH_LINENO[0]}" "${FUNCNAME[1]}"
+		local _ctx_name
+		if [[ $# -gt 0 ]] && declare -p "$1" 2>/dev/null | grep -q 'declare.*-A'; then
+				_ctx_name="$1"; shift
+		else
+				_log::ensure_defaults
+				_ctx_name="_LOG_CONFIG"
+		fi
+		_log::emit "$_ctx_name" "INFO" $LOG_INFO "$*" "${BASH_LINENO[0]}" "${FUNCNAME[1]}"
 }
 
 # Log a warning message
 # Indicates something unexpected but recoverable
-# Usage: log::warn message
+# Usage: log::warn [ctx] message
 # Example:
 #   log::warn "config not found, using defaults"
 log::warn() {
-		_log::emit "WARN" $LOG_WARN "$*" "${BASH_LINENO[0]}" "${FUNCNAME[1]}"
+		local _ctx_name
+		if [[ $# -gt 0 ]] && declare -p "$1" 2>/dev/null | grep -q 'declare.*-A'; then
+				_ctx_name="$1"; shift
+		else
+				_log::ensure_defaults
+				_ctx_name="_LOG_CONFIG"
+		fi
+		_log::emit "$_ctx_name" "WARN" $LOG_WARN "$*" "${BASH_LINENO[0]}" "${FUNCNAME[1]}"
 }
 
 # Log an error message, optionally exiting with a given code
 # If a second argument is provided and is an integer, exits with that code after logging
-# Usage: log::error message [exit_code]
+# Usage: log::error [ctx] message [exit_code]
 # Example:
 #   log::error "failed to connect to database"
 #   log::error "permission denied" 126
+#   log::error _log_cfg "permission denied" 126
 log::error() {
+		local _ctx_name
+		if [[ $# -gt 0 ]] && declare -p "$1" 2>/dev/null | grep -q 'declare.*-A'; then
+				_ctx_name="$1"; shift
+		else
+				_log::ensure_defaults
+				_ctx_name="_LOG_CONFIG"
+		fi
 		local msg="$1"
 		local exit_code="${2:-}"
-		_log::emit "ERROR" $LOG_ERROR "$msg" "${BASH_LINENO[0]}" "${FUNCNAME[1]}"
+		_log::emit "$_ctx_name" "ERROR" $LOG_ERROR "$msg" "${BASH_LINENO[0]}" "${FUNCNAME[1]}"
 		if [[ -n "$exit_code" && "$exit_code" =~ ^-?[0-9]+$ ]]; then
 				exit "$exit_code"
 		fi
@@ -181,11 +230,20 @@ log::error() {
 
 # Log an error and always exit, defaulting to exit code 1
 # Shorthand for log::error with guaranteed exit
-# Usage: log::fatal message [exit_code]
+# Usage: log::fatal [ctx] message [exit_code]
 # Example:
 #   log::fatal "cannot continue without config file"
-#   log::fatal "unsupported OS" 2
+#   log::fatal _log_cfg "unsupported OS" 2
 log::fatal() {
-		log::error "$1" "${2:-1}"
+		local _ctx_name
+		if [[ $# -gt 0 ]] && declare -p "$1" 2>/dev/null | grep -q 'declare.*-A'; then
+				_ctx_name="$1"; shift
+		else
+				_log::ensure_defaults
+				_ctx_name="_LOG_CONFIG"
+		fi
+		local msg="$1"
+		local exit_code="${2:-1}"
+		_log::emit "$_ctx_name" "ERROR" $LOG_ERROR "$msg" "${BASH_LINENO[0]}" "${FUNCNAME[1]}"
+		exit "$exit_code"
 }
-
