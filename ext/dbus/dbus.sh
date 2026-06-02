@@ -231,6 +231,65 @@ dbus::owned() {
 	[[ "$raw" == "b true" ]]
 }
 
+# --- Method calls ---
+
+# Invoke a method on a D-Bus object. Output is raw busctl format:
+# '<sig> <values...>' on a single line, or empty for void methods.
+# Use dbus::fromsig to parse the result.
+# Usage: dbus::call <service> <path> <interface> <method> [sig] [args...]
+dbus::call() {
+	if (( $# < 4 )); then
+		echo "dbus::call: need <service> <path> <interface> <method> [sig args...]" >&2
+		return 1
+	fi
+	local flag
+	flag=$(_dbus::bus_flag) || return 1
+	busctl "$flag" call "$@"
+}
+
+# --- Properties ---
+
+# Read a single property. Output is raw busctl format '<sig> <value>'.
+# Use dbus::fromsig to parse the result.
+# Usage: dbus::get <service> <path> <interface> <property>
+dbus::get() {
+	if (( $# != 4 )); then
+		echo "dbus::get: need <service> <path> <interface> <property>" >&2
+		return 1
+	fi
+	local flag
+	flag=$(_dbus::bus_flag) || return 1
+	busctl "$flag" get-property "$@"
+}
+
+# Write a single property.
+# Usage: dbus::set <service> <path> <interface> <property> <sig> <value>
+dbus::set() {
+	if (( $# != 6 )); then
+		echo "dbus::set: need <service> <path> <interface> <property> <sig> <value>" >&2
+		return 1
+	fi
+	local flag
+	flag=$(_dbus::bus_flag) || return 1
+	busctl "$flag" set-property "$@"
+}
+
+# Dump all properties on an interface. Output is raw busctl format
+# 'a{sv} <count> <key> <inner_sig> <value> ...' on a single line.
+# Use dbus::fromsig to parse into <key>\t<value> pairs.
+# Usage: dbus::get::all <service> <path> <interface>
+dbus::get::all() {
+	if (( $# != 3 )); then
+		echo "dbus::get::all: need <service> <path> <interface>" >&2
+		return 1
+	fi
+	local service="$1" path="$2" iface="$3"
+	local flag
+	flag=$(_dbus::bus_flag) || return 1
+	busctl "$flag" call "$service" "$path" \
+		org.freedesktop.DBus.Properties GetAll s "$iface"
+}
+
 # --- Sig parser ---
 # Parses raw busctl output of the form '<sig> <values...>' into bare values,
 # one per line. Strings are unquoted. Arrays/dicts expand element-per-line
