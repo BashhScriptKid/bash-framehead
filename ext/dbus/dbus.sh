@@ -290,6 +290,83 @@ dbus::get::all() {
 		org.freedesktop.DBus.Properties GetAll s "$iface"
 }
 
+# --- Introspection ---
+
+# Internal: run busctl introspect with consistent flags.
+# Usage: _dbus::introspect_raw <service> <path>
+_dbus::introspect_raw() {
+	local flag
+	flag=$(_dbus::bus_flag) || return 1
+	busctl "$flag" introspect --no-pager --no-legend "$1" "$2" 2>/dev/null
+}
+
+# Print the raw introspection table for an object (busctl-formatted).
+# Columns: NAME TYPE SIGNATURE RESULT/VALUE FLAGS.
+# Usage: dbus::introspect <service> <path>
+dbus::introspect() {
+	if (( $# != 2 )); then
+		echo "dbus::introspect: need <service> <path>" >&2
+		return 1
+	fi
+	_dbus::introspect_raw "$1" "$2"
+}
+
+# List interface names on an object, one per line.
+# Usage: dbus::interfaces <service> <path>
+dbus::interfaces() {
+	if (( $# != 2 )); then
+		echo "dbus::interfaces: need <service> <path>" >&2
+		return 1
+	fi
+	_dbus::introspect_raw "$1" "$2" | awk '$2 == "interface" { print $1 }'
+}
+
+# List method names on a given interface, one per line. Names are emitted
+# without the leading dot that busctl prefixes.
+# Usage: dbus::methods <service> <path> <interface>
+dbus::methods() {
+	if (( $# != 3 )); then
+		echo "dbus::methods: need <service> <path> <interface>" >&2
+		return 1
+	fi
+	_dbus::introspect_raw "$1" "$2" | awk -v target="$3" '
+		$2 == "interface" { current = $1; next }
+		current == target && $2 == "method" {
+			name = $1; sub(/^\./, "", name); print name
+		}
+	'
+}
+
+# List signal names on a given interface, one per line.
+# Usage: dbus::signals <service> <path> <interface>
+dbus::signals() {
+	if (( $# != 3 )); then
+		echo "dbus::signals: need <service> <path> <interface>" >&2
+		return 1
+	fi
+	_dbus::introspect_raw "$1" "$2" | awk -v target="$3" '
+		$2 == "interface" { current = $1; next }
+		current == target && $2 == "signal" {
+			name = $1; sub(/^\./, "", name); print name
+		}
+	'
+}
+
+# List property names on a given interface, one per line.
+# Usage: dbus::properties <service> <path> <interface>
+dbus::properties() {
+	if (( $# != 3 )); then
+		echo "dbus::properties: need <service> <path> <interface>" >&2
+		return 1
+	fi
+	_dbus::introspect_raw "$1" "$2" | awk -v target="$3" '
+		$2 == "interface" { current = $1; next }
+		current == target && $2 == "property" {
+			name = $1; sub(/^\./, "", name); print name
+		}
+	'
+}
+
 # --- Sig parser ---
 # Parses raw busctl output of the form '<sig> <values...>' into bare values,
 # one per line. Strings are unquoted. Arrays/dicts expand element-per-line
