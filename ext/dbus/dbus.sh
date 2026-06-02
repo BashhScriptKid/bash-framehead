@@ -367,6 +367,190 @@ dbus::properties() {
 	'
 }
 
+# --- Signals ---
+
+# Internal: stream signals matching the given interface (and optional member)
+# as one-line TSV records:
+#   <unix_ts>\t<sender>\t<path>\t<interface>\t<member>\t<sig>\t<args_json>
+# Filters at the bus level via --match. Args are JSON-encoded best-effort:
+# flat STRING/INT/UINT/BOOLEAN/DOUBLE values land cleanly; nested arrays
+# and complex containers degrade (the count token leaks through).
+# Usage: _dbus::signal_stream <interface> [member]
+_dbus::signal_stream() {
+	local iface="$1" member="${2:-}"
+	local flag match
+	flag=$(_dbus::bus_flag) || return 1
+	match="type='signal',interface='$iface'"
+	[[ -n "$member" ]] && match+=",member='$member'"
+
+	busctl "$flag" monitor --match "$match" 2>/dev/null | awk -v want_iface="$iface" -v want_member="$member" '
+		function flush() {
+			if (rtype == "signal" \
+			    && (want_iface == "" || iface == want_iface) \
+			    && (want_member == "" || member == want_member)) {
+				printf "%s\t%s\t%s\t%s\t%s\t%s\t[%s]\n", \
+					systime(), sender, path, iface, member, sig, args
+				fflush()
+			}
+		}
+		/^‣ Type=/ {
+			flush()
+			rtype=""; sender=""; path=""; iface=""; member=""; sig=""; args=""; in_msg=0
+			for (i=1; i<=NF; i++) {
+				if ($i ~ /^Type=/) { rtype = substr($i, 6) }
+			}
+			next
+		}
+		/Sender=/ {
+			if (match($0, /Sender=[^ ]+/))    { sender = substr($0, RSTART+7,  RLENGTH-7)  }
+			if (match($0, /Path=[^ ]+/))      { path   = substr($0, RSTART+5,  RLENGTH-5)  }
+			if (match($0, /Interface=[^ ]+/)) { iface  = substr($0, RSTART+10, RLENGTH-10) }
+			if (match($0, /Member=[^ ]+/))    { member = substr($0, RSTART+7,  RLENGTH-7)  }
+			next
+		}
+		/^  MESSAGE / {
+			s = $0; sub(/.*MESSAGE "/, "", s); sub(/".*/, "", s); sig = s; in_msg = 1; next
+		}
+		in_msg && /STRING / {
+			s = $0; sub(/^[ \t]*STRING "/, "", s); sub(/";[ \t]*$/, "", s)
+			gsub(/\\/, "\\\\", s); gsub(/"/, "\\\"", s)
+			if (args != "") args = args ","
+			args = args "\"" s "\""; next
+		}
+		in_msg && /(UINT|INT)[0-9]+ / {
+			s = $NF; sub(/;$/, "", s)
+			if (args != "") args = args ","
+			args = args s; next
+		}
+		in_msg && /BOOLEAN / {
+			s = $NF; sub(/;$/, "", s)
+			if (args != "") args = args ","
+			args = args s; next
+		}
+		in_msg && /DOUBLE / {
+			s = $NF; sub(/;$/, "", s)
+			if (args != "") args = args ","
+			args = args s; next
+		}
+		in_msg && /^};/ { in_msg = 0; next }
+		END { flush() }
+	'
+}
+
+# Block until one signal matching the interface (and optional member) arrives,
+# print one TSV record, then exit. Optional timeout in seconds; exit 124 if
+# the timeout fires before a signal (matching coreutils timeout convention).
+# Usage: dbus::wait <interface> <signal> [timeout_seconds]
+dbus::wait() {
+	local iface="$1" member="$2" t="${3:-}"
+	if [[ -z "$iface" || -z "$member" ]]; then
+		echo "dbus::wait: need <interface> <signal> [timeout_seconds]" >&2
+		return 1
+	fi
+	# Find the runtime source so we can re-source this file in a fresh bash.
+	local self="${BASH_SOURCE[0]}"
+	local runtime_src
+	runtime_src="$(cd "${self%/*}/../.." 2>/dev/null && pwd)/src/runtime.sh"
+	if [[ ! -f "$runtime_src" ]]; then
+		echo "dbus::wait: cannot locate runtime.sh from '$self'" >&2
+		return 1
+	fi
+
+	if [[ -n "$t" ]]; then
+		# tmpfile + polling + process-group kill: the producer pipeline
+		# (busctl | awk) sits in read() waiting for the next signal, so
+		# SIGPIPE never propagates from a downstream head. We put the
+		# producer in its own session and kill the group on timeout/cleanup.
+		local tmpfile="/tmp/dbus-wait-$$-$BASHPID.tmp"
+		rm -f "$tmpfile"
+		setsid bash -c "
+			source '$runtime_src' || exit 1
+			source '$self' || exit 1
+			_dbus::signal_stream '$iface' '$member' > '$tmpfile' 2>/dev/null
+		" &
+		local producer_pid=$!
+		local deadline=$(( $(date +%s) + t ))
+		while (( $(date +%s) < deadline )); do
+			if [[ -s "$tmpfile" ]]; then
+				head -n 1 "$tmpfile"
+				kill -TERM -- -"$producer_pid" 2>/dev/null
+				rm -f "$tmpfile"
+				return 0
+			fi
+			sleep 0.1
+		done
+		kill -TERM -- -"$producer_pid" 2>/dev/null
+		rm -f "$tmpfile"
+		return 124
+	else
+		# No timeout: rely on the head -n 1 closing the pipe. Caller is
+		# expected to wrap in timeout if needed.
+		_dbus::signal_stream "$iface" "$member" | head -n 1
+	fi
+}
+
+# Stream signals matching the interface (and optional member) as TSV records
+# to stdout, one per line, forever. Pipe through 'while IFS=$'\''\t'\'' read ...'.
+# Usage: dbus::watch <interface> [signal]
+dbus::watch() {
+	local iface="$1" member="${2:-}"
+	if [[ -z "$iface" ]]; then
+		echo "dbus::watch: need <interface> [signal]" >&2
+		return 1
+	fi
+	_dbus::signal_stream "$iface" "$member"
+}
+
+# Bridge signals from the bus into a pubsub topic. Spawns a background process
+# that forwards each TSV signal record to pubsub::publish. Returns the PID of
+# the bridge on stdout; caller must store it and pass to dbus::unsubscribe.
+# Usage: pid=$(dbus::subscribe <interface> <signal> <pubsub_topic>)
+dbus::subscribe() {
+	local iface="$1" member="$2" topic="$3"
+	if [[ -z "$iface" || -z "$member" || -z "$topic" ]]; then
+		echo "dbus::subscribe: need <interface> <signal> <pubsub_topic>" >&2
+		return 1
+	fi
+	declare -f 'pubsub::publish' &>/dev/null || {
+		echo "dbus::subscribe: pubsub module not available" >&2
+		return 1
+	}
+	# Re-source dbus.sh + pubsub.sh in a fresh bash under setsid so
+	# dbus::unsubscribe can kill the entire process group cleanly. The
+	# busctl monitor pipeline sits in read(), so SIGPIPE never propagates.
+	local self="${BASH_SOURCE[0]}"
+	local lib_dir
+	lib_dir="$(cd "${self%/*}/../.." 2>/dev/null && pwd)/src"
+	local pubsub_src="$lib_dir/pubsub.sh"
+	local runtime_src="$lib_dir/runtime.sh"
+	if [[ ! -f "$pubsub_src" || ! -f "$runtime_src" ]]; then
+		echo "dbus::subscribe: cannot locate runtime.sh or pubsub.sh" >&2
+		return 1
+	fi
+	setsid bash -c "
+		source '$runtime_src' || exit 1
+		source '$pubsub_src' || exit 1
+		source '$self' || exit 1
+		_dbus::signal_stream '$iface' '$member' | \
+			while IFS= read -r line; do
+				printf '%s\n' \"\$line\" | pubsub::publish '$topic' 2>/dev/null || true
+			done
+	" &
+	disown
+	echo $!
+}
+
+# Stop a bridge spawned by dbus::subscribe. Kills the bridge's process group.
+# Usage: dbus::unsubscribe <pid>
+dbus::unsubscribe() {
+	local pid="$1"
+	if [[ -z "$pid" ]]; then
+		echo "dbus::unsubscribe: pid required" >&2
+		return 1
+	fi
+	kill -TERM -- -"$pid" 2>/dev/null || kill -TERM "$pid" 2>/dev/null || return 1
+}
+
 # --- Sig parser ---
 # Parses raw busctl output of the form '<sig> <values...>' into bare values,
 # one per line. Strings are unquoted. Arrays/dicts expand element-per-line
