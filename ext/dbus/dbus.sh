@@ -230,3 +230,231 @@ dbus::owned() {
 	# raw looks like: b true   or   b false
 	[[ "$raw" == "b true" ]]
 }
+
+# --- Sig parser ---
+# Parses raw busctl output of the form '<sig> <values...>' into bare values,
+# one per line. Strings are unquoted. Arrays/dicts expand element-per-line
+# (dict entries as <key>\t<value>). Composes with ::call, ::get, ::get::all.
+#
+# Supported sigs (v1):
+#   y b n q i u x t d s o g          -- scalars
+#   as ao ay an aq ai au ax at ad    -- flat arrays of scalars
+#   a{ss} a{sv} a{si} a{su} a{sb}    -- common dicts
+#   (...)                            -- structs (flat, scalar elements)
+#   v                                -- variants (one level)
+# Exotic / deeply nested sigs are emitted raw with a stderr warning.
+
+# Tokenize a busctl value buffer into one token per line.
+# Strings are emitted with surrounding quotes stripped and \\\\, \", \\n
+# escapes resolved. Other tokens emitted verbatim.
+# Usage: _dbus::tokenize_values "<buffer>"
+_dbus::tokenize_values() {
+	local buf="$1" len="${#1}" i=0 ch
+	local token in_string=0 escape=0
+	while (( i < len )); do
+		ch="${buf:i:1}"
+		if (( in_string )); then
+			if (( escape )); then
+				case "$ch" in
+					n)  token+=$'\n' ;;
+					t)  token+=$'\t' ;;
+					r)  token+=$'\r' ;;
+					\\) token+='\' ;;
+					\") token+='"' ;;
+					*)  token+="$ch" ;;
+				esac
+				escape=0
+			elif [[ "$ch" == '\' ]]; then
+				escape=1
+			elif [[ "$ch" == '"' ]]; then
+				printf '%s\n' "$token"
+				token=""
+				in_string=0
+			else
+				token+="$ch"
+			fi
+		else
+			if [[ "$ch" == '"' ]]; then
+				in_string=1
+				token=""
+			elif [[ "$ch" == ' ' || "$ch" == $'\t' ]]; then
+				if [[ -n "$token" ]]; then
+					printf '%s\n' "$token"
+					token=""
+				fi
+			else
+				token+="$ch"
+			fi
+		fi
+		(( i++ ))
+	done
+	if [[ -n "$token" && in_string -eq 0 ]]; then
+		printf '%s\n' "$token"
+	fi
+}
+
+# Split a top-level signature into its component types.
+# Examples:
+#   "s"      -> ["s"]
+#   "ss"     -> ["s", "s"]
+#   "as"     -> ["as"]
+#   "a{sv}"  -> ["a{sv}"]
+#   "(ss)i"  -> ["(ss)", "i"]
+# Emits one type per line.
+_dbus::split_sig() {
+	local sig="$1" len="${#1}" i=0 ch depth
+	local tok=""
+	while (( i < len )); do
+		ch="${sig:i:1}"
+		case "$ch" in
+			a)
+				# Array: 'a' + next type (which may be (...), {...}, or scalar)
+				tok="a"
+				(( i++ ))
+				if (( i < len )); then
+					ch="${sig:i:1}"
+					case "$ch" in
+						'(')
+							depth=1; tok+="("; (( i++ ))
+							while (( i < len )) && (( depth > 0 )); do
+								ch="${sig:i:1}"; tok+="$ch"
+								[[ "$ch" == '(' ]] && (( depth++ ))
+								[[ "$ch" == ')' ]] && (( depth-- ))
+								(( i++ ))
+							done
+							;;
+						'{')
+							depth=1; tok+="{"; (( i++ ))
+							while (( i < len )) && (( depth > 0 )); do
+								ch="${sig:i:1}"; tok+="$ch"
+								[[ "$ch" == '{' ]] && (( depth++ ))
+								[[ "$ch" == '}' ]] && (( depth-- ))
+								(( i++ ))
+							done
+							;;
+						*)
+							tok+="$ch"; (( i++ ))
+							;;
+					esac
+				fi
+				printf '%s\n' "$tok"; tok=""
+				;;
+			'(')
+				depth=1; tok="("; (( i++ ))
+				while (( i < len )) && (( depth > 0 )); do
+					ch="${sig:i:1}"; tok+="$ch"
+					[[ "$ch" == '(' ]] && (( depth++ ))
+					[[ "$ch" == ')' ]] && (( depth-- ))
+					(( i++ ))
+				done
+				printf '%s\n' "$tok"; tok=""
+				;;
+			*)
+				printf '%s\n' "$ch"
+				(( i++ ))
+				;;
+		esac
+	done
+}
+
+# Read tokens from the _dbus_tokens array (index _dbus_tok_idx) and emit
+# parsed values for the given top-level type. Advances the index.
+# Internal: uses globals _dbus_tokens (array) and _dbus_tok_idx (int).
+_dbus::emit_one() {
+	local type="$1"
+	local count i tok inner
+	case "$type" in
+		s|o|g|y|b|n|q|i|u|x|t|d)
+			printf '%s\n' "${_dbus_tokens[_dbus_tok_idx]}"
+			(( _dbus_tok_idx++ ))
+			;;
+		'a{ss}'|'a{si}'|'a{su}'|'a{sb}'|'a{sd}'|'a{so}')
+			count="${_dbus_tokens[_dbus_tok_idx]}"
+			(( _dbus_tok_idx++ ))
+			for (( i = 0; i < count; i++ )); do
+				printf '%s\t%s\n' \
+					"${_dbus_tokens[_dbus_tok_idx]}" \
+					"${_dbus_tokens[_dbus_tok_idx + 1]}"
+				(( _dbus_tok_idx += 2 ))
+			done
+			;;
+		'a{sv}')
+			count="${_dbus_tokens[_dbus_tok_idx]}"
+			(( _dbus_tok_idx++ ))
+			for (( i = 0; i < count; i++ )); do
+				# key, then variant: <inner_sig> <value>
+				printf '%s\t%s\n' \
+					"${_dbus_tokens[_dbus_tok_idx]}" \
+					"${_dbus_tokens[_dbus_tok_idx + 2]}"
+				(( _dbus_tok_idx += 3 ))
+			done
+			;;
+		a*)
+			# Flat array of scalars: 'a' + one scalar char.
+			count="${_dbus_tokens[_dbus_tok_idx]}"
+			(( _dbus_tok_idx++ ))
+			for (( i = 0; i < count; i++ )); do
+				printf '%s\n' "${_dbus_tokens[_dbus_tok_idx]}"
+				(( _dbus_tok_idx++ ))
+			done
+			;;
+		'('*)
+			# Struct: emit each inner type as a separate value.
+			inner="${type:1:${#type}-2}"
+			local sub
+			while IFS= read -r sub; do
+				_dbus::emit_one "$sub"
+			done < <(_dbus::split_sig "$inner")
+			;;
+		v)
+			# Variant: next token is inner sig, then the value(s).
+			inner="${_dbus_tokens[_dbus_tok_idx]}"
+			(( _dbus_tok_idx++ ))
+			local sub
+			while IFS= read -r sub; do
+				_dbus::emit_one "$sub"
+			done < <(_dbus::split_sig "$inner")
+			;;
+		*)
+			echo "_dbus::emit_one: unsupported type '$type'" >&2
+			# Best effort: emit the current token raw and advance one.
+			printf '%s\n' "${_dbus_tokens[_dbus_tok_idx]:-}"
+			(( _dbus_tok_idx++ ))
+			;;
+	esac
+}
+
+# Parse a single line of busctl '<sig> <values>' output and print bare values
+# one per line. Reads from stdin or from the argument.
+# Usage:
+#   dbus::call ... | dbus::fromsig
+#   dbus::fromsig 's "hello"'
+dbus::fromsig() {
+	local line="${1:-}"
+	if [[ -z "$line" ]]; then
+		IFS= read -r line
+	fi
+	[[ -z "$line" ]] && return 0
+
+	# Pull leading sig token.
+	local sig rest
+	sig="${line%% *}"
+	if [[ "$sig" == "$line" ]]; then
+		# Sig with no values (e.g. empty return).
+		return 0
+	fi
+	rest="${line#* }"
+
+	# Tokenize the value buffer.
+	local _dbus_tokens=() _dbus_tok_idx=0
+	local _tok
+	while IFS= read -r _tok; do
+		_dbus_tokens+=("$_tok")
+	done < <(_dbus::tokenize_values "$rest")
+
+	# Walk top-level types.
+	local type
+	while IFS= read -r type; do
+		_dbus::emit_one "$type"
+	done < <(_dbus::split_sig "$sig")
+}
