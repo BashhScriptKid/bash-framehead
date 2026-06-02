@@ -564,9 +564,11 @@ dbus::unsubscribe() {
 #   v                                -- variants (one level)
 # Exotic / deeply nested sigs are emitted raw with a stderr warning.
 
-# Tokenize a busctl value buffer into one token per line.
-# Strings are emitted with surrounding quotes stripped and \\\\, \", \\n
+# Tokenize a busctl value buffer into NUL-separated tokens on stdout.
+# Strings are emitted with surrounding quotes stripped and \\\\, \", \\n, \\t, \\r
 # escapes resolved. Other tokens emitted verbatim.
+# Tokens themselves cannot contain NUL bytes (D-Bus strings are NUL-terminated
+# and would terminate early if they did), so NUL is a safe separator.
 # Usage: _dbus::tokenize_values "<buffer>"
 _dbus::tokenize_values() {
 	local buf="$1" len="${#1}" i=0 ch
@@ -587,7 +589,7 @@ _dbus::tokenize_values() {
 			elif [[ "$ch" == '\' ]]; then
 				escape=1
 			elif [[ "$ch" == '"' ]]; then
-				printf '%s\n' "$token"
+				printf '%s\0' "$token"
 				token=""
 				in_string=0
 			else
@@ -599,7 +601,7 @@ _dbus::tokenize_values() {
 				token=""
 			elif [[ "$ch" == ' ' || "$ch" == $'\t' ]]; then
 				if [[ -n "$token" ]]; then
-					printf '%s\n' "$token"
+					printf '%s\0' "$token"
 					token=""
 				fi
 			else
@@ -609,7 +611,7 @@ _dbus::tokenize_values() {
 		(( i++ ))
 	done
 	if [[ -n "$token" && in_string -eq 0 ]]; then
-		printf '%s\n' "$token"
+		printf '%s\0' "$token"
 	fi
 }
 
@@ -765,12 +767,10 @@ dbus::fromsig() {
 	fi
 	rest="${line#* }"
 
-	# Tokenize the value buffer.
+	# Tokenize the value buffer (NUL-separated, since values may contain
+	# embedded newlines from resolved \n escapes).
 	local _dbus_tokens=() _dbus_tok_idx=0
-	local _tok
-	while IFS= read -r _tok; do
-		_dbus_tokens+=("$_tok")
-	done < <(_dbus::tokenize_values "$rest")
+	mapfile -d '' -t _dbus_tokens < <(_dbus::tokenize_values "$rest")
 
 	# Walk top-level types.
 	local type
