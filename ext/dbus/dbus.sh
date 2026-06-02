@@ -124,3 +124,109 @@ dbus::bus::set() {
 			;;
 	esac
 }
+
+# --- Listing ---
+
+# Print bare bus names (one per line) on the given bus, skipping the header.
+# Usage: _dbus::list_raw <session|system> [--activatable]
+_dbus::list_raw() {
+	local bus="$1" mode="${2:-}"
+	local flag
+	flag=$(_dbus::bus_flag_for "$bus") || return 1
+
+	local args=("$flag" "list" "--no-pager" "--no-legend")
+	[[ "$mode" == "--activatable" ]] && args+=("--activatable")
+
+	# busctl list with --no-legend skips the header; column 1 is the name.
+	busctl "${args[@]}" 2>/dev/null | awk '{ print $1 }'
+}
+
+# Print all bus names, annotated with their bus. Output: <bus>\t<name>
+# Usage: dbus::list
+dbus::list() {
+	local name
+	while IFS= read -r name; do
+		printf 'session\t%s\n' "$name"
+	done < <(_dbus::list_raw session)
+	while IFS= read -r name; do
+		printf 'system\t%s\n' "$name"
+	done < <(_dbus::list_raw system)
+}
+
+# Print bare bus names on the session bus, one per line.
+# Usage: dbus::list::session
+dbus::list::session() {
+	_dbus::list_raw session
+}
+
+# Print bare bus names on the system bus, one per line.
+# Usage: dbus::list::system
+dbus::list::system() {
+	_dbus::list_raw system
+}
+
+# Print all autostartable (activatable) services, annotated with their bus.
+# Output: <bus>\t<name>
+# Usage: dbus::list::autostarts
+dbus::list::autostarts() {
+	local name
+	while IFS= read -r name; do
+		printf 'session\t%s\n' "$name"
+	done < <(_dbus::list_raw session --activatable)
+	while IFS= read -r name; do
+		printf 'system\t%s\n' "$name"
+	done < <(_dbus::list_raw system --activatable)
+}
+
+# Print autostartable services on the session bus, one per line.
+# Usage: dbus::list::autostarts::session
+dbus::list::autostarts::session() {
+	_dbus::list_raw session --activatable
+}
+
+# Print autostartable services on the system bus, one per line.
+# Usage: dbus::list::autostarts::system
+dbus::list::autostarts::system() {
+	_dbus::list_raw system --activatable
+}
+
+# --- Name resolution ---
+
+# Print the unique connection name (e.g. ":1.42") that currently owns the
+# given well-known name. Prints nothing and returns non-zero if unowned.
+# Usage: dbus::pinpoint <name>
+dbus::pinpoint() {
+	local name="$1"
+	if [[ -z "$name" ]]; then
+		echo "dbus::pinpoint: name required" >&2
+		return 1
+	fi
+	local flag raw
+	flag=$(_dbus::bus_flag) || return 1
+	raw=$(busctl "$flag" call \
+		org.freedesktop.DBus /org/freedesktop/DBus \
+		org.freedesktop.DBus GetNameOwner s "$name" 2>/dev/null) || return 1
+	# raw looks like: s ":1.42"
+	# Strip leading 's ' and surrounding quotes.
+	raw="${raw#s }"
+	raw="${raw#\"}"
+	raw="${raw%\"}"
+	echo "$raw"
+}
+
+# Exit 0 if the given well-known name is currently claimed, 1 otherwise.
+# Usage: dbus::owned <name>
+dbus::owned() {
+	local name="$1"
+	if [[ -z "$name" ]]; then
+		echo "dbus::owned: name required" >&2
+		return 2
+	fi
+	local flag raw
+	flag=$(_dbus::bus_flag) || return 2
+	raw=$(busctl "$flag" call \
+		org.freedesktop.DBus /org/freedesktop/DBus \
+		org.freedesktop.DBus NameHasOwner s "$name" 2>/dev/null) || return 2
+	# raw looks like: b true   or   b false
+	[[ "$raw" == "b true" ]]
+}
