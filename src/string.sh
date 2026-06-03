@@ -1534,14 +1534,14 @@ string::pad_left() {
 string::pad_left::fast() {
 	local -n _string_pad_left_result="$1"
 	local _str="$2" width="$3" char="${4:- }"
-	local len="${#s}"
+	local len="${#_str}"
 	if ((len >= width)); then
 		_string_pad_left_result="$_str"
 		return
 	fi
 	local pad result=""
 	for ((i = 0; i < width - len; i++)); do result+="$char"; done
-	_string_pad_left_result="${result}${s}"
+	_string_pad_left_result="${result}${_str}"
 }
 
 # Pad string on the right to a given width
@@ -1565,14 +1565,14 @@ string::pad_right() {
 string::pad_right::fast() {
 	local -n _string_pad_right_result="$1"
 	local _str="$2" width="$3" char="${4:- }"
-	local len="${#s}"
+	local len="${#_str}"
 	if ((len >= width)); then
 		_string_pad_right_result="$_str"
 		return
 	fi
 	local result=""
 	for ((i = 0; i < width - len; i++)); do result+="$char"; done
-	_string_pad_right_result="${s}${result}"
+	_string_pad_right_result="${_str}${result}"
 }
 
 # Centre a string within a given width
@@ -1600,7 +1600,7 @@ string::pad_center() {
 string::pad_center::fast() {
 	local -n _string_pad_center_result="$1"
 	local _str="$2" width="$3" char="${4:- }"
-	local len="${#s}"
+	local len="${#_str}"
 	if ((len >= width)); then
 		_string_pad_center_result="$_str"
 		return
@@ -1611,7 +1611,7 @@ string::pad_center::fast() {
 	local lpad="" rpad=""
 	for ((i = 0; i < left; i++)); do lpad+="$char"; done
 	for ((i = 0; i < right; i++)); do rpad+="$char"; done
-	_string_pad_center_result="${lpad}${s}${rpad}"
+	_string_pad_center_result="${lpad}${_str}${rpad}"
 }
 
 # Truncate a string to max length, appending suffix if truncated
@@ -1663,7 +1663,7 @@ string::truncate::fast() {
 	local _str="$2" max="$3"
 	local suffix
 
-	if ((${#s} <= max)); then
+	if ((${#_str} <= max)); then
 		_string_truncate_result="$_str"
 		return 0
 	fi
@@ -1762,7 +1762,7 @@ string::join::fast() {
 string::url_encode() {
 		local input; _string::read_input input "$@"
 		local _str="$input" encoded="" i char hex
-		for (( i=0; i<${#s}; i++ )); do
+		for (( i=0; i<${#_str}; i++ )); do
 				char="${_str:$i:1}"
 				case "$char" in
 						[a-zA-Z0-9.~_-]) encoded+="$char" ;;
@@ -1778,7 +1778,7 @@ string::url_encode() {
 string::url_encode::fast() {
 		local -n _string_url_encode_result="$1"
 		local _str="$2" encoded="" i char hex
-		for (( i=0; i<${#s}; i++ )); do
+		for (( i=0; i<${#_str}; i++ )); do
 				char="${_str:$i:1}"
 				case "$char" in
 						[a-zA-Z0-9.~_-]) encoded+="$char" ;;
@@ -1848,15 +1848,15 @@ string::base64_encode::pure() {
 		local _str="$input" out="" i a b c
 		local _B64="ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/"
 
-		for (( i=0; i<${#s}; i+=3 )); do
+		for (( i=0; i<${#_str}; i+=3 )); do
 				a=$(printf '%d' "'${_str:$i:1}")
-				b=$(( i+1 < ${#s} ? $(printf '%d' "'${_str:$((i+1)):1}") : 0 ))
-				c=$(( i+2 < ${#s} ? $(printf '%d' "'${_str:$((i+2)):1}") : 0 ))
+				b=$(( i+1 < ${#_str} ? $(printf '%d' "'${_str:$((i+1)):1}") : 0 ))
+				c=$(( i+2 < ${#_str} ? $(printf '%d' "'${_str:$((i+2)):1}") : 0 ))
 
 				out+="${_B64:$(( (a >> 2) & 63 )):1}"
 				out+="${_B64:$(( ((a << 4) | (b >> 4)) & 63 )):1}"
-				out+="${_B64:$(( i+1 < ${#s} ? ((b << 2) | (c >> 6)) & 63 : 64 )):1}"
-				out+="${_B64:$(( i+2 < ${#s} ? c & 63 : 64 )):1}"
+				out+="${_B64:$(( i+1 < ${#_str} ? ((b << 2) | (c >> 6)) & 63 : 64 )):1}"
+				out+="${_B64:$(( i+2 < ${#_str} ? c & 63 : 64 )):1}"
 		done
 
 		echo "$out"
@@ -1871,7 +1871,7 @@ string::base64_decode::pure() {
 		# strip padding
 		_str="${_str//=}"
 
-		for (( i=0; i<${#s}; i+=4 )); do
+		for (( i=0; i<${#_str}; i+=4 )); do
 				local c0="${_str:$i:1}" c1="${_str:$((i+1)):1}" c2="${_str:$((i+2)):1}" c3="${_str:$((i+3)):1}"
 				# Use case for reliable index lookup (avoids issues with +/ in patterns)
 				case "$c0" in A) a=0;; B) a=1;; C) a=2;; D) a=3;; E) a=4;; F) a=5;; G) a=6;; H) a=7;; I) a=8;; J) a=9;; K) a=10;; L) a=11;; M) a=12;; N) a=13;; O) a=14;; P) a=15;; Q) a=16;; R) a=17;; S) a=18;; T) a=19;; U) a=20;; V) a=21;; W) a=22;; X) a=23;; Y) a=24;; Z) a=25;; a) a=26;; b) a=27;; c) a=28;; d) a=29;; e) a=30;; f) a=31;; g) a=32;; h) a=33;; i) a=34;; j) a=35;; k) a=36;; l) a=37;; m) a=38;; n) a=39;; o) a=40;; p) a=41;; q) a=42;; r) a=43;; s) a=44;; t) a=45;; u) a=46;; v) a=47;; w) a=48;; x) a=49;; y) a=50;; z) a=51;; 0) a=52;; 1) a=53;; 2) a=54;; 3) a=55;; 4) a=56;; 5) a=57;; 6) a=58;; 7) a=59;; 8) a=60;; 9) a=61;; +) a=62;; /) a=63;; *) a=0;; esac
@@ -1884,8 +1884,8 @@ string::base64_decode::pure() {
 				byte3=$(( ((c & 3) << 6) | d ))
 
 				printf "\\$(printf '%03o' $byte1)"
-				(( i+2 < ${#s} )) && printf "\\$(printf '%03o' $byte2)"
-				(( i+3 < ${#s}  )) && printf "\\$(printf '%03o' $byte3)"
+				(( i+2 < ${#_str} )) && printf "\\$(printf '%03o' $byte2)"
+				(( i+3 < ${#_str}  )) && printf "\\$(printf '%03o' $byte3)"
 		done
 		echo
 }
@@ -1947,21 +1947,21 @@ string::base32_encode::pure() {
 		local _B32="ABCDEFGHIJKLMNOPQRSTUVWXYZ234567"
 		local _str="$input" out="" i a b c d e
 
-		for (( i=0; i<${#s}; i+=5 )); do
+		for (( i=0; i<${#_str}; i+=5 )); do
 				a=$(printf '%d' "'${_str:$i:1}")
-				b=$(( i+1 < ${#s} ? $(printf '%d' "'${_str:$((i+1)):1}") : 0 ))
-				c=$(( i+2 < ${#s} ? $(printf '%d' "'${_str:$((i+2)):1}") : 0 ))
-				d=$(( i+3 < ${#s} ? $(printf '%d' "'${_str:$((i+3)):1}") : 0 ))
-				e=$(( i+4 < ${#s} ? $(printf '%d' "'${_str:$((i+4)):1}") : 0 ))
+				b=$(( i+1 < ${#_str} ? $(printf '%d' "'${_str:$((i+1)):1}") : 0 ))
+				c=$(( i+2 < ${#_str} ? $(printf '%d' "'${_str:$((i+2)):1}") : 0 ))
+				d=$(( i+3 < ${#_str} ? $(printf '%d' "'${_str:$((i+3)):1}") : 0 ))
+				e=$(( i+4 < ${#_str} ? $(printf '%d' "'${_str:$((i+4)):1}") : 0 ))
 
 				out+="${_B32:$(( (a >> 3) & 31 )):1}"
 				out+="${_B32:$(( ((a << 2) | (b >> 6)) & 31 )):1}"
-				out+="${_B32:$(( i+1 < ${#s} ? (b >> 1) & 31 : 32 )):1}"
-				out+="${_B32:$(( i+1 < ${#s} ? ((b << 4) | (c >> 4)) & 31 : 32 )):1}"
-				out+="${_B32:$(( i+2 < ${#s} ? ((c << 1) | (d >> 7)) & 31 : 32 )):1}"
-				out+="${_B32:$(( i+3 < ${#s} ? (d >> 2) & 31 : 32 )):1}"
-				out+="${_B32:$(( i+3 < ${#s} ? ((d << 3) | (e >> 5)) & 31 : 32 )):1}"
-				out+="${_B32:$(( i+4 < ${#s} ? e & 31 : 32 )):1}"
+				out+="${_B32:$(( i+1 < ${#_str} ? (b >> 1) & 31 : 32 )):1}"
+				out+="${_B32:$(( i+1 < ${#_str} ? ((b << 4) | (c >> 4)) & 31 : 32 )):1}"
+				out+="${_B32:$(( i+2 < ${#_str} ? ((c << 1) | (d >> 7)) & 31 : 32 )):1}"
+				out+="${_B32:$(( i+3 < ${#_str} ? (d >> 2) & 31 : 32 )):1}"
+				out+="${_B32:$(( i+3 < ${#_str} ? ((d << 3) | (e >> 5)) & 31 : 32 )):1}"
+				out+="${_B32:$(( i+4 < ${#_str} ? e & 31 : 32 )):1}"
 		done
 
 		echo "$out"
@@ -1975,7 +1975,7 @@ string::base32_decode::pure() {
 		# uppercase input since base32 alphabet is uppercase only
 		_str="${_str^^}"
 
-		for (( i=0; i<${#s}; i+=8 )); do
+		for (( i=0; i<${#_str}; i+=8 )); do
 				local c0="${_str:$i:1}" c1="${_str:$((i+1)):1}" c2="${_str:$((i+2)):1}" c3="${_str:$((i+3)):1}"
 				local c4="${_str:$((i+4)):1}" c5="${_str:$((i+5)):1}" c6="${_str:$((i+6)):1}" c7="${_str:$((i+7)):1}"
 				# Use case for reliable index lookup (base32 alphabet: A-Z, 2-7)
@@ -1989,10 +1989,10 @@ string::base32_decode::pure() {
 				case "$c7" in A) h=0;; B) h=1;; C) h=2;; D) h=3;; E) h=4;; F) h=5;; G) h=6;; H) h=7;; I) h=8;; J) h=9;; K) h=10;; L) h=11;; M) h=12;; N) h=13;; O) h=14;; P) h=15;; Q) h=16;; R) h=17;; S) h=18;; T) h=19;; U) h=20;; V) h=21;; W) h=22;; X) h=23;; Y) h=24;; Z) h=25;; 2) h=26;; 3) h=27;; 4) h=28;; 5) h=29;; 6) h=30;; 7) h=31;; *) h=0;; esac
 
 				printf "\\$(printf '%03o' $(( (a << 3) | (b >> 2) )))"
-				(( i+2 < ${#s} )) && printf "\\$(printf '%03o' $(( ((b & 3) << 6) | (c << 1) | (d >> 4) )))"
-				(( i+4 < ${#s} )) && printf "\\$(printf '%03o' $(( ((d & 15) << 4) | (e >> 1) )))"
-				(( i+5 < ${#s} )) && printf "\\$(printf '%03o' $(( ((e & 1) << 7) | (f << 2) | (g >> 3) )))"
-				(( i+7 < ${#s} )) && printf "\\$(printf '%03o' $(( ((g & 7) << 5) | h )))"
+				(( i+2 < ${#_str} )) && printf "\\$(printf '%03o' $(( ((b & 3) << 6) | (c << 1) | (d >> 4) )))"
+				(( i+4 < ${#_str} )) && printf "\\$(printf '%03o' $(( ((d & 15) << 4) | (e >> 1) )))"
+				(( i+5 < ${#_str} )) && printf "\\$(printf '%03o' $(( ((e & 1) << 7) | (f << 2) | (g >> 3) )))"
+				(( i+7 < ${#_str} )) && printf "\\$(printf '%03o' $(( ((g & 7) << 5) | h )))"
 		done
 		echo
 }
