@@ -863,4 +863,7 @@ json::validate() {
 
 _json_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 declare -f 'json::kv' &>/dev/null || source "$_json_dir/kv.sh"
+if runtime::has_command sqlite3; then
+	declare -f 'json::sqlitestore::open' &>/dev/null || source "$_json_dir/sqlitestore.sh"
+fi
 unset _json_dir

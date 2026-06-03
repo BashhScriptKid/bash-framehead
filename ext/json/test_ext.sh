@@ -219,3 +219,121 @@ test::json::kv::root() {
 		local out; out=$(json::kv::keys _ctx)
 		if [[ "$out" == *"user"* ]]; then _pass; else _fail "root failed: $out"; fi
 }
+
+# ==============================================================================
+# json::sqlitestore::*
+# ==============================================================================
+#
+# Tests use a temp file database. Cleanup tracked via _SQLITE_TMPFILES so
+# the sqlite extension's registry handles removal at script exit.
+
+_json_sqlitestore_test::fresh_db() {
+	local _db
+	_db=$(mktemp -t fsbshf-json-store-test.XXXXXX.db)
+	_SQLITE_TMPFILES+=("$_db")
+	printf '%s' "$_db"
+}
+
+test::json::sqlitestore::open() {
+	local _db
+	_db=$(_json_sqlitestore_test::fresh_db)
+	json::sqlitestore::open "$_db" docs
+	if [[ -f "$_db" ]]; then _pass; else _fail; fi
+}
+
+test::json::sqlitestore::put() {
+	local _db
+	_db=$(_json_sqlitestore_test::fresh_db)
+	json::sqlitestore::open "$_db" docs
+	json::sqlitestore::put "$_db" docs alice '{"name":"Alice","age":30}'
+	local _count
+	_count=$(json::sqlitestore::count "$_db" docs)
+	if [[ "$_count" == "1" ]]; then _pass; else _fail; fi
+}
+
+test::json::sqlitestore::get() {
+	local _db
+	_db=$(_json_sqlitestore_test::fresh_db)
+	json::sqlitestore::open "$_db" docs
+	json::sqlitestore::put "$_db" docs alice '{"name":"Alice"}'
+	local _out
+	_out=$(json::sqlitestore::get "$_db" docs alice)
+	if [[ "$_out" == '{"name":"Alice"}' ]]; then _pass; else _fail; fi
+}
+
+test::json::sqlitestore::delete() {
+	local _db
+	_db=$(_json_sqlitestore_test::fresh_db)
+	json::sqlitestore::open "$_db" docs
+	json::sqlitestore::put "$_db" docs alice '{"name":"Alice"}'
+	json::sqlitestore::put "$_db" docs bob '{"name":"Bob"}'
+	json::sqlitestore::delete "$_db" docs bob
+	local _count
+	_count=$(json::sqlitestore::count "$_db" docs)
+	if [[ "$_count" == "1" ]]; then _pass; else _fail; fi
+}
+
+test::json::sqlitestore::list() {
+	local _db
+	_db=$(_json_sqlitestore_test::fresh_db)
+	json::sqlitestore::open "$_db" docs
+	json::sqlitestore::put "$_db" docs alice '{"name":"Alice"}'
+	json::sqlitestore::put "$_db" docs bob '{"name":"Bob"}'
+	local _out
+	_out=$(json::sqlitestore::list "$_db" docs)
+	if [[ "$_out" == *"alice"* ]] && [[ "$_out" == *"bob"* ]]; then
+		_pass
+	else
+		_fail
+	fi
+}
+
+test::json::sqlitestore::count() {
+	local _db
+	_db=$(_json_sqlitestore_test::fresh_db)
+	json::sqlitestore::open "$_db" docs
+	json::sqlitestore::put "$_db" docs alice '{"name":"Alice"}'
+	json::sqlitestore::put "$_db" docs bob '{"name":"Bob"}'
+	json::sqlitestore::put "$_db" docs carol '{"name":"Carol"}'
+	local _out
+	_out=$(json::sqlitestore::count "$_db" docs)
+	if [[ "$_out" == "3" ]]; then _pass; else _fail; fi
+}
+
+test::json::sqlitestore::query() {
+	if ! sqlite3 :memory: "SELECT sqlite_compileoption_used('ENABLE_JSON1');" 2>/dev/null | grep -qx 1; then
+		_skip "json1 not available in this sqlite3 build"
+		return
+	fi
+	local _db
+	_db=$(_json_sqlitestore_test::fresh_db)
+	json::sqlitestore::open "$_db" docs
+	json::sqlitestore::put "$_db" docs alice '{"name":"Alice","age":30}'
+	json::sqlitestore::put "$_db" docs bob '{"name":"Bob","age":25}'
+	local _out
+	_out=$(json::sqlitestore::query "$_db" docs '$.age' '30')
+	if [[ "$_out" == *"Alice"* ]]; then _pass; else _fail; fi
+}
+
+test::json::sqlitestore::search() {
+	if ! sqlite3 :memory: "SELECT sqlite_compileoption_used('ENABLE_FTS5');" 2>/dev/null | grep -qx 1; then
+		_skip "FTS5 not available in this sqlite3 build"
+		return
+	fi
+	if ! sqlite3 :memory: "SELECT sqlite_compileoption_used('ENABLE_JSON1');" 2>/dev/null | grep -qx 1; then
+		_skip "json1 not available (required for search indexing)"
+		return
+	fi
+	local _db
+	_db=$(_json_sqlitestore_test::fresh_db)
+	json::sqlitestore::open "$_db" docs
+	json::sqlitestore::put "$_db" docs alice '{"name":"Alice","bio":"loves cats"}'
+	json::sqlitestore::put "$_db" docs bob '{"name":"Bob","bio":"loves dogs"}'
+	local _out
+	_out=$(json::sqlitestore::search "$_db" docs 'cats')
+	if [[ "$_out" == *"Alice"* ]] && [[ "$_out" != *"Bob"* ]]; then
+		_pass
+	else
+		_fail
+	fi
+}

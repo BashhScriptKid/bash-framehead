@@ -300,3 +300,58 @@ The trade-off is zero install footprint vs raw speed.
 - **Write operations (`::value::set`, etc.)** rebuild the container by text
   splicing — whitespace in the original JSON is not preserved; the rebuilt
   container uses compact formatting with no extra spaces.
+
+## `json::sqlitestore::*` — JSON document store backed by SQLite
+
+Loaded automatically when `sqlite3` is available. Each document is stored
+as a JSON string in a SQLite table; the table is auto-created on first
+open. Documents can have any shape; queries use `json_extract` to navigate
+nested fields. Full-text search uses FTS5 (when compiled in).
+
+**Functions:**
+
+| Function | Purpose |
+|---|---|
+| `json::sqlitestore::open <db> <table>` | Create table if missing, ensure DB exists |
+| `json::sqlitestore::put <db> <table> <key> <json>` | Store or replace a document |
+| `json::sqlitestore::get <db> <table> <key>` | Retrieve a document |
+| `json::sqlitestore::delete <db> <table> <key>` | Remove a document |
+| `json::sqlitestore::list <db> <table>` | List all keys |
+| `json::sqlitestore::count <db> <table>` | Count documents |
+| `json::sqlitestore::query <db> <table> <json_path> <value>` | Find documents by JSON path |
+| `json::sqlitestore::search <db> <table> <fts_query>` | Full-text search (FTS5) |
+| `json::sqlitestore::import <db> <table> <file>` | Import a JSON array |
+| `json::sqlitestore::export <db> <table>` | Export all as a JSON array |
+
+**Example:**
+
+```bash
+_db=~/.cache/myapp/data.db
+json::sqlitestore::open "$_db" users
+json::sqlitestore::put "$_db" users alice '{"name":"Alice","age":30}'
+json::sqlitestore::put "$_db" users bob   '{"name":"Bob","age":25}'
+
+# Retrieve
+json::sqlitestore::get "$_db" users alice
+# → {"name":"Alice","age":30}
+
+# Query nested fields (requires json1)
+json::sqlitestore::query "$_db" users '$.age' '30'
+# → {"name":"Alice","age":30}
+
+# Full-text search (requires FTS5)
+json::sqlitestore::search "$_db" users 'alice*'
+# → {"name":"Alice","age":30}
+
+# Export all
+json::sqlitestore::export "$_db" users
+# → [{"name":"Alice","age":30},{"name":"Bob","age":25}]
+```
+
+**Notes:**
+- `query` and `export`/`import` require the `json1` compile-time option.
+  Without it, those functions return an error; the rest still work.
+- `search` requires FTS5. The first call creates a contentless FTS index
+  and rebuilds it from the main table. For large stores this is slow —
+  consider a trigger-based FTS index for production use.
+- No HANDLE pattern: pass `<db>` and `<table>` to every call directly.
