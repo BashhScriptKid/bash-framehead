@@ -341,3 +341,168 @@ test::sqlite::schedule_close() {
 	# If we reach here, the subshell succeeded.
 	if [[ "$_result" == "0" ]]; then _pass; else _fail; fi
 }
+
+# ==============================================================================
+# FTS5 sub-namespace
+# ==============================================================================
+
+test::sqlite::fts::create() {
+	if ! sqlite::has fts5; then
+		_skip "FTS5 not available in this sqlite3 build"
+		return
+	fi
+	local _db
+	_db=$(_sqlite_test::fresh_db)
+	sqlite::fts::create "$_db" docs title body
+	# Verify the table was created
+	local _out
+	_out=$(sqlite::tables "$_db")
+	if [[ "$out" == *"docs"* ]] || [[ "$_out" == *"docs"* ]]; then _pass; else _fail; fi
+}
+
+test::sqlite::fts::index() {
+	if ! sqlite::has fts5; then
+		_skip "FTS5 not available"
+		return
+	fi
+	local _db
+	_db=$(_sqlite_test::fresh_db)
+	sqlite::fts::create "$_db" docs title
+	sqlite::fts::index "$_db" docs title "the quick brown fox"
+	local _c
+	_c=$(sqlite::one "$_db" "SELECT count(*) FROM docs;")
+	if [[ "$_c" == "1" ]]; then _pass; else _fail; fi
+}
+
+test::sqlite::fts::search() {
+	if ! sqlite::has fts5; then
+		_skip "FTS5 not available"
+		return
+	fi
+	local _db
+	_db=$(_sqlite_test::fresh_db)
+	sqlite::fts::create "$_db" docs title
+	sqlite::fts::index "$_db" docs title "the quick brown fox"
+	sqlite::fts::index "$_db" docs title "lorem ipsum dolor"
+	local _out
+	_out=$(sqlite::fts::search "$_db" docs title "fox")
+	if [[ "$_out" == *"fox"* ]]; then _pass; else _fail; fi
+}
+
+test::sqlite::fts::snippet() {
+	if ! sqlite::has fts5; then
+		_skip "FTS5 not available"
+		return
+	fi
+	local _db _out
+	_db=$(_sqlite_test::fresh_db)
+	sqlite::fts::create "$_db" docs title
+	sqlite::fts::index "$_db" docs title "the quick brown fox jumps over the lazy dog"
+	_out=$(sqlite::fts::snippet "$_db" docs title "fox")
+	if [[ "$_out" == *"<b>"* || "$_out" == *"</b>"* ]]; then _pass; else _fail; fi
+}
+
+test::sqlite::fts::delete() {
+	if ! sqlite::has fts5; then
+		_skip "FTS5 not available"
+		return
+	fi
+	local _db
+	_db=$(_sqlite_test::fresh_db)
+	sqlite::fts::create "$_db" docs title
+	sqlite::fts::index "$_db" docs "the quick brown fox"
+	sqlite::fts::delete "$_db" docs 1
+	local _c
+	_c=$(sqlite::one "$_db" "SELECT count(*) FROM docs;")
+	if [[ "$_c" == "0" ]]; then _pass; else _fail; fi
+}
+
+test::sqlite::fts::rebuild() {
+	if ! sqlite::has fts5; then
+		_skip "FTS5 not available"
+		return
+	fi
+	local _db
+	_db=$(_sqlite_test::fresh_db)
+	sqlite::fts::create "$_db" docs title
+	sqlite::fts::index "$_db" docs "the quick brown fox"
+	# rebuild should not error
+	sqlite::fts::rebuild "$_db" docs
+	_pass
+}
+
+test::sqlite::fts::drop() {
+	if ! sqlite::has fts5; then
+		_skip "FTS5 not available"
+		return
+	fi
+	local _db
+	_db=$(_sqlite_test::fresh_db)
+	sqlite::fts::create "$_db" docs title
+	sqlite::fts::drop "$_db" docs
+	# Verify dropped
+	if sqlite::exists "$_db" "SELECT 1 FROM sqlite_master WHERE name='docs'"; then
+		_fail "table still exists after drop"
+	else
+		_pass
+	fi
+}
+
+# ==============================================================================
+# json1 sub-namespace
+# ==============================================================================
+
+test::sqlite::json::extract() {
+	if ! sqlite::has json1; then
+		_skip "json1 not available in this sqlite3 build"
+		return
+	fi
+	local _db
+	_db=$(_sqlite_test::fresh_db)
+	sqlite::exec "$_db" "CREATE TABLE t(data TEXT);"
+	sqlite::exec "$_db" "INSERT INTO t VALUES('{\"name\":\"alice\",\"age\":30}');"
+	local _out
+	_out=$(sqlite::json::extract "$_db" t data '$.name')
+	if [[ "$_out" == "alice" ]]; then _pass; else _fail; fi
+}
+
+test::sqlite::json::each() {
+	if ! sqlite::has json1; then
+		_skip "json1 not available"
+		return
+	fi
+	local _db
+	_db=$(_sqlite_test::fresh_db)
+	sqlite::exec "$_db" "CREATE TABLE t(data TEXT);"
+	sqlite::exec "$_db" "INSERT INTO t VALUES('[1,2,3]');"
+	local _c
+	_c=$(sqlite::json::extract "$_db" t data '$' | wc -l)
+	if [[ "$_c" -ge 3 ]]; then _pass; else _fail; fi
+}
+
+test::sqlite::json::contains() {
+	if ! sqlite::has json1; then
+		_skip "json1 not available"
+		return
+	fi
+	local _db
+	_db=$(_sqlite_test::fresh_db)
+	sqlite::exec "$_db" "CREATE TABLE t(data TEXT);"
+	sqlite::exec "$_db" "INSERT INTO t VALUES('[1,2,3,4,5]');"
+	if sqlite::json::contains "$_db" t data '3'; then _pass; else _fail; fi
+}
+
+test::sqlite::json::set() {
+	if ! sqlite::has json1; then
+		_skip "json1 not available"
+		return
+	fi
+	local _db
+	_db=$(_sqlite_test::fresh_db)
+	sqlite::exec "$_db" "CREATE TABLE t(id TEXT PRIMARY KEY, data TEXT);"
+	sqlite::exec "$_db" "INSERT INTO t VALUES('a', '{\"x\":1}');"
+	sqlite::json::set "$_db" t data '$.x' '42' "id = 'a'"
+	local _out
+	_out=$(sqlite::json::extract "$_db" t data '$.x' "id = 'a'")
+	if [[ "$_out" == "42" ]]; then _pass; else _fail; fi
+}

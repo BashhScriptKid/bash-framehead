@@ -547,3 +547,220 @@ sqlite::schedule_close() {
 	[[ -z "$_db" || "$_db" == ":memory:" ]] && return 0
 	trap "rm -f '$_db'" EXIT
 }
+
+# ==============================================================================
+# FTS5 SUB-NAMESPACE — full-text search
+# ==============================================================================
+#
+# Wraps SQLite's FTS5 virtual table. All functions check sqlite::has fts5
+# at call time and return an error if unavailable.
+
+# Create an FTS5 virtual table over one or more columns.
+# Usage: sqlite::fts::create <path> <table> <col> [col ...]
+sqlite::fts::create() {
+	local _db="$1" _table="$2"
+	shift 2
+	if ! sqlite::has fts5; then
+		echo "sqlite::fts::create: FTS5 not available in this sqlite3 build" >&2
+		return 1
+	fi
+	[[ $# -gt 0 ]] || {
+		echo "sqlite::fts::create: at least one column required" >&2
+		return 1
+	}
+	local _qtable _qcols
+	_qtable=$(_sqlite::_quote_ident "$_table")
+	_qcols="$(_sqlite::_quote_ident "$1")"
+	shift
+	for _c in "$@"; do
+		_qcols+=",$(_sqlite::_quote_ident "$_c")"
+	done
+	sqlite::exec "$_db" \
+		"CREATE VIRTUAL TABLE IF NOT EXISTS $_qtable USING fts5($_qcols);"
+}
+
+# Index a single document. <column> is the FTS5 column to index into.
+# <content> is the text to index. [id] is the optional rowid.
+#
+# For tables with a single column, <column> can be the same as <table>.
+# For multi-column tables, index into the appropriate column.
+# Usage: sqlite::fts::index <path> <table> <column> <content> [id]
+sqlite::fts::index() {
+	local _db="$1" _table="$2" _column="$3" _content="$4" _id="${5:-}"
+	if ! sqlite::has fts5; then
+		echo "sqlite::fts::index: FTS5 not available" >&2
+		return 1
+	fi
+	local _qtable _qcol _econtent
+	_qtable=$(_sqlite::_quote_ident "$_table")
+	_qcol=$(_sqlite::_quote_ident "$_column")
+	_econtent=$(_sqlite::_escape_string "$_content")
+	if [[ -n "$_id" ]]; then
+		sqlite::exec "$_db" \
+			"INSERT OR REPLACE INTO $_qtable(rowid, $_qcol) VALUES($_id, '$_econtent');"
+	else
+		sqlite::exec "$_db" \
+			"INSERT INTO $_qtable($_qcol) VALUES('$_econtent');"
+	fi
+}
+
+# Search the FTS5 table. <query> uses FTS5 syntax (e.g. 'hello*', 'NEAR(a b)').
+# <column> is the column to search/match against. Prints: rowid<TAB>content<TAB>rank.
+# Usage: sqlite::fts::search <path> <table> <column> <query>
+sqlite::fts::search() {
+	local _db="$1" _table="$2" _column="$3" _query="$4"
+	if ! sqlite::has fts5; then
+		echo "sqlite::fts::search: FTS5 not available" >&2
+		return 1
+	fi
+	[[ -n "$_query" ]] || {
+		echo "sqlite::fts::search: query required" >&2
+		return 1
+	}
+	local _qtable _qcol _equery
+	_qtable=$(_sqlite::_quote_ident "$_table")
+	_qcol=$(_sqlite::_quote_ident "$_column")
+	_equery=$(_sqlite::_escape_string "$_query")
+	sqlite3 -noheader -batch -list "$_db" \
+		"SELECT rowid, $_qcol, rank FROM $_qtable WHERE $_qcol MATCH '$_equery' ORDER BY rank;"
+}
+
+# Search with highlighted snippet. <query> is the FTS5 query, <column> is
+# the column to match. Prints: rowid<TAB>content<TAB>snippet with <b>...</b>.
+# Usage: sqlite::fts::snippet <path> <table> <column> <query>
+sqlite::fts::snippet() {
+	local _db="$1" _table="$2" _column="$3" _query="$4"
+	if ! sqlite::has fts5; then
+		echo "sqlite::fts::snippet: FTS5 not available" >&2
+		return 1
+	fi
+	local _qtable _qcol _equery
+	_qtable=$(_sqlite::_quote_ident "$_table")
+	_qcol=$(_sqlite::_quote_ident "$_column")
+	_equery=$(_sqlite::_escape_string "$_query")
+	sqlite3 -noheader -batch -list "$_db" \
+		"SELECT rowid, $_qcol, snippet($_qtable, '<b>', '</b>', '...', -1, 32)
+		 FROM $_qtable WHERE $_qcol MATCH '$_equery' ORDER BY rank;"
+}
+
+# Delete a document by rowid.
+# Usage: sqlite::fts::delete <path> <table> <rowid>
+sqlite::fts::delete() {
+	local _db="$1" _table="$2" _id="$3"
+	if ! sqlite::has fts5; then
+		echo "sqlite::fts::delete: FTS5 not available" >&2
+		return 1
+	fi
+	local _qtable
+	_qtable=$(_sqlite::_quote_ident "$_table")
+	sqlite::exec "$_db" "DELETE FROM $_qtable WHERE rowid = $_id;"
+}
+
+# Rebuild the FTS5 index (optimizes after many updates).
+# Usage: sqlite::fts::rebuild <path> <table>
+sqlite::fts::rebuild() {
+	local _db="$1" _table="$2"
+	if ! sqlite::has fts5; then
+		echo "sqlite::fts::rebuild: FTS5 not available" >&2
+		return 1
+	fi
+	local _qtable
+	_qtable=$(_sqlite::_quote_ident "$_table")
+	sqlite::exec "$_db" "INSERT INTO $_qtable($_qtable) VALUES('rebuild');"
+}
+
+# Drop an FTS5 virtual table.
+# Usage: sqlite::fts::drop <path> <table>
+sqlite::fts::drop() {
+	local _db="$1" _table="$2"
+	local _qtable
+	_qtable=$(_sqlite::_quote_ident "$_table")
+	sqlite::exec "$_db" "DROP TABLE IF EXISTS $_qtable;"
+}
+
+# ==============================================================================
+# JSON1 SUB-NAMESPACE — helpers for the SQLite JSON1 extension
+# ==============================================================================
+#
+# Wraps SQLite's JSON1 SQL functions. All functions check sqlite::has json1
+# at call time and return an error if unavailable.
+
+# Extract a JSON value at a path from a column. <path> uses json_extract
+# syntax ('$.foo', '$.items[0].name'). Returns the extracted value as text.
+# Usage: sqlite::json::extract <path> <column_expr> <json_path>
+#   column_expr can be a column name or any SQL expression
+#   example: sqlite::json::extract "$DB" "data" '$.name' FROM mytable
+#
+# Actually for simple use, the function extracts from a single column of
+# a specific table:
+# Usage: sqlite::json::extract <path> <table> <column> <json_path> [where]
+sqlite::json::extract() {
+	local _db="$1" _table="$2" _column="$3" _jpath="$4" _where="${5:-}"
+	if ! sqlite::has json1; then
+		echo "sqlite::json::extract: json1 not available" >&2
+		return 1
+	fi
+	local _qtable _qcol _ejpath
+	_qtable=$(_sqlite::_quote_ident "$_table")
+	_qcol=$(_sqlite::_quote_ident "$_column")
+	_ejpath=$(_sqlite::_escape_string "$_jpath")
+	local _sql="SELECT json_extract($_qcol, '$_ejpath') FROM $_qtable"
+	[[ -n "$_where" ]] && _sql="$_sql WHERE $_where"
+	sqlite::query "$_db" "$_sql"
+}
+
+# Iterate a JSON array/object via json_each. Returns rows with columns:
+# id, key, value, type, atom, parent, fullkey, path.
+# Usage: sqlite::json::each <path> <table> <column> [where]
+sqlite::json::each() {
+	local _db="$1" _table="$2" _column="$3" _where="${4:-}"
+	if ! sqlite::has json1; then
+		echo "sqlite::json::each: json1 not available" >&2
+		return 1
+	fi
+	local _qtable _qcol
+	_qtable=$(_sqlite::_quote_ident "$_table")
+	_qcol=$(_sqlite::_quote_ident "$_column")
+	local _sql="SELECT je.id, je.key, je.value, je.type, je.atom
+	             FROM $_qtable, json_each($_qcol) AS je"
+	[[ -n "$_where" ]] && _sql="$_sql WHERE $_where"
+	sqlite::query "$_db" "$_sql"
+}
+
+# Check if a JSON column contains a given value.
+# Usage: sqlite::json::contains <path> <table> <column> <json_value>
+sqlite::json::contains() {
+	local _db="$1" _table="$2" _column="$3" _value="$4"
+	if ! sqlite::has json1; then
+		echo "sqlite::json::contains: json1 not available" >&2
+		return 1
+	fi
+	local _qtable _qcol _evalue
+	_qtable=$(_sqlite::_quote_ident "$_table")
+	_qcol=$(_sqlite::_quote_ident "$_column")
+	_evalue=$(_sqlite::_escape_string "$_value")
+	sqlite::exists "$_db" \
+		"SELECT 1 FROM $_qtable WHERE json_contains($_qcol, '$_evalue')"
+}
+
+# Set a JSON path within a column to a new value. Writes back to the row.
+# <row_id_expr> is the WHERE clause expression (e.g. "id = 'alice'").
+# Usage: sqlite::json::set <path> <table> <column> <json_path> <value> <row_id_expr>
+sqlite::json::set() {
+	local _db="$1" _table="$2" _column="$3" _jpath="$4" _value="$5" _where="$6"
+	if ! sqlite::has json1; then
+		echo "sqlite::json::set: json1 not available" >&2
+		return 1
+	fi
+	[[ -n "$_where" ]] || {
+		echo "sqlite::json::set: WHERE expression required to avoid updating all rows" >&2
+		return 1
+	}
+	local _qtable _qcol _ejpath _evalue
+	_qtable=$(_sqlite::_quote_ident "$_table")
+	_qcol=$(_sqlite::_quote_ident "$_column")
+	_ejpath=$(_sqlite::_escape_string "$_jpath")
+	_evalue=$(_sqlite::_escape_string "$_value")
+	sqlite::exec "$_db" \
+		"UPDATE $_qtable SET $_qcol = json_set($_qcol, '$_ejpath', '$_evalue') WHERE $_where;"
+}

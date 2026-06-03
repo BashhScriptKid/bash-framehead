@@ -271,3 +271,130 @@ sqlite::exec "$PROD_DB" "DELETE FROM users WHERE last_login < '2020-01-01';"
   Read/write BLOBs via `xxd` or base64 if needed.
 - For very large result sets in `query::fast`, the entire result is loaded
   into memory. Use `sqlite::query` with output redirection for streaming.
+
+## FTS5 sub-namespace
+
+Full-text search via SQLite's FTS5 virtual table. All functions check
+`sqlite::has fts5` and return an error if the build lacks FTS5.
+
+### `sqlite::fts::create <path> <table> <col> [col ...]`
+
+Create an FTS5 virtual table. At least one column is required.
+
+```bash
+sqlite::fts::create "$DB" docs title body
+sqlite::fts::create "$DB" notes title
+```
+
+### `sqlite::fts::index <path> <table> <column> <content> [id]`
+
+Index a single document into a column. The optional `id` lets you re-index
+or assign a known rowid.
+
+```bash
+sqlite::fts::index "$DB" docs title "the quick brown fox"
+sqlite::fts::index "$DB" notes title "meeting notes for monday" 42
+```
+
+### `sqlite::fts::search <path> <table> <column> <query>`
+
+Full-text search using FTS5 query syntax. Prints rows as
+`rowid<TAB>content<TAB>rank` (one per match).
+
+```bash
+sqlite::fts::search "$DB" docs title "fox"
+# 1|the quick brown fox|-1.0e-06
+
+sqlite::fts::search "$DB" docs title "hello*"
+sqlite::fts::search "$DB" docs title "NEAR(quick fox)"
+```
+
+### `sqlite::fts::snippet <path> <table> <column> <query>`
+
+Search with highlighted snippet. Prints `rowid<TAB>content<TAB>snippet`
+where the snippet has `<b>...</b>` markers around matches.
+
+```bash
+sqlite::fts::snippet "$DB" docs title "fox"
+# 1|the quick brown fox jumps over the lazy dog|the quick brown <b>fox</b>...
+```
+
+### `sqlite::fts::delete <path> <table> <rowid>`
+
+Delete a single document by rowid.
+
+```bash
+sqlite::fts::delete "$DB" docs 1
+```
+
+### `sqlite::fts::rebuild <path> <table>`
+
+Optimize the FTS5 index after many insertions or updates. Internally issues
+the `INSERT INTO t(t) VALUES('rebuild')` optimize command.
+
+```bash
+sqlite::fts::rebuild "$DB" docs
+```
+
+### `sqlite::fts::drop <path> <table>`
+
+Drop the FTS5 virtual table.
+
+```bash
+sqlite::fts::drop "$DB" docs
+```
+
+### Notes (FTS5)
+
+- The column name argument is required because FTS5 does not allow indexing
+  into a table using the table name as a column alias.
+- FTS5 tokenizes by default (porter tokenizer, ascii lowercasing). For other
+  behaviors, run raw `sqlite::exec` with the desired FTS5 options.
+- `search` and `snippet` both return their full result set via stdout
+  redirection. Pipe to `head` or `sort` for large corpora.
+
+## json1 sub-namespace
+
+Helpers for the SQLite JSON1 extension. All functions check `sqlite::has json1`
+and return an error if the build lacks json1.
+
+### `sqlite::json::extract <path> <table> <column> <json_path> [where]`
+
+Extract a JSON value at a path from a column. Returns the scalar value
+(or JSON fragment for objects/arrays).
+
+```bash
+sqlite::json::extract "$DB" users data '$.email'
+sqlite::json::extract "$DB" users data '$.name' "id = 7"
+```
+
+### `sqlite::json::each <path> <table> <column> [where]`
+
+Iterate JSON via `json_each`. Returns columns: id, key, value, type, atom.
+
+```bash
+sqlite::json::each "$DB" users data | head -5
+```
+
+### `sqlite::json::contains <path> <table> <column> <json_value>`
+
+Returns 0/1 (true/false) — does the column contain the given value?
+
+```bash
+sqlite::json::contains "$DB" users data '"alice"'
+```
+
+### `sqlite::json::set <path> <table> <column> <json_path> <value> <row_where>`
+
+Set a JSON path within a column to a new value. The `<row_where>` argument
+is required to avoid accidentally updating every row.
+
+```bash
+sqlite::json::set "$DB" users data '$.age' '31' "id = 7"
+```
+
+### Notes (json1)
+
+- The local sqlite3 3.53.0 build on this machine lacks json1. Tests are
+  skipped when `sqlite::has json1` returns false.
+- The `extract` and `each` functions stream their full result set via stdout.
