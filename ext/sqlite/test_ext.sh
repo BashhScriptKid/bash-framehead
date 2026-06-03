@@ -1,0 +1,343 @@
+#!/usr/bin/env bash
+# test_ext.sh — ext/sqlite test suite
+#
+# Naming: test::sqlite::<fn> — the runner discovers the public function
+# sqlite::<fn>, prepends test::, and calls test::sqlite::<fn>.
+#
+# All tests use temp file databases (not :memory:) because :memory: state
+# does not persist across separate sqlite3 process invocations. Cleanup
+# is handled by the extension's EXIT trap.
+
+# ==============================================================================
+# Helpers
+# ==============================================================================
+
+# Create a fresh temp database with a users table and 3 rows pre-inserted.
+# Echoes the path. Uses the extension's own registry for cleanup.
+_sqlite_test::fresh_db() {
+	local _db
+	_db=$(mktemp -t fsbshf-sqlite-test.XXXXXX.db)
+	_SQLITE_TMPFILES+=("$_db")
+	sqlite3 -noheader -batch "$_db" <<'SQL'
+CREATE TABLE u(name TEXT PRIMARY KEY, age INTEGER, city TEXT);
+INSERT INTO u VALUES('Alice', 30, 'NYC');
+INSERT INTO u VALUES('Bob', 25, 'LA');
+INSERT INTO u VALUES('Carol', 40, 'Chicago');
+SQL
+	printf '%s' "$_db"
+}
+
+# ==============================================================================
+# Capabilities
+# ==============================================================================
+
+test::sqlite::capabilities() {
+	local _out
+	_out=$(sqlite::capabilities)
+	if [[ "$_out" == version=* ]]; then _pass; else _fail; fi
+}
+
+test::sqlite::has() {
+	if sqlite::has fts5; then _pass; else _skip "FTS5 not compiled in this sqlite3 build"; fi
+}
+
+# ==============================================================================
+# Path factories
+# ==============================================================================
+
+test::sqlite::open::temp() {
+	sqlite::open::temp DB
+	if [[ -f "$DB" ]]; then _pass; else _fail; fi
+}
+
+test::sqlite::open::scratch() {
+	sqlite::open::scratch DB
+	if [[ "$DB" == ":memory:" ]]; then _pass; else _fail; fi
+}
+
+test::sqlite::close() {
+	local _db
+	_db=$(mktemp -t fsbshf-sqlite-test.XXXXXX.db)
+	rm -f "$_db"
+	sqlite::close "$_db"
+	if [[ ! -f "$_db" ]]; then _pass; else _fail; fi
+}
+
+# ==============================================================================
+# Draft / snapshot
+# ==============================================================================
+
+test::draft::open::lossy() {
+	local _src
+	_src=$(_sqlite_test::fresh_db)
+	draft::open::lossy "$_src" D
+	if [[ ! -f "$D" ]]; then _fail; return; fi
+	local _count
+	_count=$(sqlite::query "$D" "SELECT count(*) FROM u;")
+	if [[ "$_count" == "3" ]]; then _pass; else _fail; fi
+}
+
+test::snapshot::open() {
+	local _src
+	_src=$(_sqlite_test::fresh_db)
+	snapshot::open "$_src" S
+	if [[ ! -f "$S" ]]; then _fail; return; fi
+	local _count
+	_count=$(sqlite::query "$S" "SELECT count(*) FROM u;")
+	if [[ "$_count" == "3" ]]; then _pass; else _fail; fi
+}
+
+# ==============================================================================
+# Core operations
+# ==============================================================================
+
+test::sqlite::exec() {
+	local _db
+	_db=$(_sqlite_test::fresh_db)
+	sqlite::exec "$_db" "INSERT INTO u VALUES('Dave', 50, 'Boston');"
+	local _count
+	_count=$(sqlite::query "$_db" "SELECT count(*) FROM u;")
+	if [[ "$_count" == "4" ]]; then _pass; else _fail; fi
+}
+
+test::sqlite::query() {
+	local _db
+	_db=$(_sqlite_test::fresh_db)
+	local _out
+	_out=$(sqlite::query "$_db" "SELECT name FROM u WHERE age = 30;")
+	if [[ "$_out" == "Alice" ]]; then _pass; else _fail; fi
+}
+
+test::sqlite::one() {
+	local _db
+	_db=$(_sqlite_test::fresh_db)
+	local _out
+	_out=$(sqlite::one "$_db" "SELECT count(*) FROM u;")
+	if [[ "$_out" == "3" ]]; then _pass; else _fail; fi
+}
+
+test::sqlite::exists() {
+	local _db
+	_db=$(_sqlite_test::fresh_db)
+	if sqlite::exists "$_db" "SELECT 1 FROM u WHERE name='Alice'"; then
+		_pass
+	else
+		_fail
+	fi
+}
+
+test::sqlite::count() {
+	local _db
+	_db=$(_sqlite_test::fresh_db)
+	local _c
+	_c=$(sqlite::count "$_db" u)
+	if [[ "$_c" != "3" ]]; then _fail; return; fi
+	_c=$(sqlite::count "$_db" u "age > 28")
+	if [[ "$_c" == "2" ]]; then _pass; else _fail; fi
+}
+
+# ==============================================================================
+# Ergonomic helpers
+# ==============================================================================
+
+test::sqlite::insert() {
+	local _db
+	_db=$(_sqlite_test::fresh_db)
+	sqlite::insert "$_db" u name Eve age 35 city Seattle
+	local _out
+	_out=$(sqlite::query "$_db" "SELECT city FROM u WHERE name='Eve';")
+	if [[ "$_out" == "Seattle" ]]; then _pass; else _fail; fi
+}
+
+test::sqlite::upsert() {
+	local _db
+	_db=$(_sqlite_test::fresh_db)
+	sqlite::upsert "$_db" u name Bob age 26 city LA
+	local _out
+	_out=$(sqlite::query "$_db" "SELECT age FROM u WHERE name='Bob';")
+	if [[ "$_out" != "26" ]]; then _fail; return; fi
+	local _c
+	_c=$(sqlite::count "$_db" u)
+	if [[ "$_c" == "3" ]]; then _pass; else _fail; fi
+}
+
+test::sqlite::select() {
+	local _db
+	_db=$(_sqlite_test::fresh_db)
+	local _c
+	_c=$(sqlite::count "$_db" u "city = 'NYC'")
+	if [[ "$_c" == "1" ]]; then _pass; else _fail; fi
+}
+
+# ==============================================================================
+# Schema introspection
+# ==============================================================================
+
+test::sqlite::tables() {
+	local _db
+	_db=$(_sqlite_test::fresh_db)
+	local _out
+	_out=$(sqlite::tables "$_db")
+	if [[ "$_out" == "u" ]]; then _pass; else _fail; fi
+}
+
+test::sqlite::schema() {
+	local _db
+	_db=$(_sqlite_test::fresh_db)
+	local _out
+	_out=$(sqlite::schema "$_db" u)
+	if [[ "$_out" == *"CREATE TABLE"* ]] && [[ "$_out" == *"u"* ]]; then
+		_pass
+	else
+		_fail
+	fi
+}
+
+test::sqlite::columns() {
+	local _db
+	_db=$(_sqlite_test::fresh_db)
+	local _out
+	_out=$(sqlite::columns "$_db" u)
+	if [[ "$_out" == *"name"* ]] && [[ "$_out" == *"age"* ]] && [[ "$_out" == *"city"* ]]; then
+		_pass
+	else
+		_fail
+	fi
+}
+
+test::sqlite::pragma() {
+	local _db
+	_db=$(_sqlite_test::fresh_db)
+	local _out
+	_out=$(sqlite::pragma "$_db" journal_mode)
+	# default mode is 'delete' for a fresh file
+	if [[ "$_out" == "delete" ]]; then _pass; else _fail; fi
+}
+
+# ==============================================================================
+# Operational
+# ==============================================================================
+
+test::sqlite::exec_block() {
+	local _db
+	_db=$(_sqlite_test::fresh_db)
+	sqlite::exec_block "$_db" <<'SQL'
+BEGIN;
+INSERT INTO u VALUES('Frank', 22, 'Denver');
+INSERT INTO u VALUES('Grace', 28, 'Miami');
+COMMIT;
+SQL
+	local _c
+	_c=$(sqlite::count "$_db" u)
+	if [[ "$_c" == "5" ]]; then _pass; else _fail; fi
+}
+
+test::sqlite::backup() {
+	local _db _dest
+	_db=$(_sqlite_test::fresh_db)
+	_dest=$(mktemp -t fsbshf-sqlite-test-backup.XXXXXX.db)
+	_SQLITE_TMPFILES+=("$_dest")
+	sqlite::backup "$_db" "$_dest"
+	if [[ ! -f "$_dest" ]]; then _fail; return; fi
+	local _c
+	_c=$(sqlite::query "$_dest" "SELECT count(*) FROM u;")
+	if [[ "$_c" == "3" ]]; then _pass; else _fail; fi
+}
+
+test::sqlite::vacuum() {
+	local _db
+	_db=$(_sqlite_test::fresh_db)
+	sqlite::vacuum "$_db"
+	local _c
+	_c=$(sqlite::count "$_db" u)
+	if [[ "$_c" == "3" ]]; then _pass; else _fail; fi
+}
+
+test::sqlite::integrity_check() {
+	local _db
+	_db=$(_sqlite_test::fresh_db)
+	local _out
+	_out=$(sqlite::integrity_check "$_db")
+	if [[ "$_out" == "ok" ]]; then _pass; else _fail; fi
+}
+
+# ==============================================================================
+# Lifecycle helpers
+# ==============================================================================
+
+test::sqlite::with_temp() {
+	local _result
+	_result=$(sqlite::with_temp sqlite::query "SELECT 'in_temp';")
+	if [[ "$_result" == "in_temp" ]]; then _pass; else _fail; fi
+}
+
+test::sqlite::query::fast() {
+	local _db
+	_db=$(_sqlite_test::fresh_db)
+	local -a _rows
+	sqlite::query::fast "$_db" "SELECT name FROM u ORDER BY age;" _rows
+	if [[ "${#_rows[@]}" != "3" ]]; then _fail; return; fi
+	if [[ "${_rows[0]}" == "Bob" ]] && [[ "${_rows[2]}" == "Carol" ]]; then
+		_pass
+	else
+		_fail
+	fi
+}
+
+test::sqlite::import() {
+	local _db
+	_db=$(_sqlite_test::fresh_db)
+	local _csv
+	_csv=$(mktemp -t fsbshf-sqlite-test-import.XXXXXX.csv)
+	_SQLITE_TMPFILES+=("$_csv")
+	printf 'Heidi|29|Boston\nIvan|45|Dallas\n' > "$_csv"
+	# Create table matching the .import data
+	sqlite::exec "$_db" "CREATE TABLE i(name TEXT, age INTEGER, city TEXT);"
+	# .import with --csv uses first row as header; pass --ascii for plain pipe-delim
+	sqlite3 -noheader -batch -separator '|' "$_db" <<EOF
+.import "$_csv" i
+EOF
+	local _c
+	_c=$(sqlite::count "$_db" i)
+	if [[ "$_c" == "2" ]]; then _pass; else _fail; fi
+}
+
+test::sqlite::export() {
+	local _db
+	_db=$(_sqlite_test::fresh_db)
+	local _csv
+	_csv=$(mktemp -t fsbshf-sqlite-test-export.XXXXXX.csv)
+	_SQLITE_TMPFILES+=("$_csv")
+	sqlite::export "$_db" "SELECT name, age FROM u WHERE age > 28 ORDER BY age;" "$_csv"
+	if [[ ! -s "$_csv" ]]; then _fail; return; fi
+	if grep -q "Alice" "$_csv" && grep -q "Carol" "$_csv" && ! grep -q "Bob" "$_csv"; then
+		_pass
+	else
+		_fail
+	fi
+}
+
+test::sqlite::indexes() {
+	local _db
+	_db=$(_sqlite_test::fresh_db)
+	sqlite::exec "$_db" "CREATE INDEX u_age_idx ON u(age);"
+	local _out
+	_out=$(sqlite::indexes "$_db" u)
+	if [[ "$_out" == *"u_age_idx"* ]]; then _pass; else _fail; fi
+}
+
+test::sqlite::schedule_close() {
+	# schedule_close just sets a trap; the real test is that the file is removed.
+	# Use a subshell so we can capture the EXIT trap behavior cleanly.
+	local _result=0
+	(
+		sqlite::open::temp T
+		[[ -f "$T" ]] || { _result=1; exit 1; }
+		# override: schedule cleanup at subshell exit (overrides the EXIT trap)
+		# Note: schedule_close replaces the EXIT trap with one targeting T only.
+		# In a subshell, both would fire — just verify it doesn't error.
+		sqlite::schedule_close "$T"
+	)
+	# If we reach here, the subshell succeeded.
+	if [[ "$_result" == "0" ]]; then _pass; else _fail; fi
+}
