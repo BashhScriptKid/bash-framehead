@@ -4,8 +4,8 @@
 #
 # Platform support:
 #   Linux:  full support (~170 functions)
-#   BSD:    partial support (~20 functions via sysctl)
-#   macOS:  partial support (~15 functions via sysctl/kextstat)
+#   BSD:    dedicated APIs via kernel::bsd::* (~55 functions) + cross-platform
+#   macOS:  dedicated APIs via kernel::xnu::* (~55 functions) + cross-platform
 #   Other:  basic uname-based functions only
 
 # --- IDENTITY ---
@@ -477,6 +477,9 @@ kernel::load::running_tasks() {
 	linux)
 		awk '{print $4}' /proc/loadavg 2>/dev/null
 		;;
+	darwin|freebsd|openbsd|netbsd)
+		sysctl -n vm.loadavg 2>/dev/null | awk '{print $4}'
+		;;
 	*)
 		echo "unknown"
 		;;
@@ -626,22 +629,14 @@ kernel::meminfo::used() {
 		_page_size=$(sysctl -n hw.pagesize 2>/dev/null) || _page_size=4096
 		[[ -n "$_pages" ]] && echo $((_pages * _page_size / 1024))
 		;;
+	freebsd|openbsd|netbsd)
+		local _active _page_size
+		_active=$(vmstat -s 2>/dev/null | awk '/pages active/{print $1}') || _active=0
+		_page_size=$(sysctl -n hw.pagesize 2>/dev/null) || _page_size=4096
+		echo $((_active * _page_size / 1024))
+		;;
 	*)
 		echo "unknown"
-		;;
-	esac
-}
-
-kernel::meminfo::available() {
-	local _os
-	_os=$(runtime::os 2>/dev/null) || _os="linux"
-	case "$_os" in
-	linux)
-		awk '/^MemAvailable:/{printf "%.0f", $2/1024}' /proc/meminfo 2>/dev/null || \
-			kernel::meminfo::free
-		;;
-	*)
-		kernel::meminfo::free
 		;;
 	esac
 }
@@ -659,7 +654,16 @@ kernel::security::lockdown() {
 			echo "[none]"
 		fi
 		;;
-	freebsd)
+	darwin)
+		local _sip
+		_sip=$(csrutil status 2>&1)
+		if [[ "$_sip" == *"enabled"* ]]; then
+			echo "sip=enabled"
+		else
+			echo "sip=disabled"
+		fi
+		;;
+	freebsd|openbsd|netbsd)
 		local _level
 		_level=$(sysctl -n kern.securelevel 2>/dev/null) || _level="-1"
 		echo "securelevel=$_level"
@@ -678,7 +682,12 @@ kernel::security::is_locked() {
 		_mode=$(cat /sys/kernel/security/lockdown 2>/dev/null) || return 1
 		[[ "$_mode" != *"none"* ]]
 		;;
-	freebsd)
+	darwin)
+		local _sip
+		_sip=$(csrutil status 2>&1)
+		[[ "$_sip" == *"enabled"* ]]
+		;;
+	freebsd|openbsd|netbsd)
 		local _level
 		_level=$(sysctl -n kern.securelevel 2>/dev/null) || _level="-1"
 		(( _level > 0 ))
@@ -890,6 +899,9 @@ kernel::modules::params() {
 	freebsd|netbsd|openbsd)
 		sysctl -a 2>/dev/null | grep "^${_module}\." || echo "unknown"
 		;;
+	darwin)
+		echo "unsupported"
+		;;
 	*)
 		echo "unknown"
 		;;
@@ -905,6 +917,9 @@ kernel::modules::param::get() {
 		;;
 	freebsd|netbsd|openbsd)
 		sysctl -n "${_module}.${_param}" 2>/dev/null || echo "unknown"
+		;;
+	darwin)
+		echo "unsupported"
 		;;
 	*)
 		echo "unknown"
@@ -922,6 +937,10 @@ kernel::modules::param::set() {
 		;;
 	freebsd|netbsd|openbsd)
 		sysctl "${_module}.${_param}=${_value}" 2>/dev/null
+		;;
+	darwin)
+		echo "kernel::modules::param::set: unsupported on macOS" >&2
+		return 1
 		;;
 	*)
 		echo "kernel::modules::param::set: unsupported OS" >&2
@@ -943,6 +962,10 @@ kernel::modules::blacklist() {
 		;;
 	netbsd|openbsd)
 		echo "module $_module disabled" >> /etc/rc.conf 2>/dev/null || return 1
+		;;
+	darwin)
+		echo "kernel::modules::blacklist: unsupported on macOS" >&2
+		return 1
 		;;
 	*)
 		echo "kernel::modules::blacklist: unsupported OS" >&2
@@ -2146,4 +2169,607 @@ kernel::vm::movable_gigantic::get() {
 kernel::vm::movable_gigantic::set() {
 	runtime::is_root || { echo "kernel::vm::movable_gigantic::set: requires root" >&2; return 1; }
 	echo "$1" > /proc/sys/vm/movable_gigantic_pages
+}
+
+# --- BSD (FreeBSD/OpenBSD/NetBSD) ---
+
+_kernel::bsd::persist_sysctl() {
+	local _key="$1" _value="$2" _conf="/etc/sysctl.conf"
+	if grep -q "^${_key}=" "$_conf" 2>/dev/null; then
+		sed -i "s|^${_key}=.*|${_key}=${_value}|" "$_conf" 2>/dev/null
+	else
+		printf '%s=%s\n' "$_key" "$_value" >> "$_conf" 2>/dev/null
+	fi
+}
+
+# --- BSD: Hardware ---
+
+kernel::bsd::hw::model() {
+	sysctl -n hw.model 2>/dev/null || echo "unknown"
+}
+
+kernel::bsd::hw::machine() {
+	sysctl -n hw.machine 2>/dev/null || echo "unknown"
+}
+
+kernel::bsd::hw::ncpu() {
+	sysctl -n hw.ncpu 2>/dev/null || echo "unknown"
+}
+
+kernel::bsd::hw::physmem() {
+	sysctl -n hw.physmem 2>/dev/null || echo "unknown"
+}
+
+kernel::bsd::hw::pagesize() {
+	sysctl -n hw.pagesize 2>/dev/null || echo "unknown"
+}
+
+kernel::bsd::hw::clockrate() {
+	sysctl -n hw.clockrate 2>/dev/null || sysctl -n hw.cpuspeed 2>/dev/null || echo "unknown"
+}
+
+# --- BSD: Kernel Tunables ---
+
+kernel::bsd::kern::maxproc::get() {
+	sysctl -n kern.maxproc 2>/dev/null || echo "unknown"
+}
+
+kernel::bsd::kern::maxproc::set_session() {
+	runtime::is_root || { echo "kernel::bsd::kern::maxproc::set_session: requires root" >&2; return 1; }
+	sysctl kern.maxproc="$1" 2>/dev/null
+}
+
+kernel::bsd::kern::maxproc::set_system() {
+	runtime::is_root || { echo "kernel::bsd::kern::maxproc::set_system: requires root" >&2; return 1; }
+	sysctl kern.maxproc="$1" 2>/dev/null || return 1
+	_kernel::bsd::persist_sysctl "kern.maxproc" "$1"
+}
+
+kernel::bsd::kern::maxfiles::get() {
+	sysctl -n kern.maxfiles 2>/dev/null || echo "unknown"
+}
+
+kernel::bsd::kern::maxfiles::set_session() {
+	runtime::is_root || { echo "kernel::bsd::kern::maxfiles::set_session: requires root" >&2; return 1; }
+	sysctl kern.maxfiles="$1" 2>/dev/null
+}
+
+kernel::bsd::kern::maxfiles::set_system() {
+	runtime::is_root || { echo "kernel::bsd::kern::maxfiles::set_system: requires root" >&2; return 1; }
+	sysctl kern.maxfiles="$1" 2>/dev/null || return 1
+	_kernel::bsd::persist_sysctl "kern.maxfiles" "$1"
+}
+
+kernel::bsd::kern::maxusers::get() {
+	sysctl -n kern.maxusers 2>/dev/null || echo "unknown"
+}
+
+kernel::bsd::kern::maxusers::set_session() {
+	runtime::is_root || { echo "kernel::bsd::kern::maxusers::set_session: requires root" >&2; return 1; }
+	sysctl kern.maxusers="$1" 2>/dev/null
+}
+
+kernel::bsd::kern::maxusers::set_system() {
+	runtime::is_root || { echo "kernel::bsd::kern::maxusers::set_system: requires root" >&2; return 1; }
+	sysctl kern.maxusers="$1" 2>/dev/null || return 1
+	_kernel::bsd::persist_sysctl "kern.maxusers" "$1"
+}
+
+kernel::bsd::kern::maxvnodes::get() {
+	sysctl -n kern.maxvnodes 2>/dev/null || echo "unknown"
+}
+
+kernel::bsd::kern::maxvnodes::set_session() {
+	runtime::is_root || { echo "kernel::bsd::kern::maxvnodes::set_session: requires root" >&2; return 1; }
+	sysctl kern.maxvnodes="$1" 2>/dev/null
+}
+
+kernel::bsd::kern::maxvnodes::set_system() {
+	runtime::is_root || { echo "kernel::bsd::kern::maxvnodes::set_system: requires root" >&2; return 1; }
+	sysctl kern.maxvnodes="$1" 2>/dev/null || return 1
+	_kernel::bsd::persist_sysctl "kern.maxvnodes" "$1"
+}
+
+kernel::bsd::kern::ipc::somaxconn::get() {
+	sysctl -n kern.ipc.somaxconn 2>/dev/null || echo "unknown"
+}
+
+kernel::bsd::kern::ipc::somaxconn::set_session() {
+	runtime::is_root || { echo "kernel::bsd::kern::ipc::somaxconn::set_session: requires root" >&2; return 1; }
+	sysctl kern.ipc.somaxconn="$1" 2>/dev/null
+}
+
+kernel::bsd::kern::ipc::somaxconn::set_system() {
+	runtime::is_root || { echo "kernel::bsd::kern::ipc::somaxconn::set_system: requires root" >&2; return 1; }
+	sysctl kern.ipc.somaxconn="$1" 2>/dev/null || return 1
+	_kernel::bsd::persist_sysctl "kern.ipc.somaxconn" "$1"
+}
+
+kernel::bsd::kern::ipc::maxsockbuf::get() {
+	sysctl -n kern.ipc.maxsockbuf 2>/dev/null || echo "unknown"
+}
+
+kernel::bsd::kern::ipc::maxsockbuf::set_session() {
+	runtime::is_root || { echo "kernel::bsd::kern::ipc::maxsockbuf::set_session: requires root" >&2; return 1; }
+	sysctl kern.ipc.maxsockbuf="$1" 2>/dev/null
+}
+
+kernel::bsd::kern::ipc::maxsockbuf::set_system() {
+	runtime::is_root || { echo "kernel::bsd::kern::ipc::maxsockbuf::set_system: requires root" >&2; return 1; }
+	sysctl kern.ipc.maxsockbuf="$1" 2>/dev/null || return 1
+	_kernel::bsd::persist_sysctl "kern.ipc.maxsockbuf" "$1"
+}
+
+kernel::bsd::kern::ipc::shmmax::get() {
+	sysctl -n kern.ipc.shmmax 2>/dev/null || echo "unknown"
+}
+
+kernel::bsd::kern::ipc::shmmax::set_session() {
+	runtime::is_root || { echo "kernel::bsd::kern::ipc::shmmax::set_session: requires root" >&2; return 1; }
+	sysctl kern.ipc.shmmax="$1" 2>/dev/null
+}
+
+kernel::bsd::kern::ipc::shmmax::set_system() {
+	runtime::is_root || { echo "kernel::bsd::kern::ipc::shmmax::set_system: requires root" >&2; return 1; }
+	sysctl kern.ipc.shmmax="$1" 2>/dev/null || return 1
+	_kernel::bsd::persist_sysctl "kern.ipc.shmmax" "$1"
+}
+
+kernel::bsd::kern::ipc::semmns::get() {
+	sysctl -n kern.ipc.semmns 2>/dev/null || echo "unknown"
+}
+
+kernel::bsd::kern::ipc::semmns::set_session() {
+	runtime::is_root || { echo "kernel::bsd::kern::ipc::semmns::set_session: requires root" >&2; return 1; }
+	sysctl kern.ipc.semmns="$1" 2>/dev/null
+}
+
+kernel::bsd::kern::ipc::semmns::set_system() {
+	runtime::is_root || { echo "kernel::bsd::kern::ipc::semmns::set_system: requires root" >&2; return 1; }
+	sysctl kern.ipc.semmns="$1" 2>/dev/null || return 1
+	_kernel::bsd::persist_sysctl "kern.ipc.semmns" "$1"
+}
+
+# --- BSD: VM ---
+
+kernel::bsd::vm::free_target::get() {
+	sysctl -n vm.v_free_target 2>/dev/null || echo "unknown"
+}
+
+kernel::bsd::vm::free_target::set_session() {
+	runtime::is_root || { echo "kernel::bsd::vm::free_target::set_session: requires root" >&2; return 1; }
+	sysctl vm.v_free_target="$1" 2>/dev/null
+}
+
+kernel::bsd::vm::free_target::set_system() {
+	runtime::is_root || { echo "kernel::bsd::vm::free_target::set_system: requires root" >&2; return 1; }
+	sysctl vm.v_free_target="$1" 2>/dev/null || return 1
+	_kernel::bsd::persist_sysctl "vm.v_free_target" "$1"
+}
+
+kernel::bsd::vm::cache_min::get() {
+	sysctl -n vm.v_cache_min 2>/dev/null || echo "unknown"
+}
+
+kernel::bsd::vm::cache_min::set_session() {
+	runtime::is_root || { echo "kernel::bsd::vm::cache_min::set_session: requires root" >&2; return 1; }
+	sysctl vm.v_cache_min="$1" 2>/dev/null
+}
+
+kernel::bsd::vm::cache_min::set_system() {
+	runtime::is_root || { echo "kernel::bsd::vm::cache_min::set_system: requires root" >&2; return 1; }
+	sysctl vm.v_cache_min="$1" 2>/dev/null || return 1
+	_kernel::bsd::persist_sysctl "vm.v_cache_min" "$1"
+}
+
+kernel::bsd::vm::free_reserved::get() {
+	sysctl -n vm.v_free_reserved 2>/dev/null || echo "unknown"
+}
+
+kernel::bsd::vm::free_reserved::set_session() {
+	runtime::is_root || { echo "kernel::bsd::vm::free_reserved::set_session: requires root" >&2; return 1; }
+	sysctl vm.v_free_reserved="$1" 2>/dev/null
+}
+
+kernel::bsd::vm::free_reserved::set_system() {
+	runtime::is_root || { echo "kernel::bsd::vm::free_reserved::set_system: requires root" >&2; return 1; }
+	sysctl vm.v_free_reserved="$1" 2>/dev/null || return 1
+	_kernel::bsd::persist_sysctl "vm.v_free_reserved" "$1"
+}
+
+kernel::bsd::vm::swapusage() {
+	sysctl -n vm.swapusage 2>/dev/null || echo "unknown"
+}
+
+# --- BSD: Scheduler ---
+
+kernel::bsd::sched::topology() {
+	sysctl -n kern.sched.topology_spec 2>/dev/null || echo "unknown"
+}
+
+kernel::bsd::sched::timeslice::get() {
+	sysctl -n kern.sched.timeslice 2>/dev/null || echo "unknown"
+}
+
+kernel::bsd::sched::timeslice::set_session() {
+	runtime::is_root || { echo "kernel::bsd::sched::timeslice::set_session: requires root" >&2; return 1; }
+	sysctl kern.sched.timeslice="$1" 2>/dev/null
+}
+
+kernel::bsd::sched::timeslice::set_system() {
+	runtime::is_root || { echo "kernel::bsd::sched::timeslice::set_system: requires root" >&2; return 1; }
+	sysctl kern.sched.timeslice="$1" 2>/dev/null || return 1
+	_kernel::bsd::persist_sysctl "kern.sched.timeslice" "$1"
+}
+
+# --- BSD: Security ---
+
+kernel::bsd::security::unprivileged_proc_debug::get() {
+	sysctl -n security.bsd.unprivileged_proc_debug 2>/dev/null || echo "unknown"
+}
+
+kernel::bsd::security::unprivileged_proc_debug::set_session() {
+	runtime::is_root || { echo "kernel::bsd::security::unprivileged_proc_debug::set_session: requires root" >&2; return 1; }
+	sysctl security.bsd.unprivileged_proc_debug="$1" 2>/dev/null
+}
+
+kernel::bsd::security::unprivileged_proc_debug::set_system() {
+	runtime::is_root || { echo "kernel::bsd::security::unprivileged_proc_debug::set_system: requires root" >&2; return 1; }
+	sysctl security.bsd.unprivileged_proc_debug="$1" 2>/dev/null || return 1
+	_kernel::bsd::persist_sysctl "security.bsd.unprivileged_proc_debug" "$1"
+}
+
+kernel::bsd::security::see_other_uids::get() {
+	sysctl -n security.bsd.see_other_uids 2>/dev/null || echo "unknown"
+}
+
+kernel::bsd::security::see_other_uids::set_session() {
+	runtime::is_root || { echo "kernel::bsd::security::see_other_uids::set_session: requires root" >&2; return 1; }
+	sysctl security.bsd.see_other_uids="$1" 2>/dev/null
+}
+
+kernel::bsd::security::see_other_uids::set_system() {
+	runtime::is_root || { echo "kernel::bsd::security::see_other_uids::set_system: requires root" >&2; return 1; }
+	sysctl security.bsd.see_other_uids="$1" 2>/dev/null || return 1
+	_kernel::bsd::persist_sysctl "security.bsd.see_other_uids" "$1"
+}
+
+kernel::bsd::security::hardlink_uid_match::get() {
+	sysctl -n security.bsd.hardlink_check_uid 2>/dev/null || echo "unknown"
+}
+
+kernel::bsd::security::hardlink_uid_match::set_session() {
+	runtime::is_root || { echo "kernel::bsd::security::hardlink_uid_match::set_session: requires root" >&2; return 1; }
+	sysctl security.bsd.hardlink_check_uid="$1" 2>/dev/null
+}
+
+kernel::bsd::security::hardlink_uid_match::set_system() {
+	runtime::is_root || { echo "kernel::bsd::security::hardlink_uid_match::set_system: requires root" >&2; return 1; }
+	sysctl security.bsd.hardlink_check_uid="$1" 2>/dev/null || return 1
+	_kernel::bsd::persist_sysctl "security.bsd.hardlink_check_uid" "$1"
+}
+
+kernel::bsd::security::symlink_uid_match::get() {
+	sysctl -n security.bsd.hardlink_check_same_uid 2>/dev/null || echo "unknown"
+}
+
+kernel::bsd::security::symlink_uid_match::set_session() {
+	runtime::is_root || { echo "kernel::bsd::security::symlink_uid_match::set_session: requires root" >&2; return 1; }
+	sysctl security.bsd.hardlink_check_same_uid="$1" 2>/dev/null
+}
+
+kernel::bsd::security::symlink_uid_match::set_system() {
+	runtime::is_root || { echo "kernel::bsd::security::symlink_uid_match::set_system: requires root" >&2; return 1; }
+	sysctl security.bsd.hardlink_check_same_uid="$1" 2>/dev/null || return 1
+	_kernel::bsd::persist_sysctl "security.bsd.hardlink_check_same_uid" "$1"
+}
+
+# --- BSD: Summary ---
+
+kernel::bsd::summary() {
+	local _model _ncpu _physmem _maxproc _maxfiles _swap
+	_model=$(kernel::bsd::hw::model)
+	_ncpu=$(kernel::bsd::hw::ncpu)
+	_physmem=$(kernel::bsd::hw::physmem)
+	_maxproc=$(kernel::bsd::kern::maxproc::get)
+	_maxfiles=$(kernel::bsd::kern::maxfiles::get)
+	_swap=$(kernel::bsd::vm::swapusage)
+	printf 'model=%s ncpu=%s physmem=%s maxproc=%s maxfiles=%s swap=%s\n' \
+		"$_model" "$_ncpu" "$_physmem" "$_maxproc" "$_maxfiles" "$_swap"
+}
+
+# --- XNU (macOS/Darwin) ---
+
+_kernel::xnu::persist_sysctl() {
+	local _key="$1" _value="$2" _conf="/etc/sysctl.conf"
+	if grep -q "^${_key}=" "$_conf" 2>/dev/null; then
+		sed -i '' "s|^${_key}=.*|${_key}=${_value}|" "$_conf" 2>/dev/null
+	else
+		printf '%s=%s\n' "$_key" "$_value" >> "$_conf" 2>/dev/null
+	fi
+}
+
+# --- XNU: Hardware ---
+
+kernel::xnu::hw::model() {
+	sysctl -n hw.model 2>/dev/null || echo "unknown"
+}
+
+kernel::xnu::hw::machine() {
+	sysctl -n hw.machine 2>/dev/null || echo "unknown"
+}
+
+kernel::xnu::hw::ncpu() {
+	sysctl -n hw.ncpu 2>/dev/null || echo "unknown"
+}
+
+kernel::xnu::hw::memsize() {
+	sysctl -n hw.memsize 2>/dev/null || echo "unknown"
+}
+
+kernel::xnu::hw::pagesize() {
+	sysctl -n hw.pagesize 2>/dev/null || echo "unknown"
+}
+
+kernel::xnu::hw::cpufrequency() {
+	sysctl -n hw.cpufrequency 2>/dev/null || echo "unknown"
+}
+
+kernel::xnu::hw::is_apple_silicon() {
+	local _val
+	_val=$(sysctl -n hw.optional.arm64 2>/dev/null) || { echo "0"; return 1; }
+	echo "$_val"
+}
+
+kernel::xnu::hw::has_feature() {
+	local _feature="$1"
+	sysctl -n "hw.optional.${_feature}" 2>/dev/null || echo "0"
+}
+
+# --- XNU: Kernel ---
+
+kernel::xnu::kern::osversion() {
+	sysctl -n kern.osversion 2>/dev/null || echo "unknown"
+}
+
+kernel::xnu::kern::uuid() {
+	sysctl -n kern.uuid 2>/dev/null || echo "unknown"
+}
+
+kernel::xnu::kern::bootuuid() {
+	sysctl -n kern.bootuuid 2>/dev/null || echo "unknown"
+}
+
+kernel::xnu::kern::bootsessionuuid() {
+	sysctl -n kern.bootsessionuuid 2>/dev/null || echo "unknown"
+}
+
+kernel::xnu::kern::sleeptype() {
+	sysctl -n kern.sleeptype 2>/dev/null || echo "unknown"
+}
+
+kernel::xnu::kern::wakereason() {
+	sysctl -n kern.wakereason 2>/dev/null || echo "unknown"
+}
+
+kernel::xnu::kern::maxproc::get() {
+	sysctl -n kern.maxproc 2>/dev/null || echo "unknown"
+}
+
+kernel::xnu::kern::maxproc::set_session() {
+	runtime::is_root || { echo "kernel::xnu::kern::maxproc::set_session: requires root" >&2; return 1; }
+	sysctl kern.maxproc="$1" 2>/dev/null
+}
+
+kernel::xnu::kern::maxproc::set_system() {
+	runtime::is_root || { echo "kernel::xnu::kern::maxproc::set_system: requires root" >&2; return 1; }
+	sysctl kern.maxproc="$1" 2>/dev/null || return 1
+	_kernel::xnu::persist_sysctl "kern.maxproc" "$1"
+}
+
+kernel::xnu::kern::maxfiles::get() {
+	sysctl -n kern.maxfiles 2>/dev/null || echo "unknown"
+}
+
+kernel::xnu::kern::maxfiles::set_session() {
+	runtime::is_root || { echo "kernel::xnu::kern::maxfiles::set_session: requires root" >&2; return 1; }
+	sysctl kern.maxfiles="$1" 2>/dev/null
+}
+
+kernel::xnu::kern::maxfiles::set_system() {
+	runtime::is_root || { echo "kernel::xnu::kern::maxfiles::set_system: requires root" >&2; return 1; }
+	sysctl kern.maxfiles="$1" 2>/dev/null || return 1
+	_kernel::xnu::persist_sysctl "kern.maxfiles" "$1"
+}
+
+kernel::xnu::kern::ipc::somaxconn::get() {
+	sysctl -n kern.ipc.somaxconn 2>/dev/null || echo "unknown"
+}
+
+kernel::xnu::kern::ipc::somaxconn::set_session() {
+	runtime::is_root || { echo "kernel::xnu::kern::ipc::somaxconn::set_session: requires root" >&2; return 1; }
+	sysctl kern.ipc.somaxconn="$1" 2>/dev/null
+}
+
+kernel::xnu::kern::ipc::somaxconn::set_system() {
+	runtime::is_root || { echo "kernel::xnu::kern::ipc::somaxconn::set_system: requires root" >&2; return 1; }
+	sysctl kern.ipc.somaxconn="$1" 2>/dev/null || return 1
+	_kernel::xnu::persist_sysctl "kern.ipc.somaxconn" "$1"
+}
+
+# --- XNU: macOS Version ---
+
+kernel::xnu::swvers::product() {
+	sw_vers -productName 2>/dev/null || echo "unknown"
+}
+
+kernel::xnu::swvers::version() {
+	sw_vers -productVersion 2>/dev/null || echo "unknown"
+}
+
+kernel::xnu::swvers::build() {
+	sw_vers -buildVersion 2>/dev/null || echo "unknown"
+}
+
+# --- XNU: VM ---
+
+kernel::xnu::vm::stat() {
+	vm_stat 2>/dev/null || echo "unknown"
+}
+
+kernel::xnu::vm::swapusage() {
+	sysctl -n vm.swapusage 2>/dev/null || echo "unknown"
+}
+
+kernel::xnu::vm::compressor_mode() {
+	sysctl -n vm.compressor_mode 2>/dev/null || echo "unknown"
+}
+
+kernel::xnu::vm::compressor_pages() {
+	sysctl -n vm.compressor_pages_used 2>/dev/null || echo "unknown"
+}
+
+kernel::xnu::vm::pagefreeable() {
+	sysctl -n vm.page_freeable 2>/dev/null || echo "unknown"
+}
+
+# --- XNU: SIP ---
+
+kernel::xnu::sip::status() {
+	csrutil status 2>&1 || echo "unknown"
+}
+
+kernel::xnu::sip::is_enabled() {
+	local _status
+	_status=$(csrutil status 2>&1) || return 1
+	[[ "$_status" == *"enabled"* ]]
+}
+
+kernel::xnu::sip::enable() {
+	local _result
+	_result=$(csrutil enable 2>&1) || {
+		echo "kernel::xnu::sip::enable: must be run from Recovery Mode" >&2
+		echo "$_result" >&2
+		return 1
+	}
+	echo "$_result"
+}
+
+kernel::xnu::sip::disable() {
+	local _result
+	_result=$(csrutil disable 2>&1) || {
+		echo "kernel::xnu::sip::disable: must be run from Recovery Mode" >&2
+		echo "$_result" >&2
+		return 1
+	}
+	echo "$_result"
+}
+
+# --- XNU: Power ---
+
+kernel::xnu::power::assertions() {
+	pmset -g assertions 2>/dev/null || echo "unknown"
+}
+
+kernel::xnu::power::capacity() {
+	pmset -g batt 2>/dev/null || echo "unknown"
+}
+
+kernel::xnu::power::thermals() {
+	pmset -g therm 2>/dev/null || echo "unknown"
+}
+
+kernel::xnu::power::displaysleep::get() {
+	local _val
+	_val=$(pmset -g 2>/dev/null | awk '/ displaysleep/{print $2}')
+	echo "${_val:-unknown}"
+}
+
+kernel::xnu::power::displaysleep::set_session() {
+	runtime::is_root || { echo "kernel::xnu::power::displaysleep::set_session: requires root" >&2; return 1; }
+	pmset displaysleep "$1" 2>/dev/null
+}
+
+kernel::xnu::power::displaysleep::set_system() {
+	runtime::is_root || { echo "kernel::xnu::power::displaysleep::set_system: requires root" >&2; return 1; }
+	pmset -a displaysleep "$1" 2>/dev/null
+}
+
+kernel::xnu::power::sleep::get() {
+	local _val
+	_val=$(pmset -g 2>/dev/null | awk '/^ sleep/{print $2}')
+	echo "${_val:-unknown}"
+}
+
+kernel::xnu::power::sleep::set_session() {
+	runtime::is_root || { echo "kernel::xnu::power::sleep::set_session: requires root" >&2; return 1; }
+	pmset sleep "$1" 2>/dev/null
+}
+
+kernel::xnu::power::sleep::set_system() {
+	runtime::is_root || { echo "kernel::xnu::power::sleep::set_system: requires root" >&2; return 1; }
+	pmset -a sleep "$1" 2>/dev/null
+}
+
+kernel::xnu::power::disksleep::get() {
+	local _val
+	_val=$(pmset -g 2>/dev/null | awk '/ disksleep/{print $2}')
+	echo "${_val:-unknown}"
+}
+
+kernel::xnu::power::disksleep::set_session() {
+	runtime::is_root || { echo "kernel::xnu::power::disksleep::set_session: requires root" >&2; return 1; }
+	pmset disksleep "$1" 2>/dev/null
+}
+
+kernel::xnu::power::disksleep::set_system() {
+	runtime::is_root || { echo "kernel::xnu::power::disksleep::set_system: requires root" >&2; return 1; }
+	pmset -a disksleep "$1" 2>/dev/null
+}
+
+kernel::xnu::power::wakeonlan::get() {
+	local _val
+	_val=$(pmset -g 2>/dev/null | awk '/ WakeOnLan/{print $2}')
+	echo "${_val:-unknown}"
+}
+
+kernel::xnu::power::wakeonlan::set_session() {
+	runtime::is_root || { echo "kernel::xnu::power::wakeonlan::set_session: requires root" >&2; return 1; }
+	pmset wakeonlan "$1" 2>/dev/null
+}
+
+kernel::xnu::power::wakeonlan::set_system() {
+	runtime::is_root || { echo "kernel::xnu::power::wakeonlan::set_system: requires root" >&2; return 1; }
+	pmset -a wakeonlan "$1" 2>/dev/null
+}
+
+kernel::xnu::power::lidwake::get() {
+	local _val
+	_val=$(pmset -g 2>/dev/null | awk '/ LidWake/{print $2}')
+	echo "${_val:-unknown}"
+}
+
+kernel::xnu::power::lidwake::set_session() {
+	runtime::is_root || { echo "kernel::xnu::power::lidwake::set_session: requires root" >&2; return 1; }
+	pmset lidwake "$1" 2>/dev/null
+}
+
+kernel::xnu::power::lidwake::set_system() {
+	runtime::is_root || { echo "kernel::xnu::power::lidwake::set_system: requires root" >&2; return 1; }
+	pmset -a lidwake "$1" 2>/dev/null
+}
+
+# --- XNU: Summary ---
+
+kernel::xnu::summary() {
+	local _model _ncpu _memsize _osver _product _version _build
+	_model=$(kernel::xnu::hw::model)
+	_ncpu=$(kernel::xnu::hw::ncpu)
+	_memsize=$(kernel::xnu::hw::memsize)
+	_osver=$(kernel::xnu::kern::osversion)
+	_product=$(kernel::xnu::swvers::product)
+	_version=$(kernel::xnu::swvers::version)
+	_build=$(kernel::xnu::swvers::build)
+	printf 'model=%s ncpu=%s memsize=%s osver=%s product=%s version=%s build=%s\n' \
+		"$_model" "$_ncpu" "$_memsize" "$_osver" "$_product" "$_version" "$_build"
 }
