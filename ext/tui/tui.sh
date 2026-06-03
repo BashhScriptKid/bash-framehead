@@ -20,6 +20,8 @@ declare -f 'runtime::bash_version' &>/dev/null || {
 	return 1
 }
 
+# --- end guard ---
+
 # --- Backend detection ---
 
 _tui_backend=""

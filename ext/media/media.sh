@@ -19,6 +19,8 @@ declare -f 'runtime::bash_version' &>/dev/null || {
 	return 1
 }
 
+# --- end guard ---
+
 # --- Readonly format constants ---
 
 # Magic bytes (first 4 bytes, as hex strings)

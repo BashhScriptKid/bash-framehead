@@ -12,6 +12,8 @@
 
 _UINPUT_HELPER="$(dirname "${BASH_SOURCE[0]}")/uinput/uinput_helper"
 
+# --- end guard ---
+
 # --- Read-only ---
 
 uinput::is_ready() {
