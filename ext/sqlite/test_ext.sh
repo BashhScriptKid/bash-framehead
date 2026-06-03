@@ -506,3 +506,81 @@ test::sqlite::json::set() {
 	_out=$(sqlite::json::extract "$_db" t data '$.x' "id = 'a'")
 	if [[ "$_out" == "42" ]]; then _pass; else _fail; fi
 }
+
+# ==============================================================================
+# migrations sub-namespace
+# ==============================================================================
+
+test::sqlite::migrate() {
+	local _db _migdir
+	_db=$(_sqlite_test::fresh_db)
+	_migdir=$(mktemp -d -t migrate-XXXX)
+	# Create two migration files in order
+	cat > "$_migdir/001_create_users.sql" <<'SQL'
+CREATE TABLE users(id INTEGER PRIMARY KEY, name TEXT);
+SQL
+	cat > "$_migdir/002_add_email.sql" <<'SQL'
+ALTER TABLE users ADD COLUMN email TEXT;
+SQL
+	# Run migrate
+	local _out
+	_out=$(sqlite::migrate "$_db" "$_migdir" 2>&1)
+	# Verify both tables/columns exist
+	local _has_email
+	_has_email=$(sqlite::one "$_db" \
+		"SELECT count(*) FROM pragma_table_info('users') WHERE name='email';")
+	if [[ "$_has_email" == "1" ]]; then _pass; else _fail; fi
+	rm -rf "$_migdir"
+}
+
+test::sqlite::migrate_idempotent() {
+	local _db _migdir _out
+	_db=$(_sqlite_test::fresh_db)
+	_migdir=$(mktemp -d -t migrate-XXXX)
+	cat > "$_migdir/001_init.sql" <<'SQL'
+CREATE TABLE t(x INT);
+SQL
+	# First run
+	sqlite::migrate "$_db" "$_migdir" >/dev/null 2>&1
+	# Second run should be a no-op
+	_out=$(sqlite::migrate "$_db" "$_migdir" 2>&1)
+	if [[ "$_out" == *"no pending migrations"* ]]; then _pass; else _fail; fi
+	rm -rf "$_migdir"
+}
+
+test::sqlite::migrations::status() {
+	local _db _migdir _out
+	_db=$(_sqlite_test::fresh_db)
+	_migdir=$(mktemp -d -t migrate-XXXX)
+	cat > "$_migdir/001_a.sql" <<'SQL'
+CREATE TABLE a(x INT);
+SQL
+	cat > "$_migdir/002_b.sql" <<'SQL'
+CREATE TABLE b(x INT);
+SQL
+	# Mark only the first as applied directly (so we can test mixed status)
+	sqlite::exec "$_db" "CREATE TABLE _migrations(name TEXT PRIMARY KEY, applied_at TEXT);"
+	sqlite::exec "$_db" "INSERT INTO _migrations VALUES('001_a.sql', '2026-01-01 00:00:00');"
+	# Check status
+	_out=$(sqlite::migrations::status "$_db" "$_migdir")
+	if [[ "$_out" == *"001_a.sql"* ]] && [[ "$_out" == *"applied"* ]] && \
+	   [[ "$_out" == *"002_b.sql"* ]] && [[ "$_out" == *"pending"* ]]; then
+		_pass
+	else
+		_fail
+	fi
+	rm -rf "$_migdir"
+}
+
+test::sqlite::migrations::new() {
+	local _migdir _out
+	_migdir=$(mktemp -d -t migrate-XXXX)
+	_out=$(sqlite::migrations::new "$_migdir" "Add Users Email Index" 2>&1)
+	# Verify a file was created with the slug
+	if [[ -f "$_out" ]] && [[ "$_out" == *"add_users_email_index"* ]]; then
+		_pass
+	else
+		_fail
+	fi
+	rm -rf "$_migdir"
+}

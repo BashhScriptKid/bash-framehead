@@ -398,3 +398,67 @@ sqlite::json::set "$DB" users data '$.age' '31' "id = 7"
 - The local sqlite3 3.53.0 build on this machine lacks json1. Tests are
   skipped when `sqlite::has json1` returns false.
 - The `extract` and `each` functions stream their full result set via stdout.
+
+## Migrations sub-namespace
+
+Schema versioning via ordered SQL files. Applied migrations are tracked in
+a `_migrations` table inside the database. Idempotent: re-running has no
+effect once all migrations are applied.
+
+### `sqlite::migrate <path> <migrations_dir>`
+
+Apply all pending migrations in a directory. Migration files are named
+with a sortable prefix like `001_init.sql`, `002_users.sql`, or for the
+`new` generator, `<unix_ts>_<slug>.sql`. Each file's contents are run as
+a single batch.
+
+```bash
+mkdir -p ./migrations
+cat > ./migrations/001_users.sql <<'SQL'
+CREATE TABLE users(id INTEGER PRIMARY KEY, name TEXT);
+SQL
+cat > ./migrations/002_emails.sql <<'SQL'
+ALTER TABLE users ADD COLUMN email TEXT;
+SQL
+
+sqlite::migrate "$DB" ./migrations
+# applying: 001_users.sql
+#   ok
+# applying: 002_emails.sql
+#   ok
+```
+
+### `sqlite::migrations::status <path> <migrations_dir>`
+
+Show applied vs pending migrations. Prints lines as
+`<name>\t<status>\t<applied_at>`.
+
+```bash
+sqlite::migrations::status "$DB" ./migrations
+# 001_users.sql  applied  2026-06-03 16:40:47
+# 002_emails.sql applied  2026-06-03 16:40:47
+```
+
+### `sqlite::migrations::new <migrations_dir> <description>`
+
+Generate a new migration file with a timestamped name. Slugifies the
+description, prefixes it with the current Unix timestamp. Returns the
+file path on stdout.
+
+```bash
+file=$(sqlite::migrations::new ./migrations "Add user email index")
+# Creates: ./migrations/1700000000_add_user_email_index.sql
+#   -- Migration: Add user email index
+#   -- Created: 2026-...
+#
+# Edit the file, then:
+sqlite::migrate "$DB" ./migrations
+```
+
+### Notes (Migrations)
+
+- File ordering is by filename sort, so `001_`, `002_`, `003_` works, and
+  timestamp prefixes also work (lexicographic = chronological).
+- The `_migrations` table is created automatically on first use.
+- The `migrate` function uses `sqlite3 -bail`, so a SQL error halts and
+  no migration is recorded for the failed file.

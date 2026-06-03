@@ -764,3 +764,118 @@ sqlite::json::set() {
 	sqlite::exec "$_db" \
 		"UPDATE $_qtable SET $_qcol = json_set($_qcol, '$_ejpath', '$_evalue') WHERE $_where;"
 }
+
+# ==============================================================================
+# MIGRATIONS SUB-NAMESPACE — schema versioning
+# ==============================================================================
+#
+# Apply ordered SQL migration files. Files are named NNN_description.sql
+# (zero-padded number prefix). Applied migrations are tracked in a
+# `_migrations` table inside the database. Safe to re-run (idempotent).
+
+# Run all pending migrations. <migrations_dir> is a path containing
+# .sql files named like 001_init.sql, 002_users.sql, etc.
+# Prints applied migrations and their results to stdout.
+# Usage: sqlite::migrate <path> <migrations_dir>
+sqlite::migrate() {
+	local _db="$1" _migdir="$2"
+	[[ -d "$_migdir" ]] || {
+		echo "sqlite::migrate: directory not found: $_migdir" >&2
+		return 1
+	}
+	# Bootstrap migrations table
+	sqlite::exec "$_db" \
+		"CREATE TABLE IF NOT EXISTS _migrations(
+			name TEXT PRIMARY KEY,
+			applied_at TEXT NOT NULL DEFAULT (datetime('now'))
+		);"
+	# Collect migrations sorted by filename
+	local _mig _applied _pending=()
+	for _mig in "$_migdir"/*.sql; do
+		[[ -f "$_mig" ]] || continue
+		_mig=$(basename "$_mig")
+		_applied=$(sqlite::one "$_db" \
+			"SELECT name FROM _migrations WHERE name = '$(_sqlite::_escape_string "$_mig")';")
+		if [[ -z "$_applied" ]]; then
+			_pending+=("$_mig")
+		fi
+	done
+	if (( ${#_pending[@]} == 0 )); then
+		echo "no pending migrations"
+		return 0
+	fi
+	local _file _sql
+	for _file in "${_pending[@]}"; do
+		echo "applying: $_file"
+		# Read SQL from file and run in a single batch
+		_sql=$(cat "$_migdir/$_file")
+		# Apply SQL (exec supports multi-statement via -cmd batch)
+		if ! sqlite3 -bail "$_db" "$_sql"; then
+			echo "sqlite::migrate: failed at $_file" >&2
+			return 1
+		fi
+		# Record success
+		sqlite::exec "$_db" \
+			"INSERT INTO _migrations(name) VALUES('$(_sqlite::_escape_string "$_file")');"
+		echo "  ok"
+	done
+}
+
+# Show migration status. Prints lines: <name> <status> <applied_at>
+# status is "applied" or "pending".
+# Usage: sqlite::migrations::status <path> <migrations_dir>
+sqlite::migrations::status() {
+	local _db="$1" _migdir="$2"
+	[[ -d "$_migdir" ]] || {
+		echo "sqlite::migrations::status: directory not found: $_migdir" >&2
+		return 1
+	}
+	# Bootstrap (without applying) so we can query the table
+	sqlite::exec "$_db" \
+		"CREATE TABLE IF NOT EXISTS _migrations(
+			name TEXT PRIMARY KEY,
+			applied_at TEXT NOT NULL DEFAULT (datetime('now'))
+		);"
+	local _mig _at
+	for _mig in "$_migdir"/*.sql; do
+		[[ -f "$_mig" ]] || continue
+		_mig=$(basename "$_mig")
+		_at=$(sqlite::one "$_db" \
+			"SELECT applied_at FROM _migrations WHERE name = '$(_sqlite::_escape_string "$_mig")';")
+		if [[ -n "$_at" ]]; then
+			printf '%s\t%s\t%s\n' "$_mig" "applied" "$_at"
+		else
+			printf '%s\t%s\t%s\n' "$_mig" "pending" "-"
+		fi
+	done
+}
+
+# Generate a new migration file with a timestamped name.
+# Usage: sqlite::migrations::new <migrations_dir> <description>
+# Creates file like 1700000000_add_users_email.sql in <migrations_dir>.
+sqlite::migrations::new() {
+	local _migdir="$1" _desc="$2"
+	[[ -d "$_migdir" ]] || {
+		echo "sqlite::migrations::new: directory not found: $_migdir" >&2
+		return 1
+	}
+	[[ -n "$_desc" ]] || {
+		echo "sqlite::migrations::new: description required" >&2
+		return 1
+	}
+	# Slugify description: lowercase, replace non-alnum with _
+	local _slug
+	_slug=$(printf '%s' "$_desc" | tr '[:upper:]' '[:lower:]' | \
+		sed -E 's/[^a-z0-9]+/_/g; s/^_+//; s/_+$//')
+	[[ -n "$_slug" ]] || _slug="migration"
+	local _ts
+	_ts=$(date +%s)
+	local _file="$_migdir/${_ts}_${_slug}.sql"
+	# Don't clobber existing
+	if [[ -f "$_file" ]]; then
+		echo "sqlite::migrations::new: file exists: $_file" >&2
+		return 1
+	fi
+	printf -- '-- Migration: %s\n-- Created: %s\n\n' "$_desc" "$(date -Iseconds)" > "$_file"
+	echo "$_file"
+}
