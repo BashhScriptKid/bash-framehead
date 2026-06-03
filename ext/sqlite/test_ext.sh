@@ -522,29 +522,20 @@ SQL
 	cat > "$_migdir/002_add_email.sql" <<'SQL'
 ALTER TABLE users ADD COLUMN email TEXT;
 SQL
-	# Run migrate
+	# First run applies
+	sqlite::migrate "$_db" "$_migdir" >/dev/null 2>&1
+	# Second run is a no-op (idempotency)
 	local _out
 	_out=$(sqlite::migrate "$_db" "$_migdir" 2>&1)
+	if [[ "$_out" != *"no pending migrations"* ]]; then
+		_fail "expected 'no pending migrations' on second run, got: $_out"
+		return
+	fi
 	# Verify both tables/columns exist
 	local _has_email
 	_has_email=$(sqlite::one "$_db" \
 		"SELECT count(*) FROM pragma_table_info('users') WHERE name='email';")
 	if [[ "$_has_email" == "1" ]]; then _pass; else _fail; fi
-	rm -rf "$_migdir"
-}
-
-test::sqlite::migrate_idempotent() {
-	local _db _migdir _out
-	_db=$(_sqlite_test::fresh_db)
-	_migdir=$(mktemp -d -t migrate-XXXX)
-	cat > "$_migdir/001_init.sql" <<'SQL'
-CREATE TABLE t(x INT);
-SQL
-	# First run
-	sqlite::migrate "$_db" "$_migdir" >/dev/null 2>&1
-	# Second run should be a no-op
-	_out=$(sqlite::migrate "$_db" "$_migdir" 2>&1)
-	if [[ "$_out" == *"no pending migrations"* ]]; then _pass; else _fail; fi
 	rm -rf "$_migdir"
 }
 
