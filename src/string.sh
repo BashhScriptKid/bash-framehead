@@ -319,7 +319,7 @@ _string::to_words() {
 	_str="${_str//./ }"
 	_str="${_str//\// }"
 	# Lowercase everything
-	echo "${s,,}"
+	echo "${_str,,}"
 }
 
 # plain (space-separated) → snake_case
@@ -328,9 +328,8 @@ _string::to_words() {
 string::plain_to_snake() {
 	local input; _string::read_input input "$@"
 	local _str="${input// /_}"
-	echo "${s,,}"
+	echo "${_str,,}"
 }
-
 # Fast variant using nameref
 # Usage: string::plain_to_snake::fast result_var "hello world"
 string::plain_to_snake::fast() {
@@ -344,7 +343,7 @@ string::plain_to_snake::fast() {
 string::plain_to_kebab() {
 	local input; _string::read_input input "$@"
 	local _str="${input// /-}"
-	echo "${s,,}"
+	echo "${_str,,}"
 }
 
 # Fast variant using nameref
@@ -403,7 +402,7 @@ string::plain_to_pascal::fast() {
 string::plain_to_constant() {
 	local input; _string::read_input input "$@"
 	local _str="${input// /_}"
-	echo "${s^^}"
+	echo "${_str^^}"
 }
 
 # Fast variant using nameref
@@ -418,7 +417,7 @@ string::plain_to_constant::fast() {
 string::plain_to_dot() {
 	local input; _string::read_input input "$@"
 	local _str="${input// /.}"
-	echo "${s,,}"
+	echo "${_str,,}"
 }
 
 # Fast variant using nameref
@@ -433,7 +432,7 @@ string::plain_to_dot::fast() {
 string::plain_to_path() {
 	local input; _string::read_input input "$@"
 	local _str="${input// //}"
-	echo "${s,,}"
+	echo "${_str,,}"
 }
 
 # Fast variant using nameref
@@ -599,7 +598,7 @@ string::kebab_to_pascal::fast() {
 string::kebab_to_constant() {
 	local input; _string::read_input input "$@"
 	local _str="${input//-/_}"
-	echo "${s^^}"
+	echo "${_str^^}"
 }
 
 # Fast variant using nameref
@@ -648,7 +647,7 @@ string::camel_to_plain::fast() {
 	_str="${_str//-/ }"
 	_str="${_str//./ }"
 	_str="${_str//\// }"
-	_string_camel_to_plain_result="${s,,}"
+	_string_camel_to_plain_result="${_str,,}"
 }
 
 # camelCase → snake_case
@@ -668,7 +667,7 @@ string::camel_to_snake::fast() {
 	_str="${_str//-/ }"
 	_str="${_str//./ }"
 	_str="${_str//\// }"
-	_str="${s,,}"
+	_str="${_str,,}"
 	_string_camel_to_snake_result="${_str// /_}"
 }
 
@@ -689,7 +688,7 @@ string::camel_to_kebab::fast() {
 	_str="${_str//-/ }"
 	_str="${_str//./ }"
 	_str="${_str//\// }"
-	_str="${s,,}"
+	_str="${_str,,}"
 	_string_camel_to_kebab_result="${_str// /-}"
 }
 
@@ -708,9 +707,9 @@ string::camel_to_pascal::fast() {
 	_str="${_str//-/ }"
 	_str="${_str//./ }"
 	_str="${_str//\// }"
-	_str="${s,,}"
+	_str="${_str,,}"
 	local result=""
-	for word in $s; do result+="${word^}"; done
+	for word in $_str; do result+="${word^}"; done
 	_string_camel_to_pascal_result="$result"
 }
 
@@ -720,7 +719,7 @@ string::camel_to_constant() {
 	local words
 	words=$(_string::to_words "$input")
 	local _str="${words// /_}"
-	echo "${s^^}"
+	echo "${_str^^}"
 }
 
 # Fast variant using nameref
@@ -732,7 +731,7 @@ string::camel_to_constant::fast() {
 	_str="${_str//-/ }"
 	_str="${_str//./ }"
 	_str="${_str//\// }"
-	_str="${s,,}"
+	_str="${_str,,}"
 	_string_camel_to_constant_result="${_str// /_}"
 	_string_camel_to_constant_result="${_string_camel_to_constant_result^^}"
 }
@@ -754,7 +753,7 @@ string::camel_to_dot::fast() {
 	_str="${_str//-/ }"
 	_str="${_str//./ }"
 	_str="${_str//\// }"
-	_str="${s,,}"
+	_str="${_str,,}"
 	_string_camel_to_dot_result="${_str// /.}"
 }
 
@@ -775,7 +774,7 @@ string::camel_to_path::fast() {
 	_str="${_str//-/ }"
 	_str="${_str//./ }"
 	_str="${_str//\// }"
-	_str="${s,,}"
+	_str="${_str,,}"
 	_string_camel_to_path_result="${_str// //}"
 }
 
@@ -794,7 +793,7 @@ string::pascal_to_plain::fast() {
 	_str="${_str//-/ }"
 	_str="${_str//./ }"
 	_str="${_str//\// }"
-	_string_pascal_to_plain_result="${s,,}"
+	_string_pascal_to_plain_result="${_str,,}"
 }
 
 # PascalCase → snake_case
@@ -812,7 +811,7 @@ string::pascal_to_snake::fast() {
 	_str="${_str//-/ }"
 	_str="${_str//./ }"
 	_str="${_str//\// }"
-	_str="${s,,}"
+	_str="${_str,,}"
 	_string_pascal_to_snake_result="${_str// /_}"
 }
 
@@ -831,7 +830,7 @@ string::pascal_to_kebab::fast() {
 	_str="${_str//-/ }"
 	_str="${_str//./ }"
 	_str="${_str//\// }"
-	_str="${s,,}"
+	_str="${_str,,}"
 	_string_pascal_to_kebab_result="${_str// /-}"
 }
 
@@ -852,9 +851,9 @@ string::pascal_to_camel::fast() {
 	_str="${_str//-/ }"
 	_str="${_str//./ }"
 	_str="${_str//\// }"
-	_str="${s,,}"
+	_str="${_str,,}"
 	local result="" first=true
-	for word in $s; do
+	for word in $_str; do
 		if $first; then
 			result+="${word,,}"
 			first=false
@@ -878,7 +877,7 @@ string::pascal_to_constant::fast() {
 	_str="${_str//-/ }"
 	_str="${_str//./ }"
 	_str="${_str//\// }"
-	_str="${s,,}"
+	_str="${_str,,}"
 	_string_pascal_to_constant_result="${_str// /_}"
 	_string_pascal_to_constant_result="${_string_pascal_to_constant_result^^}"
 }
@@ -898,7 +897,7 @@ string::pascal_to_dot::fast() {
 	_str="${_str//-/ }"
 	_str="${_str//./ }"
 	_str="${_str//\// }"
-	_str="${s,,}"
+	_str="${_str,,}"
 	_string_pascal_to_dot_result="${_str// /.}"
 }
 
@@ -917,7 +916,7 @@ string::pascal_to_path::fast() {
 	_str="${_str//-/ }"
 	_str="${_str//./ }"
 	_str="${_str//\// }"
-	_str="${s,,}"
+	_str="${_str,,}"
 	_string_pascal_to_path_result="${_str// //}"
 }
 
@@ -925,7 +924,7 @@ string::pascal_to_path::fast() {
 string::constant_to_plain() {
 	local input; _string::read_input input "$@"
 	local _str="${input//_/ }"
-	echo "${s,,}"
+	echo "${_str,,}"
 }
 
 # Fast variant using nameref
@@ -951,7 +950,7 @@ string::constant_to_snake::fast() {
 string::constant_to_kebab() {
 	local input; _string::read_input input "$@"
 	local _str="${input//_/-}"
-	echo "${s,,}"
+	echo "${_str,,}"
 }
 
 # Fast variant using nameref
@@ -1001,7 +1000,7 @@ string::constant_to_pascal::fast() {
 string::constant_to_dot() {
 	local input; _string::read_input input "$@"
 	local _str="${input//_/.}"
-	echo "${s,,}"
+	echo "${_str,,}"
 }
 
 # Fast variant using nameref
@@ -1015,7 +1014,7 @@ string::constant_to_dot::fast() {
 string::constant_to_path() {
 	local input; _string::read_input input "$@"
 	local _str="${input//_//}"
-	echo "${s,,}"
+	echo "${_str,,}"
 }
 
 # Fast variant using nameref
@@ -1099,7 +1098,7 @@ string::dot_to_pascal::fast() {
 string::dot_to_constant() {
 	local input; _string::read_input input "$@"
 	local _str="${input//./_}"
-	echo "${s^^}"
+	echo "${_str^^}"
 }
 
 # Fast variant using nameref
@@ -1199,7 +1198,7 @@ string::path_to_pascal::fast() {
 string::path_to_constant() {
 	local input; _string::read_input input "$@"
 	local _str="${input//\//_}"
-	echo "${s^^}"
+	echo "${_str^^}"
 }
 
 # Fast variant using nameref
@@ -1974,7 +1973,7 @@ string::base32_decode::pure() {
 		local -i a b c d e f g h
 
 		# uppercase input since base32 alphabet is uppercase only
-		_str="${s^^}"
+		_str="${_str^^}"
 
 		for (( i=0; i<${#s}; i+=8 )); do
 				local c0="${_str:$i:1}" c1="${_str:$((i+1)):1}" c2="${_str:$((i+2)):1}" c3="${_str:$((i+3)):1}"
