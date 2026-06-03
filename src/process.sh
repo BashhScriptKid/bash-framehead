@@ -490,6 +490,7 @@ process::singleton() {
 # All functions accept an optional cache variable name as the last argument.
 # If omitted, falls back to the module-level _PROCESS_STAT_CACHE default.
 # Caller-managed: declare -A my_cache; process::ppid::cached $$ my_cache
+declare -A _PROCESS_STAT_CACHE
 
 # Internal: parse /proc/<pid>/stat and cache all fields.
 # Usage: _process::parse_stat <pid> [cache_var]
@@ -497,7 +498,7 @@ _process::parse_stat() {
 		local _pid=$1
 		local -n _pstat_cache="${2:-_PROCESS_STAT_CACHE}"
 		local _cache_key="${_pid}:parsed"
-		[[ -v _pstat_cache[$_cache_key] ]] && return 0
+		[[ ${_pstat_cache[$_cache_key]+x} == x ]] && return 0
 
 		# Linux-only: /proc filesystem required
 		[[ -d /proc ]] || return 1
