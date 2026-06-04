@@ -2566,27 +2566,31 @@ test::runtime::timestamp() {
 }
 
 test::runtime::wait::next() {
-    ( sleep 0.1; true ) &
+    sleep 0.1 &
+    jobs >/dev/null 2>&1 || true
     runtime::wait::next 2>/dev/null
     if [[ $? -eq 0 ]]; then _pass; else _fail; fi
 }
 
 test::runtime::wait::next::pid() {
-    ( sleep 0.1; true ) &
+    sleep 0.1 &
+    jobs >/dev/null 2>&1 || true
     local _pid; _pid=$(runtime::wait::next::pid 2>/dev/null)
     if [[ -n "$_pid" && "$_pid" -gt 0 ]]; then _pass; else _fail; fi
 }
 
 test::runtime::wait::any() {
-    ( sleep 0.1; true ) &
+    sleep 0.1 &
     local _job=$!
+    jobs >/dev/null 2>&1 || true
     runtime::wait::any "$_job" 2>/dev/null
     if [[ $? -eq 0 ]]; then _pass; else _fail; fi
 }
 
 test::runtime::wait::any::pid() {
-    ( sleep 0.1; true ) &
+    sleep 0.1 &
     local _job=$!
+    jobs >/dev/null 2>&1 || true
     local _pid; _pid=$(runtime::wait::any::pid "$_job" 2>/dev/null)
     if [[ -n "$_pid" && "$_pid" -gt 0 ]]; then _pass; else _fail; fi
 }
