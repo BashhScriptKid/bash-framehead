@@ -303,10 +303,22 @@ The trade-off is zero install footprint vs raw speed.
 
 ## `json::sqlitestore::*` — JSON document store backed by SQLite
 
-Loaded automatically when `sqlite3` is available. Each document is stored
-as a JSON string in a SQLite table; the table is auto-created on first
-open. Documents can have any shape; queries use `json_extract` to navigate
-nested fields. Full-text search uses FTS5 (when compiled in).
+Built into json.sh directly. Each document is stored as a JSON string in
+a SQLite table; the table is auto-created on first open. Documents can
+have any shape; queries use `json_extract` to navigate nested fields.
+Full-text search uses FTS5 (when compiled in).
+
+**Capability checks** (mirroring `math::has_bc`) — call before using the
+sub-namespace to avoid errors:
+
+| Helper | Returns true if... |
+|--------|--------------------|
+| `json::sqlitestore::has_sqlite3` | the `sqlite3` CLI is on PATH |
+| `json::sqlitestore::has_json1`   | json1 extension is compiled in |
+| `json::sqlitestore::has_fts5`    | FTS5 is compiled in |
+
+Each public function performs the appropriate `has_*` check at call time
+and bails with a clear error if the dependency is missing.
 
 **Functions:**
 

@@ -337,3 +337,31 @@ test::json::sqlitestore::search() {
 		_fail
 	fi
 }
+
+# ==============================================================================
+# sqlitestore capability helpers
+# ==============================================================================
+
+test::json::sqlitestore::has_sqlite3() {
+	if command -v sqlite3 &>/dev/null; then
+		if json::sqlitestore::has_sqlite3; then _pass; else _fail; fi
+	else
+		if json::sqlitestore::has_sqlite3; then _fail; else _pass; fi
+	fi
+}
+
+test::json::sqlitestore::has_json1() {
+	if ! command -v sqlite3 &>/dev/null; then
+		_skip "sqlite3 not available"
+		return
+	fi
+	if json::sqlitestore::has_json1; then _pass; else _skip "json1 not available"; fi
+}
+
+test::json::sqlitestore::has_fts5() {
+	if ! command -v sqlite3 &>/dev/null; then
+		_skip "sqlite3 not available"
+		return
+	fi
+	if json::sqlitestore::has_fts5; then _pass; else _skip "FTS5 not available"; fi
+}
