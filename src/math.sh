@@ -2698,10 +2698,10 @@ math::tensor::add() {
 		local -a _vec_a _vec_b _result
 		read -ra _vec_a <<< "$_data_a"; read -ra _vec_b <<< "$_data_b"
 		local i
-		for ((i = 0; i < ${#va[@]}; i++)); do
-				r+=($(echo "${_vec_a[$i]} + ${_vec_b[$i]}" | bc -l 2>/dev/null || pfloat::fixed::add "${_vec_a[$i]}" "${_vec_b[$i]}"))
+		for ((i = 0; i < ${#_vec_a[@]}; i++)); do
+				_result+=($(echo "${_vec_a[$i]} + ${_vec_b[$i]}" | bc -l 2>/dev/null || pfloat::fixed::add "${_vec_a[$i]}" "${_vec_b[$i]}"))
 		done
-		echo "shape $(_math::tensor_shape_dims "$1"): ${r[*]}"
+		echo "shape $(_math::tensor_shape_dims "$1"): ${_result[*]}"
 }
 
 math::tensor::sub() {
@@ -2709,10 +2709,10 @@ math::tensor::sub() {
 		_data_a=$(_math::tensor_data "$1"); _data_b=$(_math::tensor_data "$2")
 		local -a _vec_a _vec_b _result; read -ra _vec_a <<< "$_data_a"; read -ra _vec_b <<< "$_data_b"
 		local i
-		for ((i = 0; i < ${#va[@]}; i++)); do
-				r+=($(echo "${_vec_a[$i]} - ${_vec_b[$i]}" | bc -l 2>/dev/null || pfloat::fixed::sub "${_vec_a[$i]}" "${_vec_b[$i]}"))
+		for ((i = 0; i < ${#_vec_a[@]}; i++)); do
+				_result+=($(echo "${_vec_a[$i]} - ${_vec_b[$i]}" | bc -l 2>/dev/null || pfloat::fixed::sub "${_vec_a[$i]}" "${_vec_b[$i]}"))
 		done
-		echo "shape $(_math::tensor_shape_dims "$1"): ${r[*]}"
+		echo "shape $(_math::tensor_shape_dims "$1"): ${_result[*]}"
 }
 
 math::tensor::mul() {
@@ -2720,10 +2720,10 @@ math::tensor::mul() {
 		_data_a=$(_math::tensor_data "$1"); _data_b=$(_math::tensor_data "$2")
 		local -a _vec_a _vec_b _result; read -ra _vec_a <<< "$_data_a"; read -ra _vec_b <<< "$_data_b"
 		local i
-		for ((i = 0; i < ${#va[@]}; i++)); do
-				r+=($(echo "${_vec_a[$i]} * ${_vec_b[$i]}" | bc -l 2>/dev/null || pfloat::fixed::mul "${_vec_a[$i]}" "${_vec_b[$i]}"))
+		for ((i = 0; i < ${#_vec_a[@]}; i++)); do
+				_result+=($(echo "${_vec_a[$i]} * ${_vec_b[$i]}" | bc -l 2>/dev/null || pfloat::fixed::mul "${_vec_a[$i]}" "${_vec_b[$i]}"))
 		done
-		echo "shape $(_math::tensor_shape_dims "$1"): ${r[*]}"
+		echo "shape $(_math::tensor_shape_dims "$1"): ${_result[*]}"
 }
 
 math::tensor::scale() {
@@ -2738,26 +2738,26 @@ math::tensor::scale() {
 
 math::tensor::dot() {
 		local _data_a _data_b; _data_a=$(_math::tensor_data "$1"); _data_b=$(_math::tensor_data "$2")
-		local -a va vb; read -ra _vec_a <<< "$_data_a"; read -ra _vec_b <<< "$_data_b"
+		local -a _vec_a _vec_b; read -ra _vec_a <<< "$_data_a"; read -ra _vec_b <<< "$_data_b"
 		local i sum=0
-		for ((i = 0; i < ${#va[@]}; i++)); do
+		for ((i = 0; i < ${#_vec_a[@]}; i++)); do
 				sum=$(echo "$sum + ${_vec_a[$i]} * ${_vec_b[$i]}" | bc -l 2>/dev/null || { local p; p=$(pfloat::fixed::mul "${_vec_a[$i]}" "${_vec_b[$i]}"); pfloat::fixed::add "$sum" "$p"; })
 		done
 		echo "$sum"
 }
 
 math::tensor::matmul() {
-		local sa sb da db
+		local _data_a _data_b sa sb
 		sa=$(_math::tensor_shape_dims "$1"); sb=$(_math::tensor_shape_dims "$2")
 		_data_a=$(_math::tensor_data "$1"); _data_b=$(_math::tensor_data "$2")
 		local -a ad bd av bv
 		read -ra ad <<< "$sa"; read -ra bd <<< "$sb"
-		read -ra av <<< "$da"; read -ra bv <<< "$db"
+		read -ra av <<< "$_data_a"; read -ra bv <<< "$_data_b"
 		local _M_matrix=${ad[0]} K=${ad[-1]} N=${bd[-1]}
 		local bc_scr; bc_scr=$(mktemp "/tmp/fsbshf-tmm.XXXXXX")
 		echo "scale=10" > "$bc_scr"
 		local i j k
-		for ((i = 0; i < M; i++)); do
+		for ((i = 0; i < _M_matrix; i++)); do
 				for ((j = 0; j < N; j++)); do
 						printf "0" >> "$bc_scr"
 						for ((k = 0; k < K; k++)); do
@@ -2769,7 +2769,7 @@ math::tensor::matmul() {
 		local -a r
 		while IFS= read -r val; do r+=("$val"); done < <(bc -l "$bc_scr" 2>/dev/null)
 		rm -f "$bc_scr"
-		echo "shape $M $N: ${r[*]}"
+		echo "shape $_M_matrix $N: ${r[*]}"
 }
 
 math::tensor::transpose() {
