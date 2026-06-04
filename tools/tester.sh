@@ -3128,7 +3128,7 @@ test::kernel::cmdline::get()         { if [[ -n "$(kernel::cmdline::get root)" ]
 test::kernel::compression()          { if [[ -n "$(kernel::compression)" ]]; then _pass; else _fail; fi; }
 test::kernel::tainted()              { if [[ "$(kernel::tainted)" == "clean" ]]; then _pass; else _fail; fi; }
 test::kernel::security::lockdown()   { if [[ -n "$(kernel::security::lockdown)" ]]; then _pass; else _fail; fi; }
-test::kernel::security::is_locked()  { "$FUNCNAME"; local r=$?; [[ $r -eq 0 || $r -eq 1 ]] && _pass || _fail; }
+test::kernel::security::is_locked()  { kernel::security::is_locked; local r=$?; [[ $r -eq 0 || $r -eq 1 ]] && _pass || _fail; }
 test::kernel::security::lsm()        { if [[ -n "$(kernel::security::lsm)" ]]; then _pass; else _fail; fi; }
 test::kernel::security::dmesg_restrict::get()  { if [[ -n "$(kernel::security::dmesg_restrict::get)" ]]; then _pass; else _fail; fi; }
 test::kernel::security::kptr_restrict::get()   { if [[ -n "$(kernel::security::kptr_restrict::get)" ]]; then _pass; else _fail; fi; }
@@ -3136,7 +3136,13 @@ test::kernel::security::aslr::get()            { if [[ -n "$(kernel::security::a
 test::kernel::security::perf_paranoid::get()   { if [[ -n "$(kernel::security::perf_paranoid::get)" ]]; then _pass; else _fail; fi; }
 test::kernel::modules::list()        { if [[ -n "$(kernel::modules::list)" ]]; then _pass; else _fail; fi; }
 test::kernel::modules::count()       { if [[ -n "$(kernel::modules::count)" ]]; then _pass; else _fail; fi; }
-test::kernel::modules::is_loaded()   { kernel::modules::is_loaded ext4 && _pass || _fail; }
+test::kernel::modules::is_loaded()   {
+	[[ -r /proc/modules ]] || { _skip "cannot read /proc/modules"; return; }
+	local _loaded
+	_loaded=$(awk '{print $1}' /proc/modules | head -1)
+	[[ -n "$_loaded" ]] || { _skip "/proc/modules is empty"; return; }
+	if kernel::modules::is_loaded "$_loaded"; then _pass; else _fail; fi
+}
 test::kernel::modules::size()        { if [[ -n "$(kernel::modules::size)" ]]; then _pass; else _fail; fi; }
 test::kernel::mm::ksm::status()      { if [[ "$(kernel::mm::ksm::status)" == *"run="* ]]; then _pass; else _fail; fi; }
 test::kernel::mm::ksm::run::get()    { if [[ -n "$(kernel::mm::ksm::run::get)" ]]; then _pass; else _fail; fi; }
@@ -3155,11 +3161,11 @@ test::kernel::power::mem_sleep::get(){ if [[ -n "$(kernel::power::mem_sleep::get
 test::kernel::power::pm_async::get() { if [[ -n "$(kernel::power::pm_async::get)" ]]; then _pass; else _fail; fi; }
 test::kernel::power::sync_on_suspend::get() { if [[ -n "$(kernel::power::sync_on_suspend::get)" ]]; then _pass; else _fail; fi; }
 test::kernel::power::suspend_stats() { if [[ "$(kernel::power::suspend_stats)" == *"success="* ]]; then _pass; else _fail; fi; }
-test::kernel::kexec::loaded()        { "$FUNCNAME"; local r=$?; [[ $r -eq 0 || $r -eq 1 ]] && _pass || _fail; }
-test::kernel::kexec::crash::loaded() { "$FUNCNAME"; local r=$?; [[ $r -eq 0 || $r -eq 1 ]] && _pass || _fail; }
+test::kernel::kexec::loaded()        { kernel::kexec::loaded; local r=$?; [[ $r -eq 0 || $r -eq 1 ]] && _pass || _fail; }
+test::kernel::kexec::crash::loaded() { kernel::kexec::crash::loaded; local r=$?; [[ $r -eq 0 || $r -eq 1 ]] && _pass || _fail; }
 test::kernel::reboot::mode()         { if [[ -n "$(kernel::reboot::mode)" ]]; then _pass; else _fail; fi; }
 test::kernel::reboot::type()         { if [[ -n "$(kernel::reboot::type)" ]]; then _pass; else _fail; fi; }
-test::kernel::sched::ext::is_active(){ "$FUNCNAME"; local r=$?; [[ $r -eq 0 || $r -eq 1 ]] && _pass || _fail; }
+test::kernel::sched::ext::is_active(){ kernel::sched::ext::is_active; local r=$?; [[ $r -eq 0 || $r -eq 1 ]] && _pass || _fail; }
 test::kernel::cgroup::features()     { if [[ -n "$(kernel::cgroup::features)" ]]; then _pass; else _fail; fi; }
 test::kernel::cgroup::delegate()     { if [[ -n "$(kernel::cgroup::delegate)" ]]; then _pass; else _fail; fi; }
 test::kernel::cgroup::stat()         { if [[ "$(kernel::cgroup::stat)" == *"descendants="* ]]; then _pass; else _fail; fi; }
@@ -3168,8 +3174,14 @@ test::kernel::cgroup::cpu_pressure() { if [[ -n "$(kernel::cgroup::cpu_pressure)
 test::kernel::cgroup::memory_stat()  { if [[ -n "$(kernel::cgroup::memory_stat)" ]]; then _pass; else _fail; fi; }
 test::kernel::cgroup::io_stat()      { if [[ -n "$(kernel::cgroup::io_stat)" ]]; then _pass; else _fail; fi; }
 test::kernel::cgroup::io_pressure()  { if [[ -n "$(kernel::cgroup::io_pressure)" ]]; then _pass; else _fail; fi; }
-test::kernel::syslog::last()         { if [[ -n "$(kernel::syslog::last 5)" ]]; then _pass; else _fail; fi; }
-test::kernel::syslog::errors()       { kernel::syslog::errors >/dev/null 2>&1 && _pass || _fail; }
+test::kernel::syslog::last()         {
+	dmesg >/dev/null 2>&1 || { _skip "dmesg is restricted (kernel.dmesg_restrict)"; return; }
+	if [[ -n "$(kernel::syslog::last 5)" ]]; then _pass; else _fail; fi
+}
+test::kernel::syslog::errors()       {
+	dmesg >/dev/null 2>&1 || { _skip "dmesg is restricted (kernel.dmesg_restrict)"; return; }
+	kernel::syslog::errors >/dev/null 2>&1 && _pass || _fail
+}
 test::kernel::syslog::level()        { if [[ -n "$(kernel::syslog::level)" ]]; then _pass; else _fail; fi; }
 test::kernel::sysrq::enabled()       { if [[ -n "$(kernel::sysrq::enabled)" ]]; then _pass; else _fail; fi; }
 test::kernel::vmstat::pgfault()      { if [[ -n "$(kernel::vmstat::pgfault)" ]]; then _pass; else _fail; fi; }
@@ -3379,7 +3391,7 @@ test::media::image::info() {
 	if [[ "$_info" == *"width=1"* && "$_info" == *"height=1"* ]]; then _pass; else _fail "info missing dimensions: $_info"; fi
 }
 
-test::media::bmp::width() {
+test::media::image::width() {
 	local _f="/tmp/test_media_$$.bmp"
 	_media::_test::create_bmp "$_f"
 	local _w
@@ -3388,7 +3400,7 @@ test::media::bmp::width() {
 	if [[ "$_w" == "1" ]]; then _pass; else _fail "expected 1, got $_w"; fi
 }
 
-test::media::bmp::depth() {
+test::media::image::depth() {
 	local _f="/tmp/test_media_$$.bmp"
 	_media::_test::create_bmp "$_f"
 	local _d
@@ -3399,7 +3411,7 @@ test::media::bmp::depth() {
 
 # --- Audio ---
 
-test::media::wav::sample_rate() {
+test::media::audio::sample_rate() {
 	local _f="/tmp/test_media_$$.wav"
 	_media::_test::create_wav "$_f"
 	local _rate
@@ -3408,7 +3420,7 @@ test::media::wav::sample_rate() {
 	if [[ "$_rate" == "8000" ]]; then _pass; else _fail "expected 8000, got $_rate"; fi
 }
 
-test::media::wav::channels() {
+test::media::audio::channels() {
 	local _f="/tmp/test_media_$$.wav"
 	_media::_test::create_wav "$_f"
 	local _ch
@@ -3417,7 +3429,7 @@ test::media::wav::channels() {
 	if [[ "$_ch" == "1" ]]; then _pass; else _fail "expected 1, got $_ch"; fi
 }
 
-test::media::wav::bits() {
+test::media::audio::bits() {
 	local _f="/tmp/test_media_$$.wav"
 	_media::_test::create_wav "$_f"
 	local _bits

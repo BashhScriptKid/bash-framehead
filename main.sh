@@ -1036,19 +1036,19 @@ tester() {
             done
         else
             # Live-source the extension
+            # Snapshot BEFORE sourcing the extension + test file so
+            # _delta captures every public function the extension
+            # defined, not just those matching the extension name's
+            # namespace (extensions may export helpers under related
+            # prefixes, e.g. ext/sqlite also exports draft::* and
+            # snapshot::*).
+            mapfile -t SNAP_PRE < <(declare -F | awk '{print $3}')
             if ! source "$_ext_mod" >/dev/null 2>&1; then
                 echo "--- ext/$_ext_name ---"
                 echo "  skip: extension failed to load"
                 echo ""
                 continue
             fi
-            # Collect extension API functions before loading tests
-            while IFS= read -r _fn; do
-                [[ "$_fn" =~ ^${_ext_name}:: ]] || continue
-                [[ "$_fn" =~ ^_ ]] && continue
-                EXT_API+=("$_fn")
-            done < <(declare -F | awk '{print $3}')
-            mapfile -t SNAP_PRE < <(declare -F | awk '{print $3}')
             source "$_ext_test"
             local -a EXT_NEW=()
             _delta SNAP_PRE EXT_NEW

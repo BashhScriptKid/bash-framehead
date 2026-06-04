@@ -14,18 +14,6 @@ _create_test_png() {
 	printf '\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x01\x00\x00\x00\x01\x08\x02\x00\x00\x00\x90wS\xde\x00\x00\x00\x0cIDATx\x9cc\xf8\x0f\x00\x00\x01\x01\x00\x05\x18\xd8N\x00\x00\x00\x00IEND\xaeB`\x82' > "$_file"
 }
 
-_create_test_bmp() {
-	# Minimal 1x1 24-bit BMP
-	local _file="${1:-/tmp/test_media.bmp}"
-	printf 'BM\x36\x00\x00\x00\x00\x00\x00\x00\x36\x00\x00\x00\x28\x00\x00\x00\x01\x00\x00\x00\x01\x00\x00\x00\x18\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\xff\x00\x00\x00\x00' > "$_file"
-}
-
-_create_test_wav() {
-	# Minimal 1-channel 8-bit 8000Hz WAV
-	local _file="${1:-/tmp/test_media.wav}"
-	printf 'RIFF$\x00\x00\x00WAVEfmt \x10\x00\x00\x00\x01\x00\x01\x00\x40\x1f\x00\x00\x40\x1f\x00\x00\x01\x00\x08\x00data\x00\x00\x00\x00' > "$_file"
-}
-
 # --- Tests ---
 
 test::media::type() {
@@ -89,40 +77,4 @@ test::media::image::info() {
 	_info=$(media::image::info "$_f")
 	rm -f "$_f"
 	[[ "$_info" == *"width=1"* ]] && _pass || _fail "info missing width"
-}
-
-test::media::bmp::width() {
-	local _f="/tmp/test_media_$$.bmp"
-	_create_test_bmp "$_f"
-	local _w
-	_w=$(media::image::width "$_f")
-	rm -f "$_f"
-	[[ "$_w" == "1" ]] && _pass || _fail "expected 1, got $_w"
-}
-
-test::media::wav::sample_rate() {
-	local _f="/tmp/test_media_$$.wav"
-	_create_test_wav "$_f"
-	local _rate
-	_rate=$(media::audio::sample_rate "$_f")
-	rm -f "$_f"
-	[[ "$_rate" == "8000" ]] && _pass || _fail "expected 8000, got $_rate"
-}
-
-test::media::wav::channels() {
-	local _f="/tmp/test_media_$$.wav"
-	_create_test_wav "$_f"
-	local _ch
-	_ch=$(media::audio::channels "$_f")
-	rm -f "$_f"
-	[[ "$_ch" == "1" ]] && _pass || _fail "expected 1, got $_ch"
-}
-
-test::media::wav::bits() {
-	local _f="/tmp/test_media_$$.wav"
-	_create_test_wav "$_f"
-	local _bits
-	_bits=$(media::audio::bits "$_f")
-	rm -f "$_f"
-	[[ "$_bits" == "8" ]] && _pass || _fail "expected 8, got $_bits"
 }

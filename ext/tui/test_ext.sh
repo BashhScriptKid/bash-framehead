@@ -24,21 +24,26 @@ test::tui::backend() {
 # tui::storage (testable without terminal)
 # ==============================================================================
 
-test::tui::storage::set_get() {
+test::tui::storage::set() {
 	local -A _ctx
 	tui::storage::set _ctx "device" "/dev/event7"
 	local _val
 	_val=$(tui::storage::get _ctx "device")
-	[[ "$_val" == "/dev/event7" ]] && _pass || _fail
-}
+	if [[ "$_val" == "/dev/event7" ]]; then _sub_pass "set+get roundtrip"; else _sub_fail "set+get roundtrip" "/dev/event7" "$_val"; fi
 
-test::tui::storage::overwrite() {
-	local -A _ctx
 	tui::storage::set _ctx "key" "val1"
 	tui::storage::set _ctx "key" "val2"
-	local _val
 	_val=$(tui::storage::get _ctx "key")
-	[[ "$_val" == "val2" ]] && _pass || _fail
+	if [[ "$_val" == "val2" ]]; then _sub_pass "set overwrites"; else _sub_fail "set overwrites" "val2" "$_val"; fi
+	_sub_done
+}
+
+test::tui::storage::get() {
+	local -A _ctx
+	local _val
+	_val=$(tui::storage::get _ctx "nonexistent")
+	if [[ -z "$_val" ]]; then _sub_pass "get on empty"; else _sub_fail "get on empty" "" "$_val"; fi
+	_sub_done
 }
 
 test::tui::storage::unset() {
@@ -66,13 +71,6 @@ test::tui::storage::dump() {
 	local _dump
 	_dump=$(tui::storage::dump _ctx | sort | tr '\n' ',')
 	[[ "$_dump" == "x=10,y=20," ]] && _pass || _fail
-}
-
-test::tui::storage::empty() {
-	local -A _ctx
-	local _val
-	_val=$(tui::storage::get _ctx "nonexistent")
-	[[ -z "$_val" ]] && _pass || _fail
 }
 
 # ==============================================================================
