@@ -913,6 +913,68 @@ test::pfloat::fixed::sigmoid()  { if [[ "$(pfloat::fixed::sigmoid 0)" == "0.5" ]
 test::pfloat::fixed::softplus() { if [[ -n "$(pfloat::fixed::softplus 1.0)" ]]; then _pass; else _fail; fi; }
 test::pfloat::fixed::cbrt()     { if [[ "$(pfloat::fixed::cbrt 8.0)" == "2" ]]; then _pass; else _fail; fi; }
 
+# --- pfloat fixed-point scale conversions ---
+test::pfloat::fixed::to_scaled() {
+	local _r; _r=$(pfloat::fixed::to_scaled 1.5)
+	[[ -n "$_r" && "$_r" != "1.5" ]] && _pass || _fail
+}
+test::pfloat::fixed::from_scaled() {
+	local _s; _s=$(pfloat::fixed::to_scaled 1.5)
+	local _r; _r=$(pfloat::fixed::from_scaled "$_s")
+	[[ "$_r" == "1.5" ]] && _pass || _fail "expected 1.5, got $_r"
+}
+test::pfloat::fixed::to_scaled::fast() {
+	local _r; pfloat::fixed::to_scaled::fast 1.5 _r
+	[[ -n "$_r" && "$_r" != "1.5" ]] && _pass || _fail
+}
+test::pfloat::fixed::from_scaled::fast() {
+	local _s _r; pfloat::fixed::to_scaled::fast 1.5 _s
+	pfloat::fixed::from_scaled::fast "$_s" _r
+	[[ "$_r" == "1.5" ]] && _pass || _fail "expected 1.5, got $_r"
+}
+
+# --- pfloat ::fast (nameref output, no subshells) ---
+test::pfloat::fixed::add::fast()      { local _r; pfloat::fixed::add::fast      1.5 2.5 _r; [[ "$_r" == "4"    ]] && _pass || _fail; }
+test::pfloat::fixed::sub::fast()      { local _r; pfloat::fixed::sub::fast      5.0 2.5 _r; [[ "$_r" == "2.5"  ]] && _pass || _fail; }
+test::pfloat::fixed::mul::fast()      { local _r; pfloat::fixed::mul::fast      2.0 3.0 _r; [[ "$_r" == "6"    ]] && _pass || _fail; }
+test::pfloat::fixed::div::fast()      { local _r; pfloat::fixed::div::fast      6.0 2.0 _r; [[ "$_r" == "3"    ]] && _pass || _fail; }
+test::pfloat::fixed::mod::fast()      { local _r; pfloat::fixed::mod::fast      7.5 2.0 _r; [[ "$_r" == "1.5"  ]] && _pass || _fail; }
+test::pfloat::fixed::neg::fast()      { local _r; pfloat::fixed::neg::fast      3.5    _r; [[ "$_r" == "-3.5" ]] && _pass || _fail; }
+test::pfloat::fixed::abs::fast()      { local _r; pfloat::fixed::abs::fast     -3.5    _r; [[ "$_r" == "3.5"  ]] && _pass || _fail; }
+test::pfloat::fixed::floor::fast()    { local _r; pfloat::fixed::floor::fast    3.7    _r; [[ "$_r" == "3"    ]] && _pass || _fail; }
+test::pfloat::fixed::ceil::fast()     { local _r; pfloat::fixed::ceil::fast     3.2    _r; [[ "$_r" == "4"    ]] && _pass || _fail; }
+test::pfloat::fixed::round::fast()    { local _r; pfloat::fixed::round::fast    3.6    _r; [[ "$_r" == "4"    ]] && _pass || _fail; }
+test::pfloat::fixed::trunc::fast()    { local _r; pfloat::fixed::trunc::fast    3.9    _r; [[ "$_r" == "3"    ]] && _pass || _fail; }
+test::pfloat::fixed::min::fast()      { local _r; pfloat::fixed::min::fast      3.0 1.0 _r; [[ "$_r" == "1"    ]] && _pass || _fail; }
+test::pfloat::fixed::max::fast()      { local _r; pfloat::fixed::max::fast      1.0 3.0 _r; [[ "$_r" == "3"    ]] && _pass || _fail; }
+test::pfloat::fixed::sqr::fast()      { local _r; pfloat::fixed::sqr::fast      3.0    _r; [[ "$_r" == "9"    ]] && _pass || _fail; }
+test::pfloat::fixed::pow::fast()      { local _r; pfloat::fixed::pow::fast      2   3 _r; [[ "$_r" == "8"    ]] && _pass || _fail; }
+test::pfloat::fixed::recip::fast()    { local _r; pfloat::fixed::recip::fast    2.0    _r; [[ "$_r" == "0.5"  ]] && _pass || _fail; }
+
+# pfloat:: (back-compat) ::fast wrappers
+test::pfloat::add::fast()             { local _r; pfloat::add::fast      1.5 2.5 _r; [[ "$_r" == "4"    ]] && _pass || _fail; }
+test::pfloat::sub::fast()             { local _r; pfloat::sub::fast      5.0 2.5 _r; [[ "$_r" == "2.5"  ]] && _pass || _fail; }
+test::pfloat::mul::fast()             { local _r; pfloat::mul::fast      2.0 3.0 _r; [[ "$_r" == "6"    ]] && _pass || _fail; }
+test::pfloat::div::fast()             { local _r; pfloat::div::fast      6.0 2.0 _r; [[ "$_r" == "3"    ]] && _pass || _fail; }
+test::pfloat::mod::fast()             { local _r; pfloat::mod::fast      7.5 2.0 _r; [[ "$_r" == "1.5"  ]] && _pass || _fail; }
+test::pfloat::neg::fast()             { local _r; pfloat::neg::fast      3.5    _r; [[ "$_r" == "-3.5" ]] && _pass || _fail; }
+test::pfloat::abs::fast()             { local _r; pfloat::abs::fast     -3.5    _r; [[ "$_r" == "3.5"  ]] && _pass || _fail; }
+test::pfloat::floor::fast()           { local _r; pfloat::floor::fast    3.7    _r; [[ "$_r" == "3"    ]] && _pass || _fail; }
+test::pfloat::ceil::fast()            { local _r; pfloat::ceil::fast     3.2    _r; [[ "$_r" == "4"    ]] && _pass || _fail; }
+test::pfloat::round::fast()           { local _r; pfloat::round::fast    3.6    _r; [[ "$_r" == "4"    ]] && _pass || _fail; }
+test::pfloat::trunc::fast()           { local _r; pfloat::trunc::fast    3.9    _r; [[ "$_r" == "3"    ]] && _pass || _fail; }
+test::pfloat::min::fast()             { local _r; pfloat::min::fast      3.0 1.0 _r; [[ "$_r" == "1"    ]] && _pass || _fail; }
+test::pfloat::max::fast()             { local _r; pfloat::max::fast      1.0 3.0 _r; [[ "$_r" == "3"    ]] && _pass || _fail; }
+test::pfloat::sqr::fast()             { local _r; pfloat::sqr::fast      3.0    _r; [[ "$_r" == "9"    ]] && _pass || _fail; }
+test::pfloat::pow::fast()             { local _r; pfloat::pow::fast      2   3 _r; [[ "$_r" == "8"    ]] && _pass || _fail; }
+test::pfloat::recip::fast()           { local _r; pfloat::recip::fast    2.0    _r; [[ "$_r" == "0.5"  ]] && _pass || _fail; }
+test::pfloat::to_scaled::fast()       { local _r; pfloat::to_scaled::fast      1.5 _r; [[ -n "$_r" && "$_r" != "1.5" ]] && _pass || _fail; }
+test::pfloat::from_scaled::fast() {
+	local _s _r; pfloat::to_scaled::fast 1.5 _s
+	pfloat::from_scaled::fast "$_s" _r
+	[[ "$_r" == "1.5" ]] && _pass || _fail "expected 1.5, got $_r"
+}
+
 # IEEE 754 — dump / binary conversion / rounding
 test::pfloat::ieee754::dump() {
   local bits; bits=$(pfloat::ieee754::from_string "1.5")
@@ -2972,6 +3034,99 @@ test::binary::from_int() {
     _assert "neg 129"       "7fff" "$(binary::from_int -129 | od -An -tx1 | tr -d ' ')"
     _assert "needs sign"    "8000" "$(binary::from_int 128 | od -An -tx1 | tr -d ' ')"
     _sub_done
+}
+
+# --- binary::buffer (nameref-backed) ---
+_BB_TMP="/tmp/_binary_buffer_test_$$"
+test::binary::buffer::init() {
+    binary::buffer::init buf_init_a
+    if [[ "$(binary::buffer::length buf_init_a)" == "0" ]]; then _pass; else _fail; fi
+}
+test::binary::buffer::insert::raw() {
+    binary::buffer::init buf_ir
+    binary::buffer::insert::raw buf_ir 1 2 3
+    if [[ "$(binary::buffer::length buf_ir)" == "3" ]]; then _pass; else _fail; fi
+}
+test::binary::buffer::insert::hex() {
+    binary::buffer::init buf_ih
+    binary::buffer::insert::hex buf_ih "deadbeef"
+    local _r; _r=$(binary::buffer::peek buf_ih 0 4 hex)
+    if [[ "$_r" == "deadbeef" ]]; then _pass; else _fail "got $_r"; fi
+}
+test::binary::buffer::insert::uint() {
+    binary::buffer::init buf_iu
+    binary::buffer::insert::uint buf_iu 0x1234 2 le
+    local _r; _r=$(binary::buffer::peek buf_iu 0 2 hex)
+    if [[ "$_r" == "3412" ]]; then _pass; else _fail "got $_r"; fi
+}
+test::binary::buffer::insert::int() {
+    binary::buffer::init buf_ii
+    binary::buffer::insert::int buf_ii -1 1
+    local _r; _r=$(binary::buffer::peek buf_ii 0 1 hex)
+    if [[ "$_r" == "ff" ]]; then _pass; else _fail "got $_r"; fi
+}
+test::binary::buffer::insert() {
+    binary::buffer::init buf_ins
+    binary::buffer::insert buf_ins 1 1
+    local _r; _r=$(binary::buffer::peek buf_ins 0 1 hex)
+    if [[ "$_r" == "01" ]]; then _pass; else _fail "got $_r"; fi
+}
+test::binary::buffer::length() {
+    binary::buffer::init buf_len
+    binary::buffer::insert::raw buf_len 10 20 30
+    if [[ "$(binary::buffer::length buf_len)" == "3" ]]; then _pass; else _fail; fi
+}
+test::binary::buffer::read() {
+    binary::buffer::init buf_r
+    binary::buffer::insert::raw buf_r 1 2 3
+    if [[ "$(binary::buffer::read buf_r)" == "1 2 3" ]]; then _pass; else _fail; fi
+}
+test::binary::buffer::write() {
+    binary::buffer::init buf_w
+    binary::buffer::insert::hex buf_w "41"
+    local _r; _r=$(binary::buffer::write buf_w | od -An -tx1 | tr -d ' \n')
+    if [[ "$_r" == "41" ]]; then _pass; else _fail "got $_r"; fi
+}
+test::binary::buffer::concat() {
+    binary::buffer::init buf_ca
+    binary::buffer::init buf_cb
+    binary::buffer::insert::raw buf_ca 1 2
+    binary::buffer::insert::raw buf_cb 3 4
+    binary::buffer::concat buf_ca buf_cb
+    if [[ "$(binary::buffer::length buf_ca)" == "4" ]]; then _pass; else _fail; fi
+}
+test::binary::buffer::peek() {
+    binary::buffer::init buf_p
+    binary::buffer::insert::hex buf_p "deadbeef"
+    if [[ "$(binary::buffer::peek buf_p 1 2 hex)" == "adbe" ]]; then _pass; else _fail; fi
+}
+test::binary::buffer::shift::l() {
+    binary::buffer::init buf_sl
+    binary::buffer::insert::raw buf_sl 1 2 3 4
+    binary::buffer::shift::l buf_sl 2
+    if [[ "$(binary::buffer::read buf_sl)" == "3 4" ]]; then _pass; else _fail; fi
+}
+test::binary::buffer::shift::r() {
+    binary::buffer::init buf_sr
+    binary::buffer::insert::raw buf_sr 1 2 3 4
+    binary::buffer::shift::r buf_sr 2
+    if [[ "$(binary::buffer::read buf_sr)" == "1 2" ]]; then _pass; else _fail; fi
+}
+test::binary::buffer::serialised::save() {
+    binary::buffer::init buf_sv
+    binary::buffer::insert::hex buf_sv "c0ffee"
+    binary::buffer::serialised::save buf_sv "$_BB_TMP.sav"
+    local _r; _r=$(od -An -tx1 "$_BB_TMP.sav" | tr -d ' \n')
+    rm -f "$_BB_TMP.sav"
+    if [[ "$_r" == "c0ffee" ]]; then _pass; else _fail "got $_r"; fi
+}
+test::binary::buffer::serialised::load() {
+    printf '\xde\xad\xbe\xef' > "$_BB_TMP.ld"
+    binary::buffer::init buf_ld
+    binary::buffer::serialised::load buf_ld "$_BB_TMP.ld"
+    rm -f "$_BB_TMP.ld"
+    local _r; _r=$(binary::buffer::peek buf_ld 0 4 hex)
+    if [[ "$_r" == "deadbeef" ]]; then _pass; else _fail "got $_r"; fi
 }
 
 # ==============================================================================
