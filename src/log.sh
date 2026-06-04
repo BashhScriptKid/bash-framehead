@@ -76,14 +76,19 @@ _log::ensure_defaults() {
 # --- INIT ---
 
 # Populate a caller's _ctx from defaults, filling blank fields.
-# Usage: log::init _ctx
+# Falls back to just ensuring defaults are loaded when no _ctx is provided.
+# Usage: log::init [_ctx]
 log::init() {
-		local -n _lctx="$1"
-		_log::ensure_defaults
-		[[ -z "${_lctx[fmt]:-}" ]]         && _lctx[fmt]="${_LOG_CONFIG[fmt]}"
-		[[ -z "${_lctx[file]:-}" ]]        && _lctx[file]="${_LOG_CONFIG[file]}"
-		[[ -z "${_lctx[stdout_mask]:-}" ]] && _lctx[stdout_mask]="${_LOG_CONFIG[stdout_mask]}"
-		[[ -z "${_lctx[colour]+x}" ]]      && _lctx[colour]="${_LOG_CONFIG[colour]}"
+		if [[ $# -gt 0 ]] && declare -p "$1" 2>/dev/null | grep -q 'declare.*-A'; then
+				local -n _lctx="$1"
+				_log::ensure_defaults
+				[[ -z "${_lctx[fmt]:-}" ]]         && _lctx[fmt]="${_LOG_CONFIG[fmt]}"
+				[[ -z "${_lctx[file]:-}" ]]        && _lctx[file]="${_LOG_CONFIG[file]}"
+				[[ -z "${_lctx[stdout_mask]:-}" ]] && _lctx[stdout_mask]="${_LOG_CONFIG[stdout_mask]}"
+				[[ -z "${_lctx[colour]+x}" ]]      && _lctx[colour]="${_LOG_CONFIG[colour]}"
+		else
+				_log::ensure_defaults
+		fi
 }
 
 # --- INTERNAL ---
