@@ -575,3 +575,41 @@ test::sqlite::migrations::new() {
 	fi
 	rm -rf "$_migdir"
 }
+
+# ==============================================================================
+# query::fast — nameref-based result capture (subtests)
+# ==============================================================================
+
+test::sqlite::query::fast() {
+	local _db
+	_db=$(_sqlite_test::fresh_db)
+	local -a _rows
+
+	# 1. Single column, three rows in order
+	sqlite::query::fast "$_db" "SELECT name FROM u ORDER BY age;" _rows
+	_assert "row count"      "3"        "${#_rows[@]}"
+	_assert "first row"       "Bob"      "${_rows[0]}"
+	_assert "middle row"      "Alice"    "${_rows[1]}"
+	_assert "last row"        "Carol"    "${_rows[2]}"
+
+	# 2. Empty result populates empty array
+	sqlite::query::fast "$_db" "SELECT name FROM u WHERE age > 999;" _rows
+	_assert "empty result"   "0"        "${#_rows[@]}"
+
+	# 3. Multi-column rows are pipe-delimited, one element per row
+	sqlite::query::fast "$_db" "SELECT name, age FROM u WHERE name='Alice';" _rows
+	_assert "multi-col count" "1"       "${#_rows[@]}"
+	_assert "multi-col value" "Alice|30" "${_rows[0]}"
+
+	# 4. Filtered query with WHERE clause
+	sqlite::query::fast "$_db" "SELECT name FROM u WHERE age >= 30 ORDER BY age;" _rows
+	_assert "filter count"   "2"        "${#_rows[@]}"
+	_assert "filter first"   "Alice"    "${_rows[0]}"
+	_assert "filter second"  "Carol"    "${_rows[1]}"
+
+	# 5. COUNT(*) returns scalar in single element
+	sqlite::query::fast "$_db" "SELECT count(*) FROM u;" _rows
+	_assert "count value"    "3"        "${_rows[0]}"
+
+	_sub_done
+}
