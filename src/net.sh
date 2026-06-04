@@ -669,6 +669,200 @@ net::interface::mac() {
 
 
 
+# --- DNS CONTROL ---
+
+# Internal: find the active NM connection name for a device.
+# Echoes the connection name, or empty if no active connection on the device.
+_net::_dns_nm_conn() {
+		nmcli -t -f NAME,DEVICE connection show --active 2>/dev/null | \
+				awk -F: -v d="$1" '$2 == d {print $1; exit}'
+}
+
+# Replace all DNS servers on an interface.
+# nm: persistent; takes effect on next reconnect. <ifname> is the device
+#     name (e.g. wlo1); the active NM connection on that device is found
+#     automatically.
+# ip: immediate via systemd-resolved.
+# Usage: net::dns::set <server>... [ifname]
+#   If the last positional argument matches an existing interface, it is
+#   treated as the target device; otherwise the default-route device is
+#   used.
+net::dns::set() {
+		_net::require_backend || return 1
+		(($# == 0)) && { echo "net::dns::set: at least one server required" >&2; return 1; }
+
+		# Resolve ifname: explicit (last arg = real interface) or default route.
+		local ifname=""
+		local last="${!#}"
+		for d in /sys/class/net/*/; do
+				local name="${d%/}"; name="${name##*/}"
+				if [[ "$name" == "$last" ]]; then
+						ifname="$name"
+						break
+				fi
+		done
+
+		local -a servers=()
+		if [[ -n "$ifname" ]]; then
+				(($# >= 2)) && servers=("${@:1:$#-1}") || servers=()
+		else
+				servers=("$@")
+				ifname=$(ip route show default 2>/dev/null | awk '/default/ {print $5; exit}')
+				[[ -z "$ifname" ]] && { echo "net::dns::set: cannot determine interface; pass an ifname" >&2; return 1; }
+		fi
+
+		((${#servers[@]} == 0)) && { echo "net::dns::set: at least one server required" >&2; return 1; }
+
+		# Partition servers into IPv4 and IPv6 lists so the right nm field is set.
+		local -a v4=() v6=()
+		for s in "${servers[@]}"; do
+				if [[ "$s" == *:* ]]; then
+						v6+=("$s")
+				else
+						v4+=("$s")
+				fi
+		done
+
+		case "$_NET_BACKEND" in
+				nm)
+						local conn
+						conn=$(_net::_dns_nm_conn "$ifname")
+						if [[ -z "$conn" ]]; then
+								echo "net::dns::set: no active connection on $ifname" >&2
+								return 1
+						fi
+						((${#v4[@]} > 0)) && nmcli connection modify "$conn" \
+								ipv4.dns "${v4[*]}" ipv4.ignore-auto-dns yes
+						((${#v6[@]} > 0)) && nmcli connection modify "$conn" \
+								ipv6.dns "${v6[*]}" ipv6.ignore-auto-dns yes
+						echo "net::dns::set: takes effect on next reconnect" >&2
+						;;
+				ip)
+						resolvectl dns "$ifname" "${servers[@]}"
+						;;
+		esac
+}
+
+# Append a DNS server to the active set. Idempotent (skips duplicates).
+# nm: persistent; takes effect on next reconnect.
+# ip: immediate via systemd-resolved.
+# Usage: net::dns::add <server> [ifname]
+net::dns::add() {
+		_net::require_backend || return 1
+		local new_server="$1"; shift
+		[[ -z "$new_server" ]] && { echo "net::dns::add: server required" >&2; return 1; }
+
+		# Resolve ifname (same heuristic as set).
+		local ifname=""
+		if (($# > 0)); then
+				local last="$1"
+				for d in /sys/class/net/*/; do
+						local name="${d%/}"; name="${name##*/}"
+						if [[ "$name" == "$last" ]]; then
+								ifname="$name"
+								break
+						fi
+				done
+		fi
+		[[ -z "$ifname" ]] && ifname=$(ip route show default 2>/dev/null | awk '/default/ {print $5; exit}')
+		[[ -z "$ifname" ]] && { echo "net::dns::add: cannot determine interface" >&2; return 1; }
+
+		# Read current servers into an array.
+		local -a current=()
+		case "$_NET_BACKEND" in
+				nm)
+						local conn
+						conn=$(_net::_dns_nm_conn "$ifname")
+						if [[ -z "$conn" ]]; then
+								echo "net::dns::add: no active connection on $ifname" >&2
+								return 1
+						fi
+						local dns
+						dns=$(nmcli -t -f ipv4.dns connection show "$conn" 2>/dev/null | head -1)
+						[[ -n "$dns" ]] && IFS=',' read -ra current <<< "$dns"
+						;;
+				ip)
+						local line
+						line=$(resolvectl dns "$ifname" 2>/dev/null | \
+								awk '/^[[:space:]]*DNS[[:space:]]+Servers:[[:space:]]*/ {sub(/^[^:]*:[[:space:]]*/,""); print; exit}')
+						[[ -n "$line" ]] && read -ra current <<< "$line"
+						;;
+		esac
+
+		# Append new server if not already present.
+		local already=0
+		for s in "${current[@]}"; do
+				[[ "$s" == "$new_server" ]] && already=1
+		done
+		(( already )) || current+=("$new_server")
+
+		# Delegate to set with the merged list and explicit ifname.
+		net::dns::set "${current[@]}" "$ifname"
+}
+
+# Flush DNS caches.
+# Works through whichever DNS cache is in use (systemd-resolved, nscd, or
+# NM's own connection-DNS plumbing).
+# Usage: net::dns::flush
+net::dns::flush() {
+		_net::require_backend || return 1
+		case "$_NET_BACKEND" in
+				nm|ip)
+						# Both backends ultimately use systemd-resolved when present
+						# (NM resolves via it under systemd), and resolvectl flush-caches
+						# is the canonical flush on modern systems.
+						if runtime::has_command resolvectl; then
+								resolvectl flush-caches
+						elif runtime::has_command nscd; then
+								nscd -i hosts
+						else
+								echo "net::dns::flush: no cache backend found (resolvectl/nscd)" >&2
+								return 1
+						fi
+						;;
+		esac
+}
+
+# Reset DNS to DHCP-controlled (remove manual servers, allow auto-DNS).
+# nm: persistent; takes effect on next reconnect.
+# ip: reverts to per-link default config via systemd-resolved.
+# Usage: net::dns::reset [ifname]
+net::dns::reset() {
+		_net::require_backend || return 1
+		local ifname=""
+		if (($# > 0)); then
+				local last="$1"
+				for d in /sys/class/net/*/; do
+						local name="${d%/}"; name="${name##*/}"
+						if [[ "$name" == "$last" ]]; then
+								ifname="$name"
+								break
+						fi
+				done
+		fi
+		[[ -z "$ifname" ]] && ifname=$(ip route show default 2>/dev/null | awk '/default/ {print $5; exit}')
+		[[ -z "$ifname" ]] && { echo "net::dns::reset: cannot determine interface" >&2; return 1; }
+
+		case "$_NET_BACKEND" in
+				nm)
+						local conn
+						conn=$(_net::_dns_nm_conn "$ifname")
+						if [[ -z "$conn" ]]; then
+								echo "net::dns::reset: no active connection on $ifname" >&2
+								return 1
+						fi
+						nmcli connection modify "$conn" \
+								ipv4.dns "" ipv4.ignore-auto-dns no \
+								ipv6.dns "" ipv6.ignore-auto-dns no
+						echo "net::dns::reset: takes effect on next reconnect" >&2
+						;;
+				ip)
+						resolvectl revert "$ifname"
+						;;
+		esac
+}
+
+
 # --- FETCH / DOWNLOAD ---
 
 # Fetch URL contents — curl/wget with fallback
