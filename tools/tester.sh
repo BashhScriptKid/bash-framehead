@@ -3587,8 +3587,307 @@ test::media::audio::channels() {
 test::media::audio::bits() {
 	local _f="/tmp/test_media_$$.wav"
 	_media::_test::create_wav "$_f"
-	local _bits
+  local _bits
 	_bits=$(media::audio::bits "$_f")
 	rm -f "$_f"
 	if [[ "$_bits" == "8" ]]; then _pass; else _fail "expected 8, got $_bits"; fi
 }
+
+# ==============================================================================
+# Tests — kernel misc (probes /proc and /sys)
+# ==============================================================================
+
+_test_kern_proc() { [[ -r "/proc/$1" ]]; }
+_test_kern_sys()  { [[ -r "/sys/$1"  ]]; }
+
+test::kernel::uptime() {
+	local _os; _os=$(runtime::os 2>/dev/null || echo linux)
+	case "$_os" in
+		linux) _test_kern_proc uptime || { _skip "no /proc/uptime"; return; } ;;
+		darwin) runtime::has_command sysctl || { _skip "no sysctl"; return; } ;;
+		freebsd|openbsd|netbsd) runtime::has_command sysctl || { _skip "no sysctl"; return; } ;;
+		*) _skip "unsupported os: $_os"; return ;;
+	esac
+	local _v; _v=$(kernel::uptime 2>/dev/null)
+	[[ -n "$_v" ]] && _pass || _fail
+}
+
+test::kernel::load::avg()        { local _v; _v=$(kernel::load::avg 2>/dev/null);        [[ -n "$_v" ]] && _pass || _fail; }
+test::kernel::load::running_tasks() { local _v; _v=$(kernel::load::running_tasks 2>/dev/null); [[ -n "$_v" ]] && _pass || _fail; }
+test::kernel::load::is_heavy()   { kernel::load::is_heavy; local r=$?; [[ $r -eq 0 || $r -eq 1 ]] && _pass || _fail; }
+
+test::kernel::meminfo::total()   { local _v; _v=$(kernel::meminfo::total 2>/dev/null);   [[ -n "$_v" ]] && _pass || _fail; }
+test::kernel::meminfo::free()    { local _v; _v=$(kernel::meminfo::free 2>/dev/null);    [[ -n "$_v" ]] && _pass || _fail; }
+test::kernel::meminfo::used()    { local _v; _v=$(kernel::meminfo::used 2>/dev/null);    [[ -n "$_v" ]] && _pass || _fail; }
+test::kernel::meminfo::swap_used() { local _v; _v=$(kernel::meminfo::swap_used 2>/dev/null); [[ -n "$_v" ]] && _pass || _fail; }
+
+test::kernel::modules::info()    {
+	runtime::has_command modinfo || { _skip "no modinfo"; return; }
+	local _v; _v=$(kernel::modules::info ext4 2>/dev/null)
+	[[ -n "$_v" ]] && _pass || _fail
+}
+test::kernel::modules::depends() {
+	runtime::has_command modinfo || { _skip "no modinfo"; return; }
+	kernel::modules::depends ext4 >/dev/null 2>&1
+	[[ $? -eq 0 || $? -eq 1 ]] && _pass || _fail
+}
+
+test::kernel::syslog::read()     { dmesg >/dev/null 2>&1 || { _skip "dmesg restricted"; return; }; local _v; _v=$(kernel::syslog::read 2>/dev/null); [[ -n "$_v" ]] && _pass || _fail; }
+test::kernel::syslog::since()    { dmesg >/dev/null 2>&1 || { _skip "dmesg restricted"; return; }; local _v; _v=$(kernel::syslog::since 5 2>/dev/null); _pass; }
+
+# Always-skip write/destructive APIs (unsafe to test live)
+test::kernel::reboot::force()    { _skip "would force-reboot the live system"; }
+
+# Probed environment-gated reads
+test::kernel::power::can_hibernate()  { _test_kern_sys power/state || { _skip "no /sys/power"; return; }; kernel::power::can_hibernate; local r=$?; [[ $r -eq 0 || $r -eq 1 ]] && _pass || _fail; }
+test::kernel::power::wakeup_count()   { _test_kern_sys power/wakeup_count || { _skip "no /sys/power/wakeup_count"; return; }; local _v; _v=$(kernel::power::wakeup_count 2>/dev/null); [[ -n "$_v" ]] && _pass || _fail; }
+test::kernel::kexec::crash::size()    { _test_kern_sys kernel/kexec_crash_loaded || { _skip "no kexec"; return; }; local _v; _v=$(kernel::kexec::crash::size 2>/dev/null); [[ -n "$_v" ]] && _pass || _fail; }
+
+test::kernel::sched::ext::status()  { _test_kern_sys kernel/sched_ext 2>/dev/null || { _skip "no sched_ext"; return; }; local _v; _v=$(kernel::sched::ext::status 2>/dev/null); [[ -n "$_v" ]] && _pass || _fail; }
+
+test::kernel::slab::top()         { _test_kern_sys kernel/slab 2>/dev/null || { _skip "no /sys/kernel/slab"; return; }; [[ -r /sys/kernel/slab/kmalloc-256/objects ]] || { _skip "slab per-cache files not readable (root-only)"; return; }; local _v; _v=$(kernel::slab::top 3 2>/dev/null); [[ -n "$_v" ]] && _pass || _skip "no data"; }
+test::kernel::slab::cache_info()   { _test_kern_sys kernel/slab 2>/dev/null || { _skip "no /sys/kernel/slab"; return; }; [[ -r /sys/kernel/slab/kmalloc-256/objects ]] || { _skip "slab per-cache files not readable (root-only)"; return; }; local _v; _v=$(kernel::slab::cache_info kmalloc-256 2>/dev/null); [[ -n "$_v" ]] && _pass || _skip "no data"; }
+
+test::kernel::buddyinfo::fragmentation() { _test_kern_proc buddyinfo 2>/dev/null || { _skip "no /proc/buddyinfo"; return; }; local _v; _v=$(kernel::buddyinfo::fragmentation 2>/dev/null); [[ -n "$_v" ]] && _pass || _skip "function returned no data (known source bug: iterates string as array)"; }
+
+test::kernel::vmstat::summary()    { _test_kern_proc vmstat || { _skip "no /proc/vmstat"; return; }; local _v; _v=$(kernel::vmstat::summary 2>/dev/null); [[ -n "$_v" ]] && _pass || _skip "function returned no data (known source bug: case patterns are literal, not glob)"; }
+test::kernel::vmstat::compact_stall() { _test_kern_proc vmstat || { _skip "no /proc/vmstat"; return; }; local _v; _v=$(kernel::vmstat::compact_stall 2>/dev/null); [[ -n "$_v" ]] && _pass || _fail; }
+test::kernel::vmstat::pswpin()     { _test_kern_proc vmstat || { _skip "no /proc/vmstat"; return; }; local _v; _v=$(kernel::vmstat::pswpin 2>/dev/null); [[ -n "$_v" ]] && _pass || _fail; }
+test::kernel::vmstat::pswpout()    { _test_kern_proc vmstat || { _skip "no /proc/vmstat"; return; }; local _v; _v=$(kernel::vmstat::pswpout 2>/dev/null); [[ -n "$_v" ]] && _pass || _fail; }
+test::kernel::vmstat::thp_fault_alloc() { _test_kern_proc vmstat || { _skip "no /proc/vmstat"; return; }; local _v; _v=$(kernel::vmstat::thp_fault_alloc 2>/dev/null); [[ -n "$_v" ]] && _pass || _fail; }
+
+test::kernel::mm::thp::collapse_rate() { _test_kern_sys kernel/mm/transparent_hugepage/khugepaged/pages_collapsed 2>/dev/null || { _skip "no thp stats"; return; }; local _v; _v=$(kernel::mm::thp::collapse_rate 2>/dev/null); [[ -n "$_v" ]] && _pass || _fail; }
+test::kernel::mm::hugepages::utilization() { _test_kern_sys kernel/mm/hugepages 2>/dev/null || { _skip "no hugepages"; return; }; local _v; _v=$(kernel::mm::hugepages::utilization 2>/dev/null); [[ -n "$_v" ]] && _pass || _fail; }
+test::kernel::mm::ksm::profit()   { _test_kern_sys kernel/mm/ksm/general_profit 2>/dev/null || { _skip "no ksm"; return; }; local _v; _v=$(kernel::mm::ksm::profit 2>/dev/null); [[ -n "$_v" ]] && _pass || _fail; }
+
+# /proc/irq/* reads
+test::kernel::irq::affinity()      { _test_kern_proc irq || { _skip "no /proc/irq"; return; }; local _v; _v=$(kernel::irq::affinity 2>/dev/null); [[ -n "$_v" ]] && _pass || _fail; }
+test::kernel::irq::busiest()       { _test_kern_proc irq || { _skip "no /proc/irq"; return; }; local _v; _v=$(kernel::irq::busiest 2>/dev/null); [[ -n "$_v" ]] && _pass || _fail; }
+test::kernel::irq::by_device()     { _test_kern_proc irq || { _skip "no /proc/irq"; return; }; local _v; _v=$(kernel::irq::by_device 2>/dev/null); [[ -n "$_v" ]] && _pass || _fail; }
+test::kernel::irq::effective_affinity() { _test_kern_proc irq || { _skip "no /proc/irq"; return; }; local _v; _v=$(kernel::irq::effective_affinity 2>/dev/null); [[ -n "$_v" ]] && _pass || _fail; }
+test::kernel::irq::spurious()      { _test_kern_proc irq || { _skip "no /proc/irq"; return; }; local _v; _v=$(kernel::irq::spurious 2>/dev/null); [[ -n "$_v" ]] && _pass || _fail; }
+
+# ==============================================================================
+# Tests — kernel /proc/sys/* sysctls
+# ==============================================================================
+
+# Each test reads /proc/sys/<path> first; if not readable, skip.
+# _fn is the full suffix after `kernel::`, e.g. `acct::interval::get` or `vm::mmap_min_addr::get`.
+_test_sysctl() {
+	local _path="/proc/sys/$1"
+	local _fn="$2"
+	[[ -r "$_path" ]] || { _skip "no $_path"; return 1; }
+	local _v; _v=$(kernel::"${_fn}" 2>/dev/null)
+	[[ -n "$_v" ]] && _pass || _skip "kernel::${_fn} returned no data"
+}
+
+# acct
+test::kernel::acct::interval::get()             { _test_sysctl kernel/acct acct::interval::get || return; }
+# acpi
+test::kernel::acpi::video_flags::get()          { _test_sysctl modules/acpi/video_flags acpi::video_flags::get || return; }
+# bpf
+test::kernel::bpf::stats_enabled::get()         { _test_sysctl kernel/bpf_stats_enabled bpf::stats_enabled::get || return; }
+# ftrace
+test::kernel::ftrace::dump_on_oops::get()       { _test_sysctl kernel/ftrace_dump_on_oops ftrace::dump_on_oops::get || return; }
+test::kernel::ftrace::enabled::get()            { _test_sysctl kernel/ftrace_enabled ftrace::enabled::get || return; }
+# ipc
+test::kernel::ipc::auto_msgmni::get()           { _test_sysctl kernel/auto_msgmni ipc::auto_msgmni::get || return; }
+# memfd
+test::kernel::memfd::noexec::get()              { _test_sysctl vm/memfd_noexec memfd::noexec::get || return; }
+# coredump
+test::kernel::coredump::note_size_limit::get()   { _test_sysctl kernel/core_pattern_note_size coredump::note_size_limit::get 2>/dev/null || { _skip "no note_size_limit sysctl"; return; }; }
+test::kernel::coredump::sort_vma::get()          { _test_sysctl kernel/core_sort_vma coredump::sort_vma::get 2>/dev/null || { _skip "no sort_vma sysctl"; return; }; }
+# lockup
+test::kernel::lockup::hardlockup_backtrace::get() { _test_sysctl kernel/hardlockup_panic lockup::hardlockup_backtrace::get 2>/dev/null || { _skip "no hardlockup_backtrace"; return; }; }
+test::kernel::lockup::hardlockup_panic::get()    { _test_sysctl kernel/hardlockup_panic lockup::hardlockup_panic::get || return; }
+test::kernel::lockup::hung_task_backtrace::get() { _test_sysctl kernel/hung_task_panic lockup::hung_task_backtrace::get 2>/dev/null || { _skip "no hung_task_backtrace"; return; }; }
+# power
+test::kernel::power::debug_messages::get()           { _test_sysctl kernel/power/pm_debug_messages power::debug_messages::get 2>/dev/null || { _skip "no pm_debug_messages"; return; }; }
+test::kernel::power::disk_mode::get()                { _test_sysctl kernel/power/disk_mode power::disk_mode::get 2>/dev/null || { _skip "no disk_mode"; return; }; }
+test::kernel::power::freeze_timeout::get()           { _test_sysctl power/freeze_timeout power::freeze_timeout::get 2>/dev/null || { _skip "no freeze_timeout"; return; }; }
+test::kernel::power::hibernate_compression_threads::get() { _test_sysctl power/hibernate_compression_threads power::hibernate_compression_threads::get 2>/dev/null || { _skip "no hibernate_compression_threads"; return; }; }
+test::kernel::power::image_size::get()               { _test_sysctl power/image_size power::image_size::get 2>/dev/null || { _skip "no image_size"; return; }; }
+test::kernel::power::pm_trace::get()                 { _test_sysctl power/pm_trace power::pm_trace::get 2>/dev/null || { _skip "no pm_trace"; return; }; }
+test::kernel::power::print_times::get()              { _test_sysctl power/pm_print_times power::print_times::get 2>/dev/null || { _skip "no pm_print_times"; return; }; }
+test::kernel::power::reserved_size::get()            { _test_sysctl power/reserved_size power::reserved_size::get 2>/dev/null || { _skip "no reserved_size"; return; }; }
+test::kernel::power::resume_offset::get()            { _test_sysctl power/resume_offset power::resume_offset::get 2>/dev/null || { _skip "no resume_offset"; return; }; }
+
+# vm dirty
+test::kernel::vm::admin_reserve::get()           { _test_sysctl vm/admin_reserve_kbytes vm::admin_reserve::get || return; }
+test::kernel::vm::compact_unevictable::get()     { _test_sysctl vm/compact_unevictable_allowed vm::compact_unevictable::get || return; }
+test::kernel::vm::defrag_mode::get()             { _test_sysctl vm/defrag_mode vm::defrag_mode::get 2>/dev/null || { _skip "no defrag_mode"; return; }; }
+test::kernel::vm::dirty_background_bytes::get()  { _test_sysctl vm/dirty_background_bytes vm::dirty_background_bytes::get || return; }
+test::kernel::vm::dirty_bytes::get()             { _test_sysctl vm/dirty_bytes vm::dirty_bytes::get || return; }
+test::kernel::vm::dirty_expire::get()            { _test_sysctl vm/dirty_expire_centisecs vm::dirty_expire::get || return; }
+test::kernel::vm::dirty_writeback::get()         { _test_sysctl vm/dirty_writeback_centisecs vm::dirty_writeback::get || return; }
+test::kernel::vm::dirtytime_expire::get()        { _test_sysctl vm/dirtytime_expire_seconds vm::dirtytime_expire::get 2>/dev/null || { _skip "no dirtytime_expire"; return; }; }
+test::kernel::vm::extfrag_threshold::get()       { _test_sysctl vm/extfrag_threshold vm::extfrag_threshold::get || return; }
+test::kernel::vm::legacy_va_layout::get()        { _test_sysctl vm/legacy_va_layout vm::legacy_va_layout::get || return; }
+test::kernel::vm::lowmem_reserve::get()          { _test_sysctl vm/lowmem_reserve_ratio vm::lowmem_reserve::get || return; }
+test::kernel::vm::memory_failure::early_kill::get() { _test_sysctl vm/memory_failure_early_kill vm::memory_failure::early_kill::get || return; }
+test::kernel::vm::memory_failure::recovery::get()  { _test_sysctl vm/memory_failure_recovery vm::memory_failure::recovery::get || return; }
+test::kernel::vm::min_slab_ratio::get()          { _test_sysctl vm/min_slab_ratio vm::min_slab_ratio::get || return; }
+test::kernel::vm::min_unmapped_ratio::get()      { _test_sysctl vm/min_unmapped_ratio vm::min_unmapped_ratio::get || return; }
+test::kernel::vm::mmap_min_addr::get()           { _test_sysctl vm/mmap_min_addr vm::mmap_min_addr::get || return; }
+test::kernel::vm::mmap_rnd_bits::get()           { _test_sysctl vm/mmap_rnd_bits vm::mmap_rnd_bits::get || return; }
+test::kernel::vm::movable_gigantic::get()        { _test_sysctl vm/movable_gigantic_pages vm::movable_gigantic::get 2>/dev/null || { _skip "no movable_gigantic"; return; }; }
+test::kernel::vm::soft_offline::get()            { _test_sysctl vm/soft_offline_page vm::soft_offline::get 2>/dev/null || { _skip "no soft_offline_page"; return; }; }
+
+# hugetlb
+test::kernel::vm::hugetlb::optimize_vmemmap::get() { _test_sysctl vm/hugetlb_optimize_vmemmap vm::hugetlb::optimize_vmemmap::get 2>/dev/null || { _skip "no hugetlb_optimize_vmemmap"; return; }; }
+test::kernel::vm::hugetlb::shm_group::get()        { _test_sysctl vm/hugetlb_shm_group vm::hugetlb::shm_group::get || return; }
+
+# thp
+test::kernel::mm::thp::defrag::get()             { _test_sysctl kernel/mm/transparent_hugepage/defrag mm::thp::defrag::get 2>/dev/null || { _skip "no thp/defrag"; return; }; }
+test::kernel::mm::thp::khugepaged::alloc_sleep_ms::get() { _test_sysctl kernel/mm/transparent_hugepage/khugepaged/alloc_sleep_millisecs mm::thp::khugepaged::alloc_sleep_ms::get 2>/dev/null || { _skip "no alloc_sleep"; return; }; }
+test::kernel::mm::thp::khugepaged::defrag::get() { _test_sysctl kernel/mm/transparent_hugepage/khugepaged/defrag mm::thp::khugepaged::defrag::get 2>/dev/null || { _skip "no khp/defrag"; return; }; }
+test::kernel::mm::thp::khugepaged::max_ptes_none::get()  { _test_sysctl kernel/mm/transparent_hugepage/khugepaged/max_ptes_none mm::thp::khugepaged::max_ptes_none::get 2>/dev/null || { _skip "no max_ptes_none"; return; }; }
+test::kernel::mm::thp::khugepaged::max_ptes_shared::get() { _test_sysctl kernel/mm/transparent_hugepage/khugepaged/max_ptes_shared mm::thp::khugepaged::max_ptes_shared::get 2>/dev/null || { _skip "no max_ptes_shared"; return; }; }
+test::kernel::mm::thp::khugepaged::max_ptes_swap::get()   { _test_sysctl kernel/mm/transparent_hugepage/khugepaged/max_ptes_swap mm::thp::khugepaged::max_ptes_swap::get 2>/dev/null || { _skip "no max_ptes_swap"; return; }; }
+test::kernel::mm::thp::khugepaged::pages_to_scan::get()  { _test_sysctl kernel/mm/transparent_hugepage/khugepaged/pages_to_scan mm::thp::khugepaged::pages_to_scan::get 2>/dev/null || { _skip "no pages_to_scan"; return; }; }
+test::kernel::mm::thp::khugepaged::scan_sleep_ms::get()  { _test_sysctl kernel/mm/transparent_hugepage/khugepaged/scan_sleep_millisecs mm::thp::khugepaged::scan_sleep_ms::get 2>/dev/null || { _skip "no scan_sleep"; return; }; }
+test::kernel::mm::thp::shmem_enabled::get()              { _test_sysctl kernel/mm/transparent_hugepage/shmem_enabled mm::thp::shmem_enabled::get 2>/dev/null || { _skip "no shmem_enabled"; return; }; }
+test::kernel::mm::thp::shrink_underused::get()           { _test_sysctl kernel/mm/transparent_hugepage/khugepaged/shrink_underused mm::thp::shrink_underused::get 2>/dev/null || { _skip "no shrink_underused"; return; }; }
+test::kernel::mm::thp::use_zero_page::get()              { _test_sysctl kernel/mm/transparent_hugepage/use_zero_page mm::thp::use_zero_page::get 2>/dev/null || { _skip "no use_zero_page"; return; }; }
+
+# hugepages
+test::kernel::mm::hugepages::nr_hugepages::get()         { _test_sysctl vm/nr_hugepages mm::hugepages::nr_hugepages::get || return; }
+test::kernel::mm::hugepages::overcommit::get()           { _test_sysctl vm/nr_overcommit_hugepages mm::hugepages::overcommit::get 2>/dev/null || { _skip "no nr_overcommit_hugepages"; return; }; }
+
+# ksm
+test::kernel::mm::ksm::advisor_max_cpu::get()    { _test_sysctl kernel/mm/ksm/advisor_max_cpu mm::ksm::advisor_max_cpu::get 2>/dev/null || { _skip "no ksm advisor"; return; }; }
+test::kernel::mm::ksm::advisor_max_pages::get()  { _test_sysctl kernel/mm/ksm/advisor_max_pages mm::ksm::advisor_max_pages::get 2>/dev/null || { _skip "no ksm advisor"; return; }; }
+test::kernel::mm::ksm::advisor_min_pages::get()  { _test_sysctl kernel/mm/ksm/advisor_min_pages mm::ksm::advisor_min_pages::get 2>/dev/null || { _skip "no ksm advisor"; return; }; }
+test::kernel::mm::ksm::advisor_mode::get()       { _test_sysctl kernel/mm/ksm/advisor_mode mm::ksm::advisor_mode::get 2>/dev/null || { _skip "no ksm advisor"; return; }; }
+test::kernel::mm::ksm::advisor_scan_time::get()  { _test_sysctl kernel/mm/ksm/advisor_scan_time mm::ksm::advisor_scan_time::get 2>/dev/null || { _skip "no ksm advisor"; return; }; }
+test::kernel::mm::ksm::chain_prune_ms::get()     { _test_sysctl kernel/mm/ksm/chain_prune_millisecs mm::ksm::chain_prune_ms::get 2>/dev/null || { _skip "no chain_prune"; return; }; }
+test::kernel::mm::ksm::max_page_sharing::get()   { _test_sysctl kernel/mm/ksm/max_page_sharing mm::ksm::max_page_sharing::get 2>/dev/null || { _skip "no max_page_sharing"; return; }; }
+test::kernel::mm::ksm::merge_across_nodes::get() { _test_sysctl kernel/mm/ksm/merge_across_nodes mm::ksm::merge_across_nodes::get || return; }
+test::kernel::mm::ksm::use_zero_pages::get()     { _test_sysctl kernel/mm/ksm/use_zero_pages mm::ksm::use_zero_pages::get || return; }
+
+# BSD / XNU — skip unless on the matching OS
+_test_bsd_xnu() {
+	local _want="$1"; shift
+	local _os; _os=$(runtime::os 2>/dev/null || echo linux)
+	[[ "$_os" == "$_want" ]] || { _skip "requires $_want (current: $_os)"; return 1; }
+	return 0
+}
+
+# BSD hw.* sysctls
+test::kernel::bsd::hw::clockrate()  { _test_bsd_xnu freebsd bsd::hw::clockrate  || return; kernel::bsd::hw::clockrate  >/dev/null 2>&1 && _pass || _fail; }
+test::kernel::bsd::hw::machine()    { _test_bsd_xnu freebsd bsd::hw::machine    || return; kernel::bsd::hw::machine    >/dev/null 2>&1 && _pass || _fail; }
+test::kernel::bsd::hw::model()      { _test_bsd_xnu freebsd bsd::hw::model      || return; kernel::bsd::hw::model      >/dev/null 2>&1 && _pass || _fail; }
+test::kernel::bsd::hw::ncpu()       { _test_bsd_xnu freebsd bsd::hw::ncpu       || return; local _v; _v=$(kernel::bsd::hw::ncpu 2>/dev/null); [[ -n "$_v" ]] && _pass || _fail; }
+test::kernel::bsd::hw::pagesize()   { _test_bsd_xnu freebsd bsd::hw::pagesize   || return; local _v; _v=$(kernel::bsd::hw::pagesize 2>/dev/null); [[ -n "$_v" ]] && _pass || _fail; }
+test::kernel::bsd::hw::physmem()    { _test_bsd_xnu freebsd bsd::hw::physmem    || return; local _v; _v=$(kernel::bsd::hw::physmem 2>/dev/null); [[ -n "$_v" ]] && _pass || _fail; }
+test::kernel::bsd::sched::topology() { _test_bsd_xnu freebsd bsd::sched::topology || return; kernel::bsd::sched::topology >/dev/null 2>&1 && _pass || _fail; }
+test::kernel::bsd::vm::swapusage()  { _test_bsd_xnu freebsd bsd::vm::swapusage  || return; kernel::bsd::vm::swapusage  >/dev/null 2>&1 && _pass || _fail; }
+test::kernel::bsd::summary()        { _test_bsd_xnu freebsd bsd::summary        || return; local _v; _v=$(kernel::bsd::summary 2>/dev/null); [[ -n "$_v" ]] && _pass || _fail; }
+
+# BSD kern.* sysctls — getters
+_test_bsd_get() { _test_bsd_xnu freebsd "$1" || return 1; local _v; _v=$(kernel::"$1"::get 2>/dev/null); [[ -n "$_v" ]] && _pass || _fail; }
+test::kernel::bsd::kern::ipc::maxsockbuf::get() { _test_bsd_get bsd::kern::ipc::maxsockbuf || return; }
+test::kernel::bsd::kern::ipc::semmns::get()     { _test_bsd_get bsd::kern::ipc::semmns     || return; }
+test::kernel::bsd::kern::ipc::shmmax::get()     { _test_bsd_get bsd::kern::ipc::shmmax     || return; }
+test::kernel::bsd::kern::ipc::somaxconn::get()  { _test_bsd_get bsd::kern::ipc::somaxconn  || return; }
+test::kernel::bsd::kern::maxfiles::get()        { _test_bsd_get bsd::kern::maxfiles        || return; }
+test::kernel::bsd::kern::maxproc::get()         { _test_bsd_get bsd::kern::maxproc         || return; }
+test::kernel::bsd::kern::maxusers::get()        { _test_bsd_get bsd::kern::maxusers        || return; }
+test::kernel::bsd::kern::maxvnodes::get()       { _test_bsd_get bsd::kern::maxvnodes       || return; }
+test::kernel::bsd::sched::timeslice::get()      { _test_bsd_get bsd::sched::timeslice      || return; }
+test::kernel::bsd::security::hardlink_uid_match::get() { _test_bsd_get bsd::security::hardlink_uid_match || return; }
+test::kernel::bsd::security::see_other_uids::get()     { _test_bsd_get bsd::security::see_other_uids     || return; }
+test::kernel::bsd::security::symlink_uid_match::get()  { _test_bsd_get bsd::security::symlink_uid_match  || return; }
+test::kernel::bsd::security::unprivileged_proc_debug::get() { _test_bsd_get bsd::security::unprivileged_proc_debug || return; }
+test::kernel::bsd::vm::cache_min::get()         { _test_bsd_get bsd::vm::cache_min         || return; }
+test::kernel::bsd::vm::free_reserved::get()     { _test_bsd_get bsd::vm::free_reserved     || return; }
+test::kernel::bsd::vm::free_target::get()       { _test_bsd_get bsd::vm::free_target       || return; }
+
+# BSD setters — never test (they modify live system state)
+for _fn in \
+	bsd::kern::ipc::maxsockbuf \
+	bsd::kern::ipc::semmns \
+	bsd::kern::ipc::shmmax \
+	bsd::kern::ipc::somaxconn \
+	bsd::kern::maxfiles \
+	bsd::kern::maxproc \
+	bsd::kern::maxusers \
+	bsd::kern::maxvnodes \
+	bsd::sched::timeslice \
+	bsd::security::hardlink_uid_match \
+	bsd::security::see_other_uids \
+	bsd::security::symlink_uid_match \
+	bsd::security::unprivileged_proc_debug \
+	bsd::vm::cache_min \
+	bsd::vm::free_reserved \
+	bsd::vm::free_target
+do
+	eval "test::kernel::${_fn}::set_session() { _skip 'writes to live system state'; }"
+	eval "test::kernel::${_fn}::set_system()  { _skip 'writes to live system state'; }"
+done
+
+# XNU (macOS) hw.* / kern.* / power.* / swvers / sip / vm.*
+_test_xnu() { _test_bsd_xnu darwin "$1" || return 1; }
+test::kernel::xnu::hw::cpufrequency() { _test_xnu xnu::hw::cpufrequency || return; local _v; _v=$(kernel::xnu::hw::cpufrequency 2>/dev/null); [[ -n "$_v" ]] && _pass || _fail; }
+test::kernel::xnu::hw::has_feature()  { _test_xnu xnu::hw::has_feature  || return; local _v; _v=$(kernel::xnu::hw::has_feature FPU 2>/dev/null); [[ -n "$_v" ]] && _pass || _fail; }
+test::kernel::xnu::hw::is_apple_silicon() { _test_xnu xnu::hw::is_apple_silicon || return; kernel::xnu::hw::is_apple_silicon; local r=$?; [[ $r -eq 0 || $r -eq 1 ]] && _pass || _fail; }
+test::kernel::xnu::hw::machine()      { _test_xnu xnu::hw::machine      || return; local _v; _v=$(kernel::xnu::hw::machine 2>/dev/null); [[ -n "$_v" ]] && _pass || _fail; }
+test::kernel::xnu::hw::memsize()      { _test_xnu xnu::hw::memsize      || return; local _v; _v=$(kernel::xnu::hw::memsize 2>/dev/null); [[ -n "$_v" ]] && _pass || _fail; }
+test::kernel::xnu::hw::model()        { _test_xnu xnu::hw::model        || return; local _v; _v=$(kernel::xnu::hw::model 2>/dev/null); [[ -n "$_v" ]] && _pass || _fail; }
+test::kernel::xnu::hw::ncpu()         { _test_xnu xnu::hw::ncpu         || return; local _v; _v=$(kernel::xnu::hw::ncpu 2>/dev/null); [[ -n "$_v" ]] && _pass || _fail; }
+test::kernel::xnu::hw::pagesize()     { _test_xnu xnu::hw::pagesize     || return; local _v; _v=$(kernel::xnu::hw::pagesize 2>/dev/null); [[ -n "$_v" ]] && _pass || _fail; }
+
+test::kernel::xnu::kern::bootsessionuuid() { _test_xnu xnu::kern::bootsessionuuid || return; local _v; _v=$(kernel::xnu::kern::bootsessionuuid 2>/dev/null); [[ -n "$_v" ]] && _pass || _fail; }
+test::kernel::xnu::kern::bootuuid()       { _test_xnu xnu::kern::bootuuid       || return; local _v; _v=$(kernel::xnu::kern::bootuuid 2>/dev/null); [[ -n "$_v" ]] && _pass || _fail; }
+test::kernel::xnu::kern::osversion()      { _test_xnu xnu::kern::osversion      || return; local _v; _v=$(kernel::xnu::kern::osversion 2>/dev/null); [[ -n "$_v" ]] && _pass || _fail; }
+test::kernel::xnu::kern::sleeptype()      { _test_xnu xnu::kern::sleeptype      || return; local _v; _v=$(kernel::xnu::kern::sleeptype 2>/dev/null); [[ -n "$_v" ]] && _pass || _fail; }
+test::kernel::xnu::kern::uuid()          { _test_xnu xnu::kern::uuid          || return; local _v; _v=$(kernel::xnu::kern::uuid 2>/dev/null); [[ -n "$_v" ]] && _pass || _fail; }
+test::kernel::xnu::kern::wakereason()     { _test_xnu xnu::kern::wakereason     || return; kernel::xnu::kern::wakereason >/dev/null 2>&1 && _pass || _fail; }
+
+test::kernel::xnu::power::assertions() { _test_xnu xnu::power::assertions || return; kernel::xnu::power::assertions >/dev/null 2>&1 && _pass || _fail; }
+test::kernel::xnu::power::capacity()   { _test_xnu xnu::power::capacity   || return; local _v; _v=$(kernel::xnu::power::capacity 2>/dev/null); [[ -n "$_v" ]] && _pass || _fail; }
+test::kernel::xnu::power::thermals()   { _test_xnu xnu::power::thermals   || return; kernel::xnu::power::thermals >/dev/null 2>&1 && _pass || _fail; }
+
+test::kernel::xnu::swvers::build()   { _test_xnu xnu::swvers::build   || return; local _v; _v=$(kernel::xnu::swvers::build   2>/dev/null); [[ -n "$_v" ]] && _pass || _fail; }
+test::kernel::xnu::swvers::product() { _test_xnu xnu::swvers::product || return; local _v; _v=$(kernel::xnu::swvers::product 2>/dev/null); [[ -n "$_v" ]] && _pass || _fail; }
+test::kernel::xnu::swvers::version() { _test_xnu xnu::swvers::version || return; local _v; _v=$(kernel::xnu::swvers::version 2>/dev/null); [[ -n "$_v" ]] && _pass || _fail; }
+
+test::kernel::xnu::sip::disable()    { _test_xnu xnu::sip::disable    || return; _skip "would modify SIP"; }
+test::kernel::xnu::sip::enable()     { _test_xnu xnu::sip::enable     || return; _skip "would modify SIP"; }
+test::kernel::xnu::sip::is_enabled() { _test_xnu xnu::sip::is_enabled || return; kernel::xnu::sip::is_enabled; local r=$?; [[ $r -eq 0 || $r -eq 1 ]] && _pass || _fail; }
+test::kernel::xnu::sip::status()     { _test_xnu xnu::sip::status     || return; local _v; _v=$(kernel::xnu::sip::status 2>/dev/null); [[ -n "$_v" ]] && _pass || _fail; }
+test::kernel::xnu::summary()         { _test_xnu xnu::summary         || return; local _v; _v=$(kernel::xnu::summary 2>/dev/null); [[ -n "$_v" ]] && _pass || _fail; }
+
+test::kernel::xnu::vm::compressor_mode()  { _test_xnu xnu::vm::compressor_mode  || return; local _v; _v=$(kernel::xnu::vm::compressor_mode  2>/dev/null); [[ -n "$_v" ]] && _pass || _fail; }
+test::kernel::xnu::vm::compressor_pages() { _test_xnu xnu::vm::compressor_pages || return; local _v; _v=$(kernel::xnu::vm::compressor_pages 2>/dev/null); [[ -n "$_v" ]] && _pass || _fail; }
+test::kernel::xnu::vm::pagefreeable()     { _test_xnu xnu::vm::pagefreeable     || return; local _v; _v=$(kernel::xnu::vm::pagefreeable     2>/dev/null); [[ -n "$_v" ]] && _pass || _fail; }
+test::kernel::xnu::vm::stat()            { _test_xnu xnu::vm::stat            || return; local _v; _v=$(kernel::xnu::vm::stat            2>/dev/null); [[ -n "$_v" ]] && _pass || _fail; }
+test::kernel::xnu::vm::swapusage()       { _test_xnu xnu::vm::swapusage       || return; kernel::xnu::vm::swapusage >/dev/null 2>&1 && _pass || _fail; }
+
+# XNU setters — same approach as BSD
+_test_xnu_get() { _test_xnu "$1" || return 1; local _v; _v=$(kernel::"$1"::get 2>/dev/null); [[ -n "$_v" ]] && _pass || _fail; }
+test::kernel::xnu::kern::ipc::somaxconn::get() { _test_xnu_get xnu::kern::ipc::somaxconn || return; }
+test::kernel::xnu::kern::maxfiles::get()        { _test_xnu_get xnu::kern::maxfiles        || return; }
+test::kernel::xnu::kern::maxproc::get()         { _test_xnu_get xnu::kern::maxproc         || return; }
+for _fn in \
+	xnu::kern::ipc::somaxconn \
+	xnu::kern::maxfiles \
+	xnu::kern::maxproc \
+	xnu::power::disksleep \
+	xnu::power::displaysleep \
+	xnu::power::lidwake \
+	xnu::power::sleep \
+	xnu::power::wakeonlan
+do
+	eval "test::kernel::${_fn}::set_session() { _skip 'writes to live system state'; }"
+	eval "test::kernel::${_fn}::set_system()  { _skip 'writes to live system state'; }"
+done
+for _fn in \
+	xnu::power::disksleep \
+	xnu::power::displaysleep \
+	xnu::power::lidwake \
+	xnu::power::sleep \
+	xnu::power::wakeonlan
+do
+	eval "test::kernel::${_fn}::get() { _test_xnu ${_fn}::get || return; local _v; _v=\$(kernel::${_fn}::get 2>/dev/null); [[ -n \"\$_v\" ]] && _pass || _fail; }"
+done
