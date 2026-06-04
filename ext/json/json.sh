@@ -860,10 +860,24 @@ json::validate() {
 }
 
 # --- Load sub-modules ---
+#
+# In dev mode (sourcing json.sh directly), sub-modules are siblings in
+# ext/json/. In compiled mode (ext/json/json.sh inlined into a single
+# output file), BASH_SOURCE[0] points to the compiled file, so the
+# sub-module paths resolve to the project root and don't exist. The
+# compile step inlines the sub-module content directly after this block,
+# so by the time the loader runs, the inlined functions are not yet
+# defined — but they will be momentarily. The file-exists check below
+# makes the source a no-op in compiled mode while preserving dev-mode
+# behavior.
 
 _json_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-declare -f 'json::kv' &>/dev/null || source "$_json_dir/kv.sh"
+if [[ -f "$_json_dir/kv.sh" ]] && ! declare -f 'json::kv' &>/dev/null; then
+	source "$_json_dir/kv.sh"
+fi
 if runtime::has_command sqlite3; then
-	declare -f 'json::sqlitestore::open' &>/dev/null || source "$_json_dir/sqlitestore.sh"
+	if [[ -f "$_json_dir/sqlitestore.sh" ]] && ! declare -f 'json::sqlitestore::open' &>/dev/null; then
+		source "$_json_dir/sqlitestore.sh"
+	fi
 fi
 unset _json_dir
