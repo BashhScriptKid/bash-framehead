@@ -863,6 +863,149 @@ net::dns::reset() {
 }
 
 
+# --- IP CONTROL ---
+
+# Internal: validate an IPv4 CIDR (a.b.c.d/n). Echoes 0 on valid, 1 on invalid.
+_net::_ip_valid_cidr() {
+		local cidr="$1"
+		[[ "$cidr" =~ ^([0-9]{1,3}\.){3}[0-9]{1,3}/[0-9]{1,2}$ ]] || return 1
+		local ip="${cidr%/*}" prefix="${cidr#*/}"
+		(( prefix >= 0 && prefix <= 32 )) || return 1
+		net::ip::is_valid_v4 "$ip" || return 1
+		return 0
+}
+
+# Configure a static IPv4 address on an interface. Replaces the existing
+# IP config atomically (nm: single modify; ip: flush + add sequence).
+# nm: persistent; takes effect on next reconnect. <ifname> is the device
+#     name; the active NM connection on that device is found automatically.
+# ip: immediate only; not persistent. <gw> is required with the ip backend.
+# Usage: net::ip::set::static <ifname> <cidr> [gw] [dns]...
+#   [dns]... are optional nameservers. If any are passed, they replace the
+#   connection's DNS list and DHCP auto-DNS is disabled.
+net::ip::set::static() {
+		_net::require_backend || return 1
+		local ifname="$1" cidr="$2" gw="${3:-}"
+		shift 3 2>/dev/null || shift $#
+		[[ -z "$ifname" || -z "$cidr" ]] && { echo "net::ip::set::static: ifname and cidr required" >&2; return 1; }
+		_net::_ip_valid_cidr "$cidr" || { echo "net::ip::set::static: invalid cidr: $cidr" >&2; return 1; }
+		if [[ -n "$gw" ]]; then
+				net::ip::is_valid_v4 "$gw" || { echo "net::ip::set::static: invalid gateway: $gw" >&2; return 1; }
+		fi
+
+		case "$_NET_BACKEND" in
+				nm)
+						local conn
+						conn=$(_net::_dns_nm_conn "$ifname")
+						conn="${conn:-$ifname}"
+						local args=(connection modify "$conn" ipv4.method manual ipv4.addresses "$cidr")
+						[[ -n "$gw" ]] && args+=(ipv4.gateway "$gw")
+						local dns_count=0
+						for dns in "$@"; do
+								args+=(ipv4.dns "$dns")
+								(( dns_count++ ))
+						done
+						(( dns_count > 0 )) && args+=(ipv4.ignore-auto-dns yes)
+						nmcli "${args[@]}"
+						echo "net::ip::set::static: takes effect on next reconnect" >&2
+						;;
+				ip)
+						[[ -z "$gw" ]] && { echo "net::ip::set::static: gateway required with ip backend" >&2; return 1; }
+						# Destructive: flushes all addresses on the device. The
+						# new config must come up correctly or connectivity is lost.
+						ip addr flush dev "$ifname" 2>/dev/null
+						ip addr add "$cidr" dev "$ifname"
+						ip route add default via "$gw" dev "$ifname" 2>/dev/null
+						for dns in "$@"; do
+								resolvectl dns "$ifname" "$dns"
+						done
+						;;
+		esac
+}
+
+# Switch an interface to DHCP (auto) addressing.
+# nm: persistent; takes effect on next reconnect.
+# ip: immediate; flushes current config and runs dhclient/dhcpcd.
+# Usage: net::ip::set::dhcp <ifname>
+net::ip::set::dhcp() {
+		_net::require_backend || return 1
+		local ifname="$1"
+		[[ -z "$ifname" ]] && { echo "net::ip::set::dhcp: ifname required" >&2; return 1; }
+		case "$_NET_BACKEND" in
+				nm)
+						local conn
+						conn=$(_net::_dns_nm_conn "$ifname")
+						conn="${conn:-$ifname}"
+						nmcli connection modify "$conn" \
+								ipv4.method auto \
+								ipv4.addresses "" \
+								ipv4.gateway "" \
+								ipv4.dns "" ipv4.ignore-auto-dns no
+						echo "net::ip::set::dhcp: takes effect on next reconnect" >&2
+						;;
+				ip)
+						if ! runtime::has_command dhclient && ! runtime::has_command dhcpcd; then
+								echo "net::ip::set::dhcp: no DHCP client (need dhclient or dhcpcd)" >&2
+								return 1
+						fi
+						ip addr flush dev "$ifname" 2>/dev/null
+						if runtime::has_command dhclient; then
+								dhclient "$ifname"
+						else
+								dhcpcd "$ifname"
+						fi
+						resolvectl revert "$ifname" 2>/dev/null
+						;;
+		esac
+}
+
+# Add a secondary IPv4 address to an interface.
+# nm: persistent; takes effect on next reconnect. Requires the connection
+#     to already be in `manual` mode with a primary address.
+# ip: immediate.
+# Usage: net::ip::alias::add <ifname> <cidr>
+net::ip::alias::add() {
+		_net::require_backend || return 1
+		local ifname="$1" cidr="$2"
+		[[ -z "$ifname" || -z "$cidr" ]] && { echo "net::ip::alias::add: ifname and cidr required" >&2; return 1; }
+		_net::_ip_valid_cidr "$cidr" || { echo "net::ip::alias::add: invalid cidr: $cidr" >&2; return 1; }
+		case "$_NET_BACKEND" in
+				nm)
+						local conn
+						conn=$(_net::_dns_nm_conn "$ifname")
+						conn="${conn:-$ifname}"
+						nmcli connection modify "$conn" +ipv4.addresses "$cidr"
+						echo "net::ip::alias::add: takes effect on next reconnect" >&2
+						;;
+				ip)
+						ip addr add "$cidr" dev "$ifname"
+						;;
+		esac
+}
+
+# Remove a secondary IPv4 address from an interface.
+# nm: persistent; takes effect on next reconnect.
+# ip: immediate.
+# Usage: net::ip::alias::del <ifname> <cidr>
+net::ip::alias::del() {
+		_net::require_backend || return 1
+		local ifname="$1" cidr="$2"
+		[[ -z "$ifname" || -z "$cidr" ]] && { echo "net::ip::alias::del: ifname and cidr required" >&2; return 1; }
+		case "$_NET_BACKEND" in
+				nm)
+						local conn
+						conn=$(_net::_dns_nm_conn "$ifname")
+						conn="${conn:-$ifname}"
+						nmcli connection modify "$conn" -ipv4.addresses "$cidr"
+						echo "net::ip::alias::del: takes effect on next reconnect" >&2
+						;;
+				ip)
+						ip addr del "$cidr" dev "$ifname"
+						;;
+		esac
+}
+
+
 # --- FETCH / DOWNLOAD ---
 
 # Fetch URL contents — curl/wget with fallback
