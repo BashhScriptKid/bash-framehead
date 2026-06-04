@@ -255,11 +255,34 @@ test::dbus::wait() {
 
 test::dbus::watch() {
 		if _have_busctl && _have_session_bus; then
-				# Verify watch starts and emits at least one line within 60s.
-				# We use the ambient NameOwnerChanged signal that fires
-				# whenever any tool connects/disconnects from the bus.
+				# Verify watch starts and emits at least one line.
+				# NameOwnerChanged is ambient: it only fires when a
+				# client connects or disconnects. The bus is usually
+				# idle during a test run, so we fabricate one by
+				# spawning a short-lived busctl client while the
+				# monitor is subscribed. dbus::watch is a Bash
+				# function, so it has to be invoked inside a subshell
+				# that has re-sourced the framework.
+				local _watch_out _self
+				_watch_out=$(mktemp)
+				_self="${BASH_SOURCE[0]}"
+				# _self points at this test file; the framework
+				# lives in the parent dir.  Walk up until we find
+				# bash-framehead.sh.
+				local _root="${_self%/*}/../.."
+				( cd "$_root" && timeout 10 \
+						bash -c 'source bash-framehead.sh; source ext/dbus/dbus.sh; dbus::watch "$@"' _ \
+								org.freedesktop.DBus NameOwnerChanged \
+						> "$_watch_out" 2>/dev/null ) &
+				local _watch_pid=$!
+				sleep 1
+				busctl --user list >/dev/null 2>&1 || true
+				sleep 1
+				kill "$_watch_pid" 2>/dev/null
+				wait "$_watch_pid" 2>/dev/null
 				local out
-				out=$(timeout 60 dbus::watch org.freedesktop.DBus NameOwnerChanged 2>/dev/null | head -1)
+				out=$(head -1 "$_watch_out")
+				rm -f "$_watch_out"
 				[[ "$out" == *$'\t'* ]] && _pass || _fail "expected TSV line, got '$out'"
 		else
 				_skip "no session bus or busctl"
