@@ -106,3 +106,26 @@ test::yaml::keys() {
 test::yaml::validate() {
 		if yaml::validate "name: test"; then _pass; else _fail "valid yaml rejected"; fi
 }
+
+test::yaml::parse() {
+		declare -A _ctx
+		if yaml::parse _ctx $'name: test\nport: 3000'; then _pass; else _fail "parse failed"; fi
+}
+
+test::yaml::type() {
+		declare -A _ctx
+		local yaml=$'name: test\nport: 3000\nitems:\n  - a\n  - b'
+		_assert "scalar string"  "string"  "$(yaml::type _ctx "$yaml" name)"
+		_assert "scalar number"  "number"  "$(yaml::type _ctx "$yaml" port)"
+		_assert "root mapping"   "mapping" "$(yaml::type _ctx "$yaml")"
+		_assert "items sequence" "sequence" "$(yaml::type _ctx "$yaml" items)"
+		_sub_done
+}
+
+test::yaml::len() {
+		declare -A _ctx
+		local yaml=$'a: 1\nb: 2\nc: 3\nitems:\n  - x\n  - y\n  - z'
+		_assert "root has 4"  "4" "$(yaml::len _ctx "$yaml")"
+		_assert "items has 3" "3" "$(yaml::len _ctx "$yaml" items)"
+		_sub_done
+}

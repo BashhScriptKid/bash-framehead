@@ -118,3 +118,60 @@ test::toml::keys() {
 		if [[ "$keys" == *"db"* && "$keys" == *"cache"* ]]; then _pass; else _fail "keys: $keys"; fi
 }
 
+# --- toml internal helpers (pure) ---
+
+test::toml::_json_escape() {
+		_assert "quote"        '\"'             "$(toml::_json_escape '"')"
+		_assert "backslash"    '\\'             "$(toml::_json_escape '\')"
+		_assert "newline"      '\n'             "$(toml::_json_escape $'\n')"
+		_assert "plain ascii"  'hello'          "$(toml::_json_escape 'hello')"
+		_sub_done
+}
+
+test::toml::_process_escapes() {
+		_assert "newline"  $'a\nb'  "$(toml::_process_escapes 'a\nb')"
+		_assert "tab"      $'a\tb'  "$(toml::_process_escapes 'a\tb')"
+		_assert "quote"    'a"b'    "$(toml::_process_escapes 'a\"b')"
+		_sub_done
+}
+
+test::toml::_value_to_json() {
+		_assert "true"     "true"   "$(toml::_value_to_json 'true')"
+		_assert "false"    "false"  "$(toml::_value_to_json 'false')"
+		_assert "int"      "42"     "$(toml::_value_to_json '42')"
+		_assert "hex"      "255"    "$(toml::_value_to_json '0xff')"
+		_assert "bin"      "5"      "$(toml::_value_to_json '0b101')"
+		_assert "float"    "1.5"    "$(toml::_value_to_json '1.5')"
+		_assert "string"   '"hi"'   "$(toml::_value_to_json '"hi"')"
+		_sub_done
+}
+
+test::toml::_array_to_json() {
+		_assert "ints"    "[1,2,3]"        "$(toml::_array_to_json '[1, 2, 3]')"
+		_assert "strings" '["a","b"]'      "$(toml::_array_to_json '["a", "b"]')"
+		_assert "empty"   "[]"             "$(toml::_array_to_json '[]')"
+		_sub_done
+}
+
+test::toml::_inline_table_to_json() {
+		_assert "simple"  '{"a":1,"b":2}'  "$(toml::_inline_table_to_json '{a = 1, b = 2}')"
+		_assert "empty"   "{}"             "$(toml::_inline_table_to_json '{}')"
+		_sub_done
+}
+
+test::toml::_unquote_key() {
+		_assert "bare"     "name"          "$(toml::_unquote_key 'name')"
+		_assert "dq"       "hello world"   "$(toml::_unquote_key '"hello world"')"
+		_assert "sq"       "x"             "$(toml::_unquote_key "'x'")"
+		_sub_done
+}
+
+test::toml::_split_path() {
+		local -a _out
+		toml::_split_path _out "a.b.c"
+		_assert "3 parts" "3"  "${#_out[@]}"
+		_assert "first"   "a"  "${_out[0]}"
+		_assert "last"    "c"  "${_out[2]}"
+		_sub_done
+}
+

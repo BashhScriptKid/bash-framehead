@@ -365,3 +365,34 @@ test::json::sqlitestore::has_fts5() {
 	fi
 	if json::sqlitestore::has_fts5; then _pass; else _skip "FTS5 not available"; fi
 }
+
+test::json::sqlitestore::import() {
+	if ! json::sqlitestore::has_json1; then
+		_skip "json1 not available in this sqlite3 build"
+		return
+	fi
+	local _db _file
+	_db=$(_json_sqlitestore_test::fresh_db)
+	_file="/tmp/_json_sqlitestore_import_$$.json"
+	printf '[{"id":"a","name":"Alice"},{"id":"b","name":"Bob"}]' > "$_file"
+	json::sqlitestore::import "$_db" docs "$_file"
+	rm -f "$_file"
+	local _count
+	_count=$(json::sqlitestore::count "$_db" docs)
+	if [[ "$_count" == "2" ]]; then _pass; else _fail "expected 2 docs, got $_count"; fi
+}
+
+test::json::sqlitestore::export() {
+	if ! json::sqlitestore::has_json1; then
+		_skip "json1 not available in this sqlite3 build"
+		return
+	fi
+	local _db
+	_db=$(_json_sqlitestore_test::fresh_db)
+	json::sqlitestore::open "$_db" docs
+	json::sqlitestore::put "$_db" docs a '{"id":"a","name":"Alice"}'
+	json::sqlitestore::put "$_db" docs b '{"id":"b","name":"Bob"}'
+	local _out
+	_out=$(json::sqlitestore::export "$_db" docs)
+	if [[ "$_out" == *'"Alice"'* && "$_out" == *'"Bob"'* ]]; then _pass; else _fail "export: $_out"; fi
+}
