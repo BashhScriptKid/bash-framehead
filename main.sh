@@ -897,7 +897,7 @@ tester() {
 
         local -a _f_test=()
         for _fn in "${TEST_SYMBOLS[@]}"; do
-            _matches_filter "$_fn" && _f_test+=("$_fn")
+            _matches_filter "${_fn#test::}" && _f_test+=("$_fn")
         done
         TEST_SYMBOLS=("${_f_test[@]}")
     fi
