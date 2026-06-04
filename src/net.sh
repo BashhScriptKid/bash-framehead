@@ -386,6 +386,289 @@ _net::require_backend() {
 }
 
 
+# --- WIFI CONTROL ---
+
+# List visible WiFi networks.
+# Output (nm): tab-separated SSID:SIGNAL:SECURITY:FREQ:CHAN:BARS.
+# Output (ip): one SSID per line. The ip backend is best-effort; for rich
+# fields (signal, security, freq), use the nm backend.
+# Usage: net::wifi::list [ifname]
+net::wifi::list() {
+		_net::require_backend || return 1
+		local ifname="${1:-}"
+		case "$_NET_BACKEND" in
+				nm)
+						if [[ -n "$ifname" ]]; then
+								nmcli -t -f SSID,SIGNAL,SECURITY,FREQ,CHAN,BARS \
+										device wifi list ifname "$ifname" 2>/dev/null
+						else
+								nmcli -t -f SSID,SIGNAL,SECURITY,FREQ,CHAN,BARS \
+										device wifi list 2>/dev/null
+						fi
+						;;
+				ip)
+						if [[ -z "$ifname" ]]; then
+								for d in /sys/class/net/*/wireless; do
+										[[ -d "$d" ]] && { ifname="${d%/wireless}"; ifname="${ifname##*/}"; break; }
+								done
+						fi
+						[[ -z "$ifname" ]] && { echo "net::wifi::list: no wifi interface" >&2; return 1; }
+						iw dev "$ifname" scan 2>/dev/null | \
+								awk '
+									/^BSS / { if (ssid != "") print ssid; ssid = "" }
+									/^[[:space:]]+SSID:[[:space:]]?/ {
+											sub(/^[[:space:]]+SSID:[[:space:]]?/, "")
+											if ($0 != "") ssid = $0
+									}
+									END { if (ssid != "") print ssid }
+								'
+						;;
+		esac
+}
+
+# List saved/known wifi connection profiles.
+# Output: one connection name per line.
+# Usage: net::wifi::list::saved
+net::wifi::list::saved() {
+		_net::require_backend || return 1
+		case "$_NET_BACKEND" in
+				nm)
+						nmcli -t -f NAME,TYPE connection show 2>/dev/null | \
+								awk -F: '$2 == "802-11-wireless" || $2 == "wifi" {print $1}'
+						;;
+				ip)
+						# Best-effort: scan common wpa_supplicant config locations.
+						local conf
+						for conf in /etc/wpa_supplicant/wpa_supplicant.conf \
+								/etc/wpa_supplicant.conf \
+								"$HOME/.config/wpa_supplicant/wpa_supplicant.conf"; do
+								[[ -r "$conf" ]] && { \
+										awk -F'"' '/^[[:space:]]*ssid=/{print $2}' "$conf"; \
+										return; \
+								}
+						done
+						;;
+		esac
+}
+
+# Connect to a WiFi network. For WPA2-Personal / open networks only.
+# Enterprise / WPA3-EAP not supported in this version.
+# Usage: net::wifi::connect <ssid> [password] [ifname]
+net::wifi::connect() {
+		_net::require_backend || return 1
+		local ssid="$1" password="${2:-}" ifname="${3:-}"
+		[[ -z "$ssid" ]] && { echo "net::wifi::connect: ssid required" >&2; return 1; }
+		case "$_NET_BACKEND" in
+				nm)
+						local args=(device wifi connect "$ssid")
+						[[ -n "$password" ]] && args+=(password "$password")
+						[[ -n "$ifname" ]] && args+=(ifname "$ifname")
+						nmcli "${args[@]}"
+						;;
+				ip)
+						echo "net::wifi::connect: ip backend does not support wifi connect; use nm" >&2
+						return 1
+						;;
+		esac
+}
+
+# Disconnect from the current WiFi network. With nm, this is non-persistent
+# (the autoconnect profile will normally bring the device back up).
+# Usage: net::wifi::disconnect [ifname]
+net::wifi::disconnect() {
+		_net::require_backend || return 1
+		local ifname="${1:-}"
+		case "$_NET_BACKEND" in
+				nm)
+						if [[ -n "$ifname" ]]; then
+								nmcli device disconnect "$ifname"
+						else
+								nmcli -t -f DEVICE,TYPE device status 2>/dev/null | \
+										awk -F: '$2 == "wifi" {print $1}' | \
+										while read -r dev; do
+										[[ -n "$dev" ]] && nmcli device disconnect "$dev"
+								done
+						fi
+						;;
+				ip)
+						if [[ -z "$ifname" ]]; then
+								for d in /sys/class/net/*/wireless; do
+										[[ -d "$d" ]] && { ifname="${d%/wireless}"; ifname="${ifname##*/}"; break; }
+								done
+						fi
+						[[ -z "$ifname" ]] && { echo "net::wifi::disconnect: no wifi interface" >&2; return 1; }
+						iw dev "$ifname" disconnect
+						;;
+		esac
+}
+
+# Forget a saved WiFi network (remove its connection profile).
+# Usage: net::wifi::forget <ssid-or-uuid>
+net::wifi::forget() {
+		_net::require_backend || return 1
+		local ident="$1"
+		[[ -z "$ident" ]] && { echo "net::wifi::forget: ssid or uuid required" >&2; return 1; }
+		case "$_NET_BACKEND" in
+				nm)
+						local uuid
+						if [[ "$ident" =~ ^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$ ]]; then
+								uuid="$ident"
+						else
+								uuid=$(nmcli -t -f NAME,UUID connection show 2>/dev/null | \
+										awk -F: -v n="$ident" '$1 == n {print $2; exit}')
+								if [[ -z "$uuid" ]]; then
+										echo "net::wifi::forget: connection not found: $ident" >&2
+										return 1
+								fi
+						fi
+						nmcli connection delete uuid "$uuid"
+						;;
+				ip)
+						echo "net::wifi::forget: ip backend does not support forget" >&2
+						return 1
+						;;
+		esac
+}
+
+# Show current WiFi connection status.
+# Output (nm): tab-separated key:value pairs.
+# Output (ip): `iw dev link` output verbatim.
+# Usage: net::wifi::status [ifname]
+net::wifi::status() {
+		_net::require_backend || return 1
+		local ifname="${1:-}"
+		case "$_NET_BACKEND" in
+				nm)
+						if [[ -n "$ifname" ]]; then
+								nmcli -t -f ACTIVE,SSID,BSSID,CHAN,FREQ,SIGNAL,SECURITY \
+										device show "$ifname" 2>/dev/null
+						else
+								nmcli -t -f NAME,STATE,DEVICE connection show --active 2>/dev/null
+						fi
+						;;
+				ip)
+						if [[ -z "$ifname" ]]; then
+								for d in /sys/class/net/*/wireless; do
+										[[ -d "$d" ]] && { ifname="${d%/wireless}"; ifname="${ifname##*/}"; break; }
+								done
+						fi
+						[[ -z "$ifname" ]] && { echo "net::wifi::status: no wifi interface" >&2; return 1; }
+						iw dev "$ifname" link
+						;;
+		esac
+}
+
+# --- INTERFACE CONTROL ---
+
+# Bring a network interface up.
+# nm: tries `device connect` first (NM-managed devices), then falls through
+# to `ip link set up` for unmanaged devices.
+# Usage: net::interface::up <name>
+net::interface::up() {
+		_net::require_backend || return 1
+		local name="$1"
+		[[ -z "$name" ]] && { echo "net::interface::up: name required" >&2; return 1; }
+		case "$_NET_BACKEND" in
+				nm)
+						nmcli device connect "$name" 2>/dev/null || \
+								ip link set "$name" up
+						;;
+				ip)
+						ip link set "$name" up
+						;;
+		esac
+}
+
+# Bring a network interface down. Non-persistent with nm (the autoconnect
+# profile may bring it back up unless its autoconnect is disabled).
+# Usage: net::interface::down <name>
+net::interface::down() {
+		_net::require_backend || return 1
+		local name="$1"
+		[[ -z "$name" ]] && { echo "net::interface::down: name required" >&2; return 1; }
+		case "$_NET_BACKEND" in
+				nm)
+						nmcli device disconnect "$name"
+						;;
+				ip)
+						ip link set "$name" down
+						;;
+		esac
+}
+
+# Restart a network interface (bounce it). Drops the link, sleeps 1s, brings
+# it back up. Network will be briefly unavailable.
+# Usage: net::interface::restart <name>
+net::interface::restart() {
+		_net::require_backend || return 1
+		local name="$1"
+		[[ -z "$name" ]] && { echo "net::interface::restart: name required" >&2; return 1; }
+		case "$_NET_BACKEND" in
+				nm)
+						nmcli device disconnect "$name" 2>/dev/null
+						runtime::sleep 1
+						nmcli device connect "$name" 2>/dev/null || \
+								nmcli connection up "$name"
+						;;
+				ip)
+						ip link set "$name" down
+						runtime::sleep 1
+						ip link set "$name" up
+						;;
+		esac
+}
+
+# Set MTU on an interface.
+# nm: persistent; takes effect on next reconnect. <name> must be the
+#     connection name in NM (often same as device name).
+# ip: immediate only; not persistent across reboots.
+# Usage: net::interface::mtu <name> <mtu>
+net::interface::mtu() {
+		_net::require_backend || return 1
+		local name="$1" mtu="$2"
+		[[ -z "$name" || -z "$mtu" ]] && { echo "net::interface::mtu: name and mtu required" >&2; return 1; }
+		case "$_NET_BACKEND" in
+				nm)
+						if ! nmcli connection modify "$name" 802-3-ethernet.mtu "$mtu" 2>/dev/null; then
+								nmcli connection modify "$name" wifi.mtu "$mtu"
+						fi
+						;;
+				ip)
+						ip link set "$name" mtu "$mtu"
+						;;
+		esac
+}
+
+# Set MAC address on an interface.
+# nm: persistent; takes effect on next reconnect.
+# ip: immediate only. The :persistent flag is a no-op with the ip backend
+#     (would require writing to NM dispatch scripts or similar).
+# Usage: net::interface::mac <name> <mac> [persistent]
+net::interface::mac() {
+		_net::require_backend || return 1
+		local name="$1" mac="$2" persistent="${3:-}"
+		[[ -z "$name" || -z "$mac" ]] && { echo "net::interface::mac: name and mac required" >&2; return 1; }
+		if ! [[ "$mac" =~ ^([0-9a-fA-F]{2}:){5}[0-9a-fA-F]{2}$ ]]; then
+				echo "net::interface::mac: invalid format (expected xx:xx:xx:xx:xx:xx)" >&2
+				return 1
+		fi
+		case "$_NET_BACKEND" in
+				nm)
+						if ! nmcli connection modify "$name" 802-3-ethernet.cloned-mac-address "$mac" 2>/dev/null; then
+								nmcli connection modify "$name" wifi.cloned-mac-address "$mac"
+						fi
+						echo "net::interface::mac: takes effect on next reconnect" >&2
+						;;
+				ip)
+						[[ "$persistent" == "yes" ]] && \
+								echo "net::interface::mac: :persistent has no effect with ip backend" >&2
+						ip link set "$name" address "$mac"
+						;;
+		esac
+}
+
+
+
 # --- FETCH / DOWNLOAD ---
 
 # Fetch URL contents — curl/wget with fallback
