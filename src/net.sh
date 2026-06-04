@@ -333,6 +333,59 @@ net::interface::stat::tx() {
 }
 
 
+# --- BACKEND DISPATCH ---
+
+# Detect the best available network control backend.
+# Echoes: "nm" (NetworkManager), "ip" (raw iproute2), or "none".
+_net::detect_backend() {
+		local os
+		os=$(runtime::os)
+		case "$os" in
+				linux|wsl)
+						if runtime::has_command nmcli && \
+								nmcli -t -f RUNNING general 2>/dev/null | grep -q '^running$'; then
+								echo nm
+								return
+						fi
+						if runtime::has_command ip; then
+								echo ip
+								return
+						fi
+						;;
+		esac
+		echo none
+}
+
+# Cached backend detection. Populates _NET_BACKEND.
+# Idempotent -- safe to call from every write function.
+_net::init() {
+		if [[ -z "${_NET_BACKEND:-}" ]]; then
+				_NET_BACKEND="$(_net::detect_backend)"
+		fi
+}
+
+# Report the active backend. Useful for callers that need to know
+# which control path is in effect.
+# Usage: net::backend
+net::backend() {
+		_net::init
+		echo "$_NET_BACKEND"
+}
+
+# Guard for write functions. Returns 0 if a backend is available,
+# non-zero with a clear error message otherwise.
+_net::require_backend() {
+		_net::init
+		case "$_NET_BACKEND" in
+				nm|ip) return 0 ;;
+				none)
+						echo "net: no supported network control backend (need nmcli or iproute2)" >&2
+						return 1
+						;;
+		esac
+}
+
+
 # --- FETCH / DOWNLOAD ---
 
 # Fetch URL contents — curl/wget with fallback
