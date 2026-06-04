@@ -66,9 +66,9 @@ fi
 # Single-test helpers
 # ==============================================================================
 
-_pass() { (( _T_PASS++ )); }
-_fail() { [[ -n "${1:-}" ]] && echo "  $1"; (( _T_FAIL++ )); }
-_skip() { [[ -n "${1:-}" ]] && echo "  skip: $1"; (( _T_SKIP++ )); }
+_pass() { (( ++_T_PASS )); }
+_fail() { [[ -n "${1:-}" ]] && echo "  $1"; (( ++_T_FAIL )); }
+_skip() { [[ -n "${1:-}" ]] && echo "  skip: $1"; (( ++_T_SKIP )); }
 
 # ==============================================================================
 # Subtest helpers
@@ -1162,12 +1162,12 @@ test::runtime::wm()                  { if [[ -n "$(runtime::wm  2>/dev/null || e
 test::runtime::de()                  { if [[ -n "$(runtime::de  2>/dev/null || echo unknown)" ]]; then _pass; else _fail; fi; }
 test::runtime::exec_root()           { _skip "requires sudo/root — would escalate privileges"; }
 test::runtime::coproc::start() {
-    runtime::coproc::start _rtest sleep 10
-    local pid; pid=$(runtime::coproc::pid _rtest)
+    runtime::coproc::start _rtest myproc grep .
+    local pid; pid=$(runtime::coproc::pid myproc)
     if [[ -z "$pid" ]]; then _fail "no pid"; return; fi
-    if ! runtime::coproc::alive _rtest; then _fail "not alive"; runtime::coproc::stop _rtest 2>/dev/null; return; fi
-    runtime::coproc::stop _rtest
-    if runtime::coproc::alive _rtest 2>/dev/null; then _fail "still alive after stop"; return; fi
+    if ! runtime::coproc::alive myproc; then _fail "not alive"; runtime::coproc::stop _rtest myproc 2>/dev/null; return; fi
+    runtime::coproc::stop _rtest myproc
+    if runtime::coproc::alive myproc 2>/dev/null; then _fail "still alive after stop"; return; fi
     _pass
 }
 test::runtime::coproc::stop()     { _pass; }
@@ -1177,10 +1177,10 @@ test::runtime::coproc::send()     { _pass; }
 test::runtime::coproc::read()     { _pass; }
 test::runtime::coproc::read_all() { _pass; }
 test::runtime::coproc::list()       {
-    runtime::coproc::start _rtest3 sleep 10
-    local list; list=$(runtime::coproc::list)
-    runtime::coproc::stop _rtest3
-    if [[ "$list" == *"_rtest3"* ]]; then _pass; else _fail "list: $list"; fi
+    runtime::coproc::start _rtest3 myproc3 grep .
+    local list; list=$(runtime::coproc::list _rtest3)
+    runtime::coproc::stop _rtest3 myproc3
+    if [[ "$list" == *"myproc3"* ]]; then _pass; else _fail "list: $list"; fi
 }
 
 test::process::exists()    {
