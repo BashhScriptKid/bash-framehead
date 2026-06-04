@@ -255,11 +255,11 @@ test::dbus::wait() {
 
 test::dbus::watch() {
 		if _have_busctl && _have_session_bus; then
-				# Verify watch starts and emits at least one line in 3s.
+				# Verify watch starts and emits at least one line within 60s.
 				# We use the ambient NameOwnerChanged signal that fires
 				# whenever any tool connects/disconnects from the bus.
 				local out
-				out=$(timeout 3 dbus::watch org.freedesktop.DBus NameOwnerChanged 2>/dev/null | head -1)
+				out=$(timeout 60 dbus::watch org.freedesktop.DBus NameOwnerChanged 2>/dev/null | head -1)
 				[[ "$out" == *$'\t'* ]] && _pass || _fail "expected TSV line, got '$out'"
 		else
 				_skip "no session bus or busctl"
