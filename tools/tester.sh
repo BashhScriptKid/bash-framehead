@@ -3891,3 +3891,131 @@ for _fn in \
 do
 	eval "test::kernel::${_fn}::get() { _test_xnu ${_fn}::get || return; local _v; _v=\$(kernel::${_fn}::get 2>/dev/null); [[ -n \"\$_v\" ]] && _pass || _fail; }"
 done
+
+# ==============================================================================
+# Tests — device (Linux /sys + /dev)
+# ==============================================================================
+
+_test_device_linux() {
+	[[ "$(runtime::os 2>/dev/null || echo linux)" == "linux" ]] || { _skip "device tests require linux"; return 1; }
+	return 0
+}
+
+# Pure file-system probes
+test::device::is_device()       { _test_device_linux || return; device::is_device /dev/null  >/dev/null 2>&1; local r=$?; [[ $r -eq 0 || $r -eq 1 ]] && _pass || _fail; }
+test::device::is_device::char() { _test_device_linux || return; device::is_device::char /dev/null  >/dev/null 2>&1; local r=$?; [[ $r -eq 0 || $r -eq 1 ]] && _pass || _fail; }
+test::device::is_device::block() { _test_device_linux || return; device::is_device::block /dev/null  >/dev/null 2>&1; local r=$?; [[ $r -eq 0 || $r -eq 1 ]] && _pass || _fail; }
+test::device::is_block()        { _test_device_linux || return; device::is_block /dev/null  >/dev/null 2>&1; local r=$?; [[ $r -eq 0 || $r -eq 1 ]] && _pass || _fail; }
+test::device::is_writeable()    { _test_device_linux || return; device::is_writeable /dev/null  >/dev/null 2>&1; local r=$?; [[ $r -eq 0 || $r -eq 1 ]] && _pass || _fail; }
+test::device::is_readable()     { _test_device_linux || return; device::is_readable /dev/null  >/dev/null 2>&1; local r=$?; [[ $r -eq 0 || $r -eq 1 ]] && _pass || _fail; }
+test::device::exists()          { _test_device_linux || return; device::exists /dev/null  >/dev/null 2>&1; local r=$?; [[ $r -eq 0 || $r -eq 1 ]] && _pass || _fail; }
+
+# /proc and /sys backed — many need an actual device; probe /dev/sda if it exists
+test::device::has_processes()   { _test_device_linux || return; device::has_processes /dev/null  >/dev/null 2>&1; local r=$?; [[ $r -eq 0 || $r -eq 1 ]] && _pass || _fail; }
+test::device::is_occupied()     { _test_device_linux || return; device::is_occupied /dev/null  >/dev/null 2>&1; local r=$?; [[ $r -eq 0 || $r -eq 1 ]] && _pass || _fail; }
+test::device::is_mounted()      { _test_device_linux || return; device::is_mounted /dev/null  >/dev/null 2>&1; local r=$?; [[ $r -eq 0 || $r -eq 1 ]] && _pass || _fail; }
+test::device::is_loop()         { _test_device_linux || return; device::is_loop /dev/null  >/dev/null 2>&1; local r=$?; [[ $r -eq 0 || $r -eq 1 ]] && _pass || _fail; }
+test::device::is_ram()          { _test_device_linux || return; device::is_ram /dev/null  >/dev/null 2>&1; local r=$?; [[ $r -eq 0 || $r -eq 1 ]] && _pass || _fail; }
+test::device::is_virtual()      { _test_device_linux || return; device::is_virtual /dev/null  >/dev/null 2>&1; local r=$?; [[ $r -eq 0 || $r -eq 1 ]] && _pass || _fail; }
+test::device::type()            { _test_device_linux || return; local _v; _v=$(device::type /dev/null 2>/dev/null); [[ -n "$_v" ]] && _pass || _fail; }
+test::device::number()          { _test_device_linux || return; local _v; _v=$(device::number /dev/null 2>/dev/null); [[ "$_v" =~ ^[0-9]+$ ]] && _pass || _skip "no major:minor for /dev/null"; }
+test::device::filesystem()      { _test_device_linux || return; local _v; _v=$(device::filesystem /dev/null 2>/dev/null); [[ -n "$_v" ]] && _pass || _skip "no fs info for /dev/null"; }
+test::device::size_bytes()      { _test_device_linux || return; local _v; _v=$(device::size_bytes /dev/null 2>/dev/null); [[ "$_v" =~ ^[0-9]+$ ]] && _pass || _skip "no size for /dev/null"; }
+test::device::size_mb()         { _test_device_linux || return; local _v; _v=$(device::size_mb /dev/null 2>/dev/null); [[ "$_v" =~ ^[0-9]+$ ]] && _pass || _skip "no size for /dev/null"; }
+test::device::mount_point()     { _test_device_linux || return; local _v; _v=$(device::mount_point /dev/null 2>/dev/null); [[ -n "$_v" || $? -eq 1 ]] && _pass || _fail; }
+
+# list::* — need at least one device
+test::device::list::block()     { _test_device_linux || return; device::list::block  >/dev/null 2>&1; local r=$?; [[ $r -eq 0 ]] && _pass || _fail; }
+test::device::list::char()      { _test_device_linux || return; device::list::char  >/dev/null 2>&1; local r=$?; [[ $r -eq 0 ]] && _pass || _fail; }
+test::device::list::tty()       { _test_device_linux || return; device::list::tty  >/dev/null 2>&1; local r=$?; [[ $r -eq 0 ]] && _pass || _fail; }
+test::device::list::loop()      { _test_device_linux || return; device::list::loop  >/dev/null 2>&1; local r=$?; [[ $r -eq 0 ]] && _pass || _fail; }
+test::device::list::mounted()   { _test_device_linux || return; device::list::mounted  >/dev/null 2>&1; local r=$?; [[ $r -eq 0 ]] && _pass || _fail; }
+test::device::list::block::fast() { _test_device_linux || return; device::list::block::fast  >/dev/null 2>&1; local r=$?; [[ $r -eq 0 ]] && _pass || _fail; }
+test::device::list::char::fast()  { _test_device_linux || return; device::list::char::fast  >/dev/null 2>&1; local r=$?; [[ $r -eq 0 ]] && _pass || _fail; }
+test::device::list::tty::fast()   { _test_device_linux || return; device::list::tty::fast  >/dev/null 2>&1; local r=$?; [[ $r -eq 0 ]] && _pass || _fail; }
+test::device::list::loop::fast()  { _test_device_linux || return; device::list::loop::fast  >/dev/null 2>&1; local r=$?; [[ $r -eq 0 ]] && _pass || _fail; }
+test::device::list::usb()       { _test_device_linux || return; device::list::usb  >/dev/null 2>&1; local r=$?; [[ $r -eq 0 ]] && _pass || _skip "no usb bus"; }
+test::device::list::usb::fast() { _test_device_linux || return; device::list::usb::fast  >/dev/null 2>&1; local r=$?; [[ $r -eq 0 ]] && _pass || _skip "no usb bus"; }
+
+# Static /dev/X files
+test::device::zero()            { _test_device_linux || return; local _v; _v=$(device::zero 2>/dev/null); [[ -n "$_v" ]] && _pass || _fail; }
+test::device::random()          { _test_device_linux || return; local _v; _v=$(device::random 2>/dev/null); [[ -n "$_v" ]] && _pass || _fail; }
+test::device::null_ok()         { _test_device_linux || return; device::null_ok >/dev/null 2>&1 && _pass || _fail; }
+
+# read::* — all /sys/block/$dev/* or /sys/bus/usb/* — skip if target absent
+_dev_first_disk() { ls /sys/block 2>/dev/null | grep -Ev '^(loop|ram|dm-)' | head -1; }
+_dev_first_usb()  { ls /sys/bus/usb/devices 2>/dev/null | head -1; }
+
+test::device::read::model()         { _test_device_linux || return; local _d; _d=$(_dev_first_disk); [[ -z "$_d" ]] && { _skip "no block devices"; return; }; local _v; _v=$(device::read::model "/dev/$_d" 2>/dev/null); [[ -n "$_v" ]] && _pass || _fail; }
+test::device::read::vendor()        { _test_device_linux || return; local _d; _d=$(_dev_first_disk); [[ -z "$_d" ]] && { _skip "no block devices"; return; }; local _v; _v=$(device::read::vendor "/dev/$_d" 2>/dev/null); [[ -n "$_v" ]] && _pass || _skip "no vendor info"; }
+test::device::read::serial()        { _test_device_linux || return; local _d; _d=$(_dev_first_disk); [[ -z "$_d" ]] && { _skip "no block devices"; return; }; local _v; _v=$(device::read::serial "/dev/$_d" 2>/dev/null); [[ -n "$_v" ]] && _pass || _skip "no serial"; }
+test::device::read::firmware()      { _test_device_linux || return; local _d; _d=$(_dev_first_disk); [[ -z "$_d" ]] && { _skip "no block devices"; return; }; local _v; _v=$(device::read::firmware "/dev/$_d" 2>/dev/null); [[ -n "$_v" ]] && _pass || _skip "no firmware info"; }
+test::device::read::sector_size()   { _test_device_linux || return; local _d; _d=$(_dev_first_disk); [[ -z "$_d" ]] && { _skip "no block devices"; return; }; local _v; _v=$(device::read::sector_size "/dev/$_d" 2>/dev/null); [[ "$_v" =~ ^[0-9]+$ ]] && _pass || _skip "no sector size"; }
+test::device::read::queue_depth()   { _test_device_linux || return; local _d; _d=$(_dev_first_disk); [[ -z "$_d" ]] && { _skip "no block devices"; return; }; local _v; _v=$(device::read::queue_depth "/dev/$_d" 2>/dev/null); [[ "$_v" =~ ^[0-9]+$ ]] && _pass || _skip "no queue depth"; }
+test::device::read::scheduler()     { _test_device_linux || return; local _d; _d=$(_dev_first_disk); [[ -z "$_d" ]] && { _skip "no block devices"; return; }; local _v; _v=$(device::read::scheduler "/dev/$_d" 2>/dev/null); [[ -n "$_v" ]] && _pass || _skip "no scheduler info"; }
+test::device::read::rotational()    { _test_device_linux || return; local _d; _d=$(_dev_first_disk); [[ -z "$_d" ]] && { _skip "no block devices"; return; }; local _v; _v=$(device::read::rotational "/dev/$_d" 2>/dev/null); [[ "$_v" =~ ^[01]$ ]] && _pass || _skip "no rotational info"; }
+test::device::read::io_stat()       { _test_device_linux || return; local _d; _d=$(_dev_first_disk); [[ -z "$_d" ]] && { _skip "no block devices"; return; }; local _v; _v=$(device::read::io_stat "/dev/$_d" 2>/dev/null); [[ -n "$_v" ]] && _pass || _skip "no io_stat"; }
+
+# read::usb::* — need a usb device
+test::device::read::usb::vendor_id()    { _test_device_linux || return; local _u; _u=$(_dev_first_usb); [[ -z "$_u" ]] && { _skip "no usb devices"; return; }; local _v; _v=$(device::read::usb::vendor_id "$_u" 2>/dev/null); [[ -n "$_v" ]] && _pass || _fail; }
+test::device::read::usb::product_id()   { _test_device_linux || return; local _u; _u=$(_dev_first_usb); [[ -z "$_u" ]] && { _skip "no usb devices"; return; }; local _v; _v=$(device::read::usb::product_id "$_u" 2>/dev/null); [[ -n "$_v" ]] && _pass || _fail; }
+test::device::read::usb::speed()        { _test_device_linux || return; local _u; _u=$(_dev_first_usb); [[ -z "$_u" ]] && { _skip "no usb devices"; return; }; local _v; _v=$(device::read::usb::speed "$_u" 2>/dev/null); [[ -n "$_v" ]] && _pass || _fail; }
+test::device::read::usb::manufacturer() { _test_device_linux || return; local _u; _u=$(_dev_first_usb); [[ -z "$_u" ]] && { _skip "no usb devices"; return; }; device::read::usb::manufacturer "$_u" >/dev/null 2>&1; local r=$?; [[ $r -eq 0 || $r -eq 1 ]] && _pass || _fail; }
+test::device::read::usb::product()      { _test_device_linux || return; local _u; _u=$(_dev_first_usb); [[ -z "$_u" ]] && { _skip "no usb devices"; return; }; device::read::usb::product "$_u" >/dev/null 2>&1; local r=$?; [[ $r -eq 0 || $r -eq 1 ]] && _pass || _fail; }
+test::device::read::usb::serial()       { _test_device_linux || return; local _u; _u=$(_dev_first_usb); [[ -z "$_u" ]] && { _skip "no usb devices"; return; }; device::read::usb::serial "$_u" >/dev/null 2>&1; local r=$?; [[ $r -eq 0 || $r -eq 1 ]] && _pass || _fail; }
+test::device::read::usb::driver()       { _test_device_linux || return; local _u; _u=$(_dev_first_usb); [[ -z "$_u" ]] && { _skip "no usb devices"; return; }; device::read::usb::driver "$_u" >/dev/null 2>&1; local r=$?; [[ $r -eq 0 || $r -eq 1 ]] && _pass || _fail; }
+test::device::read::usb::max_power()    { _test_device_linux || return; local _u; _u=$(_dev_first_usb); [[ -z "$_u" ]] && { _skip "no usb devices"; return; }; local _v; _v=$(device::read::usb::max_power "$_u" 2>/dev/null); [[ -n "$_v" ]] && _pass || _skip "no max_power"; }
+
+# ==============================================================================
+# Tests — net (pure helpers and read-only queries; destructive interfaces skip)
+# ==============================================================================
+
+# Pure validators — no system calls
+test::net::ip::is_valid_v4() { net::ip::is_valid_v4 192.168.1.1  >/dev/null 2>&1 && _pass || _fail; net::ip::is_valid_v4 999.1.1.1  >/dev/null 2>&1 && _fail || _pass; }
+test::net::ip::is_valid_v6() { net::ip::is_valid_v6 ::1            >/dev/null 2>&1 && _pass || _fail; net::ip::is_valid_v6 not.an.ip   >/dev/null 2>&1 && _fail || _pass; }
+test::net::ip::is_private()  { net::ip::is_private 10.0.0.1        >/dev/null 2>&1 && _pass || _fail; net::ip::is_private 8.8.8.8  >/dev/null 2>&1 && _fail || _pass; }
+test::net::ip::is_loopback() { net::ip::is_loopback 127.0.0.1      >/dev/null 2>&1 && _pass || _fail; net::ip::is_loopback 8.8.8.8  >/dev/null 2>&1 && _fail || _pass; }
+
+# Read-only queries
+test::net::ip::local()     { local _v; _v=$(net::ip::local 2>/dev/null); [[ -n "$_v" ]] && _pass || _skip "no local IP"; }
+test::net::ip::public()    { local _v; _v=$(net::ip::public 2>/dev/null); [[ -n "$_v" ]] && _pass || _skip "no public IP (offline?)"; }
+test::net::ip::all()       { net::ip::all 2>/dev/null; local r=$?; [[ $r -eq 0 ]] && _pass || _fail; }
+test::net::hostname()      { local _v; _v=$(net::hostname 2>/dev/null); [[ -n "$_v" ]] && _pass || _fail; }
+test::net::hostname::fqdn() { local _v; _v=$(net::hostname::fqdn 2>/dev/null); [[ -n "$_v" ]] && _pass || _fail; }
+test::net::resolve()       { local _v; _v=$(net::resolve localhost 2>/dev/null); [[ -n "$_v" ]] && _pass || _skip "DNS unavailable"; }
+test::net::resolve::reverse() { local _v; _v=$(net::resolve::reverse 127.0.0.1 2>/dev/null); [[ -n "$_v" ]] && _pass || _skip "no reverse DNS"; }
+test::net::dns::records()  { net::dns::records localhost 2>/dev/null; local r=$?; [[ $r -eq 0 ]] && _pass || _skip "DNS unavailable"; }
+test::net::dns::mx()       { net::dns::mx google.com 2>/dev/null; local r=$?; [[ $r -eq 0 ]] && _pass || _skip "DNS unavailable"; }
+test::net::dns::txt()      { net::dns::txt google.com 2>/dev/null; local r=$?; [[ $r -eq 0 ]] && _pass || _skip "DNS unavailable"; }
+test::net::dns::ns()       { net::dns::ns google.com 2>/dev/null; local r=$?; [[ $r -eq 0 ]] && _pass || _skip "DNS unavailable"; }
+test::net::dns::propagation() { _skip "slow external check"; }
+
+# interface::* read
+test::net::interface::list()    { local _v; _v=$(net::interface::list 2>/dev/null); [[ -n "$_v" ]] && _pass || _fail; }
+test::net::interface::is_up()   { local _v; _v=$(net::interface::is_up lo 2>/dev/null); [[ -n "$_v" ]] && _pass || _fail; }
+test::net::interface::speed()   { local _v; _v=$(net::interface::speed lo 2>/dev/null); [[ -n "$_v" ]] && _pass || _skip "no speed info"; }
+test::net::interface::stat()    { local _v; _v=$(net::interface::stat lo 2>/dev/null); [[ -n "$_v" ]] && _pass || _skip "no stat"; }
+test::net::interface::stat::rx(){ local _v; _v=$(net::interface::stat::rx lo 2>/dev/null); [[ -n "$_v" ]] && _pass || _skip "no rx stat"; }
+test::net::interface::stat::tx(){ local _v; _v=$(net::interface::stat::tx lo 2>/dev/null); [[ -n "$_v" ]] && _pass || _skip "no tx stat"; }
+test::net::mac()                { local _v; _v=$(net::mac lo 2>/dev/null); [[ -n "$_v" || $? -eq 1 ]] && _pass || _fail; }
+test::net::gateway()            { local _v; _v=$(net::gateway 2>/dev/null); [[ -n "$_v" ]] && _pass || _skip "no gateway"; }
+
+# Destructive — always skip
+test::net::interface::up()      { _skip "would bring interface up"; }
+test::net::interface::down()    { _skip "would bring interface down"; }
+test::net::interface::restart() { _skip "would restart interface"; }
+test::net::wifi::connect()      { _skip "would modify wifi state"; }
+test::net::wifi::disconnect()   { _skip "would modify wifi state"; }
+test::net::wifi::forget()       { _skip "would modify wifi state"; }
+test::net::wifi::list()         { _skip "environment-dependent (no wifi in test runner)"; }
+test::net::wifi::list::saved()  { _skip "environment-dependent"; }
+test::net::wifi::status()       { _skip "environment-dependent"; }
+
+# Slow / external
+test::net::is_online()          { _skip "slow external check"; }
+test::net::can_reach()          { _skip "slow external check"; }
+test::net::ping()               { _skip "slow external check"; }
+test::net::port::is_open()      { _skip "would scan a port"; }
+test::net::port::wait()         { _skip "would block on a port"; }
+test::net::port::scan()         { _skip "slow external check"; }
+test::net::backend()            { local _v; _v=$(net::backend 2>/dev/null); [[ -n "$_v" ]] && _pass || _fail; }

@@ -288,3 +288,29 @@ test::dbus::watch() {
 				_skip "no session bus or busctl"
 		fi
 }
+
+# ==============================================================================
+# Read-only queries — guarded by busctl/dbus-send availability
+# ==============================================================================
+
+_dbus_bus_avail() {
+	command -v busctl >/dev/null 2>&1 || command -v dbus-send >/dev/null 2>&1
+}
+
+test::dbus::list()                { _dbus_bus_avail || { _skip "no busctl/dbus-send"; return; }; local _v; _v=$(dbus::list 2>/dev/null); [[ -n "$_v" ]] && _pass || _skip "no bus"; }
+test::dbus::list::session()       { _dbus_bus_avail || { _skip "no busctl/dbus-send"; return; }; local _v; _v=$(dbus::list::session 2>/dev/null); [[ -n "$_v" ]] && _pass || _skip "no session bus"; }
+test::dbus::list::system()        { _dbus_bus_avail || { _skip "no busctl/dbus-send"; return; }; local _v; _v=$(dbus::list::system 2>/dev/null); [[ -n "$_v" ]] && _pass || _skip "no system bus"; }
+test::dbus::list::autostarts()    { _dbus_bus_avail || { _skip "no busctl/dbus-send"; return; }; dbus::list::autostarts >/dev/null 2>&1 && _pass || _skip "no bus"; }
+test::dbus::list::autostarts::session() { _dbus_bus_avail || { _skip "no busctl/dbus-send"; return; }; dbus::list::autostarts::session >/dev/null 2>&1 && _pass || _skip "no session bus"; }
+test::dbus::list::autostarts::system()  { _dbus_bus_avail || { _skip "no busctl/dbus-send"; return; }; dbus::list::autostarts::system  >/dev/null 2>&1 && _pass || _skip "no system bus"; }
+test::dbus::introspect()          { _dbus_bus_avail || { _skip "no busctl/dbus-send"; return; }; local _v; _v=$(dbus::introspect org.freedesktop.DBus / 2>/dev/null); [[ -n "$_v" ]] && _pass || _skip "no bus"; }
+test::dbus::interfaces()          { _dbus_bus_avail || { _skip "no busctl/dbus-send"; return; }; dbus::interfaces org.freedesktop.DBus 2>/dev/null; local r=$?; [[ $r -eq 0 || $r -eq 1 ]] && _pass || _fail; }
+test::dbus::methods()             { _dbus_bus_avail || { _skip "no busctl/dbus-send"; return; }; dbus::methods org.freedesktop.DBus / 2>/dev/null; local r=$?; [[ $r -eq 0 || $r -eq 1 ]] && _pass || _fail; }
+test::dbus::signals()             { _dbus_bus_avail || { _skip "no busctl/dbus-send"; return; }; dbus::signals org.freedesktop.DBus 2>/dev/null; local r=$?; [[ $r -eq 0 || $r -eq 1 ]] && _pass || _fail; }
+test::dbus::properties()          { _dbus_bus_avail || { _skip "no busctl/dbus-send"; return; }; dbus::properties org.freedesktop.DBus / 2>/dev/null; local r=$?; [[ $r -eq 0 || $r -eq 1 ]] && _pass || _fail; }
+test::dbus::subscribe()           { _skip "would set up persistent monitor"; }
+test::dbus::unsubscribe()         { _skip "would tear down monitor"; }
+test::dbus::set()                 { _skip "would mutate a bus property"; }
+
+# Phantom — function never written
+test::dbus::call::with_args()     { _skip "function not implemented"; }

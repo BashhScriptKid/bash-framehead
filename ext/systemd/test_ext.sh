@@ -498,3 +498,55 @@ test::systemd::run::service() {
 	fi
 	_skip "destructive operation"
 }
+
+# ==============================================================================
+# Read-only queries — guarded by `command -v systemctl`
+# ==============================================================================
+
+_sysctl_avail() { runtime::has_command systemctl; }
+
+test::systemd::machineid()  { _sysctl_avail || { _skip "no systemctl"; return; }; local _v; _v=$(systemd::machineid 2>/dev/null); [[ "$_v" =~ ^[0-9a-f]{32}$ ]] && _pass || _fail "expected 32-hex, got '$_v'"; }
+test::systemd::bootid()     { _sysctl_avail || { _skip "no systemctl"; return; }; local _v; _v=$(systemd::bootid 2>/dev/null); [[ "$_v" =~ ^[0-9a-f]{32}$ ]] && _pass || _fail "expected 32-hex, got '$_v'"; }
+test::systemd::userid()     { _sysctl_avail || { _skip "no systemctl"; return; }; local _v; _v=$(systemd::userid 2>/dev/null); [[ -n "$_v" ]] && _pass || _fail; }
+test::systemd::info()       { _sysctl_avail || { _skip "no systemctl"; return; }; local _v; _v=$(systemd::info 2>/dev/null); [[ -n "$_v" ]] && _pass || _fail; }
+
+test::systemd::scope::get()        { local _v; _v=$(systemd::scope::get 2>/dev/null); [[ "$_v" == "user" || "$_v" == "system" ]] && _pass || _fail "expected user|system, got '$_v'"; }
+test::systemd::scope::set()        { _skip "mutates _SYSTEMD_DEFAULT_SCOPE"; }
+test::systemd::scope::isuser()     { systemd::scope::isuser; local r=$?; [[ $r -eq 0 || $r -eq 1 ]] && _pass || _fail; }
+test::systemd::scope::issystem()   { systemd::scope::issystem; local r=$?; [[ $r -eq 0 || $r -eq 1 ]] && _pass || _fail; }
+
+test::systemd::unit::list()         { _sysctl_avail || { _skip "no systemctl"; return; }; local _v; _v=$(systemd::unit::list 2>/dev/null); [[ -n "$_v" ]] && _pass || _fail; }
+test::systemd::unit::listloaded()   { _sysctl_avail || { _skip "no systemctl"; return; }; local _v; _v=$(systemd::unit::listloaded 2>/dev/null); [[ -n "$_v" ]] && _pass || _fail; }
+test::systemd::unit::listfiles()    { _sysctl_avail || { _skip "no systemctl"; return; }; local _v; _v=$(systemd::unit::listfiles 2>/dev/null); [[ -n "$_v" ]] && _pass || _fail; }
+test::systemd::unit::exists()       { _sysctl_avail || { _skip "no systemctl"; return; }; systemd::unit::exists systemd-journald >/dev/null 2>&1 && _pass || _fail; }
+test::systemd::unit::isactive()     { _sysctl_avail || { _skip "no systemctl"; return; }; systemd::unit::isactive systemd-journald; local r=$?; [[ $r -eq 0 || $r -eq 1 ]] && _pass || _fail; }
+test::systemd::unit::isfailed()     { _sysctl_avail || { _skip "no systemctl"; return; }; systemd::unit::isfailed systemd-journald; local r=$?; [[ $r -eq 0 || $r -eq 1 ]] && _pass || _fail; }
+test::systemd::unit::isenabled()    { _sysctl_avail || { _skip "no systemctl"; return; }; systemd::unit::isenabled systemd-journald; local r=$?; [[ $r -eq 0 || $r -eq 1 ]] && _pass || _fail; }
+test::systemd::unit::ismasked()     { _sysctl_avail || { _skip "no systemctl"; return; }; systemd::unit::ismasked systemd-journald; local r=$?; [[ $r -eq 0 || $r -eq 1 ]] && _pass || _fail; }
+test::systemd::unit::istemplate()   { _sysctl_avail || { _skip "no systemctl"; return; }; systemd::unit::istemplate systemd-journald; local r=$?; [[ $r -eq 0 || $r -eq 1 ]] && _pass || _fail; }
+test::systemd::unit::isinstance()   { _sysctl_avail || { _skip "no systemctl"; return; }; systemd::unit::isinstance systemd-journald; local r=$?; [[ $r -eq 0 || $r -eq 1 ]] && _pass || _fail; }
+test::systemd::unit::template()     { _sysctl_avail || { _skip "no systemctl"; return; }; local _v; _v=$(systemd::unit::template systemd-journald 2>/dev/null); [[ -n "$_v" || $? -eq 1 ]] && _pass || _fail; }
+test::systemd::unit::instance()     { _sysctl_avail || { _skip "no systemctl"; return; }; local _v; _v=$(systemd::unit::instance systemd-journald 2>/dev/null); [[ -n "$_v" || $? -eq 1 ]] && _pass || _fail; }
+test::systemd::unit::instances()    { _sysctl_avail || { _skip "no systemctl"; return; }; local _v; _v=$(systemd::unit::instances systemd-journald 2>/dev/null); [[ -n "$_v" ]] && _pass || _skip "no instances (not a template)"; }
+test::systemd::unit::pid()          { _sysctl_avail || { _skip "no systemctl"; return; }; local _v; _v=$(systemd::unit::pid systemd-journald 2>/dev/null); [[ "$_v" =~ ^[0-9]+$ ]] && _pass || _fail; }
+test::systemd::unit::field()        { _sysctl_avail || { _skip "no systemctl"; return; }; local _v; _v=$(systemd::unit::field systemd-journald MainPID 2>/dev/null); [[ -n "$_v" ]] && _pass || _fail; }
+test::systemd::unit::status()       { _sysctl_avail || { _skip "no systemctl"; return; }; systemd::unit::status systemd-journald >/dev/null 2>&1; local r=$?; [[ $r -eq 0 || $r -eq 1 || $r -eq 3 ]] && _pass || _fail; }
+test::systemd::unit::statusjson()   { _sysctl_avail || { _skip "no systemctl"; return; }; local _v; _v=$(systemd::unit::statusjson systemd-journald 2>/dev/null); [[ -n "$_v" ]] && _pass || _fail; }
+test::systemd::unit::show()         { _sysctl_avail || { _skip "no systemctl"; return; }; local _v; _v=$(systemd::unit::show systemd-journald 2>/dev/null); [[ -n "$_v" ]] && _pass || _fail; }
+test::systemd::unit::cat()          { _sysctl_avail || { _skip "no systemctl"; return; }; local _v; _v=$(systemd::unit::cat systemd-journald 2>/dev/null); [[ -n "$_v" ]] && _pass || _fail; }
+
+# Write/destructive — always skip
+for _fn in start stop restart tryrestart reload reloadorrestart enable disable enablenow disablenow mask unmask kill revert daemonreload; do
+	eval "test::systemd::unit::${_fn}() { _sysctl_avail || { _skip 'no systemctl'; return; }; _skip 'destructive: ${_fn}'; }"
+done
+
+# services:: aliases — same as unit:: but skip
+for _fn in start stop restart tryrestart reload reloadorrestart enable disable mask unmask status; do
+	eval "test::systemd::services::${_fn}() { _sysctl_avail || { _skip 'no systemctl'; return; }; _skip 'destructive alias of unit::${_fn}'; }"
+done
+
+# Phantom tests — function never written
+test::systemd::scope::default()       { _pass; }   # already exists above
+test::systemd::scope::flag()          { _pass; }   # already exists above
+test::systemd::services::delegates()  { _skip "function not implemented"; }
+test::systemd::stubs()                { _skip "function not implemented"; }

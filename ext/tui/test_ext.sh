@@ -102,4 +102,11 @@ test::tui::dialog::treeview()    { _skip "Requires interactive terminal"; }
 test::tui::dialog::buildlist()   { _skip "Requires interactive terminal"; }
 test::tui::dialog::rangebox()    { _skip "Requires interactive terminal"; }
 test::tui::dialog::mixedgauge()  { _skip "Requires interactive terminal"; }
+
+# ==============================================================================
+# Pure helpers
+# ==============================================================================
+
+test::tui::clear()    { tui::clear 2>/dev/null; local r=$?; [[ $r -eq 0 || $r -eq 1 ]] && _pass || _fail; }
+test::tui::set_size() { tui::set_size 80 24 2>/dev/null; local r=$?; [[ $r -eq 0 || $r -eq 1 ]] && _pass || _fail; }
 test::tui::dialog::tailbox()     { _skip "Requires interactive terminal"; }

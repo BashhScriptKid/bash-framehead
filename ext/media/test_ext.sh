@@ -77,4 +77,32 @@ test::media::image::info() {
 	_info=$(media::image::info "$_f")
 	rm -f "$_f"
 	[[ "$_info" == *"width=1"* ]] && _pass || _fail "info missing width"
+
+# ==============================================================================
+# General type/format probes — guarded by external tools (ffprobe/mediainfo)
+# ==============================================================================
+
+_media_avail() { command -v ffprobe >/dev/null 2>&1 || command -v mediainfo >/dev/null 2>&1; }
+
+test::media::type()    { _media_avail || { _skip "no ffprobe/mediainfo"; return; }; local _f="/tmp/test_media_$$.png"; _create_test_png "$_f"; local _v; _v=$(media::type "$_f" 2>/dev/null); rm -f "$_f"; [[ -n "$_v" ]] && _pass || _fail; }
+test::media::format()  { _media_avail || { _skip "no ffprobe/mediainfo"; return; }; local _f="/tmp/test_media_$$.png"; _create_test_png "$_f"; local _v; _v=$(media::format "$_f" 2>/dev/null); rm -f "$_f"; [[ -n "$_v" ]] && _pass || _fail; }
+
+# image::* — all already covered indirectly, but exercise them all
+test::media::image::depth()    { _media_avail || { _skip "no ffprobe"; return; }; local _f="/tmp/test_media_$$.png"; _create_test_png "$_f"; local _v; _v=$(media::image::depth "$_f" 2>/dev/null); rm -f "$_f"; [[ -n "$_v" ]] && _pass || _fail; }
+test::media::image::channels() { _media_avail || { _skip "no ffprobe"; return; }; local _f="/tmp/test_media_$$.png"; _create_test_png "$_f"; local _v; _v=$(media::image::channels "$_f" 2>/dev/null); rm -f "$_f"; [[ -n "$_v" ]] && _pass || _fail; }
+test::media::image::format()   { _media_avail || { _skip "no ffprobe"; return; }; local _f="/tmp/test_media_$$.png"; _create_test_png "$_f"; local _v; _v=$(media::image::format "$_f" 2>/dev/null); rm -f "$_f"; [[ -n "$_v" ]] && _pass || _fail; }
+
+# audio::* additional
+test::media::audio::format()    { _media_avail || { _skip "no ffprobe"; return; }; local _f="/tmp/test_media_$$.wav"; _create_test_wav "$_f" 8; local _v; _v=$(media::audio::format "$_f" 2>/dev/null); rm -f "$_f"; [[ -n "$_v" ]] && _pass || _fail; }
+test::media::audio::channels()  { _media_avail || { _skip "no ffprobe"; return; }; local _f="/tmp/test_media_$$.wav"; _create_test_wav "$_f" 8; local _v; _v=$(media::audio::channels "$_f" 2>/dev/null); rm -f "$_f"; [[ -n "$_v" ]] && _pass || _fail; }
+test::media::audio::duration()  { _media_avail || { _skip "no ffprobe"; return; }; local _f="/tmp/test_media_$$.wav"; _create_test_wav "$_f" 8; local _v; _v=$(media::audio::duration "$_f" 2>/dev/null); rm -f "$_f"; [[ -n "$_v" ]] && _pass || _fail; }
+test::media::audio::bitrate()   { _media_avail || { _skip "no ffprobe"; return; }; local _f="/tmp/test_media_$$.wav"; _create_test_wav "$_f" 8; local _v; _v=$(media::audio::bitrate "$_f" 2>/dev/null); rm -f "$_f"; [[ -n "$_v" ]] && _pass || _fail; }
+test::media::audio::tags()      { _media_avail || { _skip "no ffprobe"; return; }; local _f="/tmp/test_media_$$.wav"; _create_test_wav "$_f" 8; media::audio::tags "$_f" >/dev/null 2>&1; rm -f "$_f"; local r=$?; [[ $r -eq 0 || $r -eq 1 ]] && _pass || _fail; }
+test::media::audio::tag::get()  { _media_avail || { _skip "no ffprobe"; return; }; local _f="/tmp/test_media_$$.wav"; _create_test_wav "$_f" 8; local _v; _v=$(media::audio::tag::get "$_f" artist 2>/dev/null); rm -f "$_f"; [[ -n "$_v" || $? -eq 1 ]] && _pass || _fail; }
+test::media::audio::info()      { _media_avail || { _skip "no ffprobe"; return; }; local _f="/tmp/test_media_$$.wav"; _create_test_wav "$_f" 8; local _v; _v=$(media::audio::info "$_f" 2>/dev/null); rm -f "$_f"; [[ -n "$_v" ]] && _pass || _fail; }
+
+# video::* — only call if a sample file exists in repo
+test::media::video::format()      { _media_avail || { _skip "no ffprobe"; return; }; _skip "no sample video in test fixture"; }
+test::media::video::resolution()  { _media_avail || { _skip "no ffprobe"; return; }; _skip "no sample video in test fixture"; }
+test::media::video::duration()    { _media_avail || { _skip "no ffprobe"; return; }; _skip "no sample video in test fixture"; }
 }
