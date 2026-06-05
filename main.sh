@@ -1410,9 +1410,11 @@ if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
         echo "  obfuscate        <input> [output]     Obfuscate a compiled file  (tools/obfuscate.sh)"
         echo "  wiki             <compiled> <dir>     Generate wiki documentation"
         echo ""
-        echo "Sourced usage:"
-        echo "  source main.sh              Source all src/ modules into current shell"
-        echo "  source main.sh extended     Source all src/ + ext/ modules into current shell"
+        echo "Sourced usage (flags are order-agnostic and combinable):"
+        echo "  source main.sh                          Source all src/ modules into current shell"
+        echo "  source main.sh extended                 Also source ext/ modules"
+        echo "  source main.sh interactive              Open NESTED bash with tab-completion (outer shell untouched)"
+        echo "  source main.sh interactive extended     Same nested bash, also with ext/ modules"
         exit 0
     fi
 
@@ -1434,21 +1436,343 @@ if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
 fi
 
 # ── Sourced into current shell ─────────────────────────────────────────
-_src_dir="$(dirname "${BASH_SOURCE[0]}")/src"
-for _func_file in "$_src_dir"/*.sh; do
-    [[ -f "$_func_file" ]] || continue
-    source "$_func_file"
-done
+loader::embed() {
+	declare -f "$1" | sed -n '3,$p' | sed '$d'
+}
 
-if [[ ${1,,} == "extended" ]]; then
-    _ext_dir="$(dirname "${BASH_SOURCE[0]}")/ext"
-    for _ext_dir_path in "$_ext_dir"/*/; do
-        [[ -d "$_ext_dir_path" ]] || continue
-        _ext_name="$(basename "$_ext_dir_path")"
-        _ext_sh="$_ext_dir_path/${_ext_name}.sh"
-        [[ -f "$_ext_sh" ]] && source "$_ext_sh"
-    done
+loader::loadscript() {
+	_FRAMEHEAD_NESTED=1
+}
+
+loader::interactiveloadscript() {
+	PS1="(framehead) $PS1"
+}
+
+if [[ -n "${_FRAMEHEAD_LOADED:-}" ]]; then
+	_rsc_args=()
+	for _rsc_f in "$@"; do
+		case "${_rsc_f,,}" in
+			extended)    _rsc_args+=(extended) ;;
+			interactive) _rsc_args+=(interactive) ;;
+		esac
+	done
+
+	_rsc_jobs=$(jobs -p 2>/dev/null | wc -l)
+	if (( _rsc_jobs > 0 )); then
+		printf "framehead: %d background job(s) running, will be lost on reload. Continue? [y/N] " "$_rsc_jobs" >&2
+		IFS= read -r _rsc_cfm
+		if [[ "${_rsc_cfm,,}" != "y" ]]; then
+			echo "reload cancelled" >&2
+			return 1
+		fi
+	fi
+
+	_rsc_mp="$(readlink -f "${BASH_SOURCE[0]}" 2>/dev/null)"
+	[[ -z "$_rsc_mp" ]] && _rsc_mp="${BASH_SOURCE[0]}"
+
+	unset _FRAMEHEAD_LOADED
+	exec bash -i < <(loader::embed loader::loadscript
+		loader::embed loader::interactiveloadscript
+		cat)
 fi
 
-unset -v _src_dir _func_file _ext_dir _ext_sh
+_fh_interactive=0
+_fh_extended=0
+for _fh_flag in "$@"; do
+	case "${_fh_flag,,}" in
+		interactive) _fh_interactive=1 ;;
+		extended)    _fh_extended=1 ;;
+	esac
+done
+
+if (( _fh_interactive )) && [[ -z "${_FRAMEHEAD_NESTED:-}" ]]; then
+	_fh_main_path="$(readlink -f "${BASH_SOURCE[0]}" 2>/dev/null)"
+	[[ -z "$_fh_main_path" ]] && _fh_main_path="${BASH_SOURCE[0]}"
+	_fh_inner_args="interactive"
+	(( _fh_extended )) && _fh_inner_args="interactive extended"
+
+	{
+		echo "framehead notice:"
+		echo "  To make tab completion work, the shell's global state"
+		echo "  (COMP_WORDBREAKS) must be modified. To avoid unexpected"
+		echo "  behaviour, a new shell instance has been spawned with"
+		echo "  the modification applied. Your main shell is not affected."
+		echo "  Type 'exit' or press Ctrl+D to return."
+	} >&2
+
+	bash -i < <(loader::embed loader::loadscript
+		loader::embed loader::interactiveloadscript
+		cat)
+	unset -v _fh_main_path _fh_inner_args _fh_flag _fh_interactive _fh_extended
+	return 0
+fi
+
+_src_dir="$(dirname "${BASH_SOURCE[0]}")/src"
+_ext_dir="$(dirname "${BASH_SOURCE[0]}")/ext"
+
+_framehead::scan_readonly() {
+	local _v
+	while IFS= read -r _v; do
+		_FH_READONLY_VARS+=("$_v")
+	done < <(grep -hoE '^(readonly[[:space:]]+[A-Za-z_][A-Za-z0-9_]*|declare[[:space:]]+(-[aArxgi]+|--)?[[:space:]]*(-[aArxgi]+r|--)[[:space:]]+[A-Za-z_][A-Za-z0-9_]*)' "$_src_dir"/*.sh "$_ext_dir"/*/*.sh 2>/dev/null \
+		| grep -oE '[A-Za-z_][A-Za-z0-9_]*$' | sort -u)
+}
+_framehead::scan_readonly
+
+loader::run() {
+	local _lr_src_dir="$1" _lr_ext_dir="$2" _lr_extended="${3:-0}"
+	local _lr_errfile="${TMPDIR:-/tmp}/.framehead_loader_err.$$"
+
+	# --- pre-flight: bash -n on every candidate file ---
+	local -A _lr_syntax=ok
+	local _lr_f
+	for _lr_f in "$_lr_src_dir"/*.sh; do
+		[[ -f "$_lr_f" ]] || continue
+		local _lr_n
+		_lr_n="$(basename "$_lr_f" .sh)"
+		if bash -n "$_lr_f" 2>/dev/null; then
+			_lr_syntax[$_lr_n]=ok
+		else
+			_lr_syntax[$_lr_n]=err
+		fi
+	done
+	if (( _lr_extended )); then
+		for _lr_f in "$_lr_ext_dir"/*/*.sh; do
+			[[ -f "$_lr_f" ]] || continue
+			local _lr_n
+			_lr_n="$(basename "$(dirname "$_lr_f")")"
+			if bash -n "$_lr_f" 2>/dev/null; then
+				_lr_syntax[$_lr_n]=ok
+			else
+				_lr_syntax[$_lr_n]=err
+			fi
+		done
+	fi
+
+	# --- unset tracked readonly vars (re-source safety) ---
+	local _lr_rv
+	for _lr_rv in "${_FH_READONLY_VARS[@]}"; do
+		unset -v "$_lr_rv" 2>/dev/null
+	done
+
+	# --- core modules ---
+	local -A _lr_loaded=ok
+	local _lr_loaded_count=0 _lr_skipped_count=0 _lr_warning_count=0
+	local -a _lr_skip_msgs=() _lr_warn_msgs=()
+
+	echo "Starting Loader:"
+	echo "   Core module:"
+
+	local _lr_core_total
+	_lr_core_total=$(find "$_lr_src_dir" -maxdepth 1 -name '*.sh' 2>/dev/null | wc -l)
+	local _lr_core_loaded=0 _lr_core_skipped=0
+	local _lr_core_i=0
+	for _lr_f in "$_lr_src_dir"/*.sh; do
+		[[ -f "$_lr_f" ]] || continue
+		((_lr_core_i++))
+		local _lr_n
+		_lr_n="$(basename "$_lr_f" .sh)"
+
+		if [[ "${_lr_syntax[$_lr_n]:-ok}" == "err" ]]; then
+			printf '\r      %-22s - syntax error! Skipping\n' "$_lr_n"
+			((_lr_skipped_count++))
+			((_lr_core_skipped++))
+			_lr_skip_msgs+=("core/$_lr_n: syntax error")
+			continue
+		fi
+
+		# count function delta to detect silent partial-fail (guard bailed)
+		local _lr_fns_before _lr_fns_after
+		_lr_fns_before=$(compgen -A function | wc -l)
+		: > "$_lr_errfile"
+		source "$_lr_f" 2>"$_lr_errfile"
+		local _lr_rc=$?
+		local _lr_err
+		_lr_err=$(<"$_lr_errfile")
+		if (( _lr_rc != 0 )); then
+			printf '\r      %-22s - source error: %s\n' "$_lr_n" "${_lr_err%%$'\n'*}"
+			((_lr_skipped_count++))
+			((_lr_core_skipped++))
+			_lr_skip_msgs+=("core/$_lr_n: source error")
+			continue
+		fi
+		_lr_fns_after=$(compgen -A function | wc -l)
+		if (( _lr_fns_after > _lr_fns_before )); then
+			printf '\r      %-22s - ok (+%d fns)\n' "$_lr_n" "$(( _lr_fns_after - _lr_fns_before ))"
+			((_lr_loaded_count++))
+			((_lr_core_loaded++))
+			_lr_loaded[$_lr_n]=ok
+		else
+			printf '\r      %-22s - silent (no functions added, guard may have bailed)\n' "$_lr_n"
+			((_lr_warning_count++))
+			((_lr_core_loaded++))
+			_lr_loaded[$_lr_n]=partial
+			_lr_warn_msgs+=("core/$_lr_n: no functions added")
+		fi
+	done
+
+	# --- extensions ---
+	if (( _lr_extended )); then
+		echo
+		local -a _lr_ext_files=()
+		local _lr_d
+		for _lr_d in "$_lr_ext_dir"/*/; do
+			[[ -d "$_lr_d" ]] || continue
+			local _lr_en
+			_lr_en="$(basename "$_lr_d")"
+			local _lr_ef="$_lr_d/${_lr_en}.sh"
+			[[ -f "$_lr_ef" ]] && _lr_ext_files+=("$_lr_ef")
+		done
+
+		if (( ${#_lr_ext_files[@]} == 0 )); then
+			echo "   Extensions:"
+			echo "      Skipped, none found."
+		else
+			echo "   Extensions:"
+			echo "      Found ${#_lr_ext_files[@]} in ext/"
+			local _lr_ext_total=${#_lr_ext_files[@]}
+			local _lr_ext_loaded=0 _lr_ext_skipped=0
+			local _lr_ext_i=0
+			for _lr_f in "${_lr_ext_files[@]}"; do
+				((_lr_ext_i++))
+				local _lr_n
+				_lr_n="$(basename "$(dirname "$_lr_f")")"
+				printf '\r      Loading %d/%d %s...' "$_lr_ext_i" "$_lr_ext_total" "$_lr_n"
+
+				if [[ "${_lr_syntax[$_lr_n]:-ok}" == "err" ]]; then
+					printf '\r      %-22s - syntax error! Skipping\n' "$_lr_n"
+					((_lr_skipped_count++))
+					((_lr_ext_skipped++))
+					_lr_skip_msgs+=("ext/$_lr_n: syntax error")
+					continue
+				fi
+
+				# parse # Requires: header
+				local -a _lr_requires=()
+				local _lr_req_line
+				_lr_req_line=$(grep -aE '^# Requires:' "$_lr_f" | head -1)
+				if [[ -n "$_lr_req_line" ]]; then
+					local _lr_req_text="${_lr_req_line#\# Requires:}"
+					_lr_req_text="${_lr_req_text//\(*)/}"
+					read -ra _lr_requires <<< "$_lr_req_text"
+				fi
+
+				# core-dep check
+				local -a _lr_miss_core=()
+				local _lr_req
+				for _lr_req in "${_lr_requires[@]:-}"; do
+					[[ -n "$_lr_req" ]] || continue
+					local _lr_norm="${_lr_req%.sh}"
+					[[ -n "${_lr_loaded[$_lr_norm]:-}" ]] || _lr_miss_core+=("$_lr_norm")
+				done
+				if (( ${#_lr_miss_core[@]} > 0 )); then
+					printf '\r      %-22s - missing core module dependency (%s)! Skipping.\n' "$_lr_n" "${_lr_miss_core[*]}"
+					((_lr_skipped_count++))
+					((_lr_ext_skipped++))
+					_lr_skip_msgs+=("ext/$_lr_n: missing core ${_lr_miss_core[*]}")
+					continue
+				fi
+
+				# source
+				: > "$_lr_errfile"
+				source "$_lr_f" 2>"$_lr_errfile"
+				local _lr_rc=$?
+				local _lr_err
+				_lr_err=$(<"$_lr_errfile")
+				if (( _lr_rc != 0 )); then
+					if grep -q "missing external tool" <<< "$_lr_err"; then
+						local _lr_mt
+						_lr_mt=$(grep -oE "'[^']+'" <<< "$_lr_err" | head -1 | tr -d "'")
+						printf '\r      %-22s - ok (warning: external dependency missing (%s), functionality may be incomplete)\n' "$_lr_n" "$_lr_mt"
+						((_lr_loaded_count++))
+						((_lr_ext_loaded++))
+						((_lr_warning_count++))
+						_lr_loaded[$_lr_n]=ok
+						_lr_warn_msgs+=("ext/$_lr_n: missing $_lr_mt")
+					elif grep -q "missing core function" <<< "$_lr_err"; then
+						local _lr_mf
+						_lr_mf=$(grep -oE "'[^']+'" <<< "$_lr_err" | head -1 | tr -d "'")
+						printf '\r      %-22s - ok (warning: missing core function (%s))\n' "$_lr_n" "$_lr_mf"
+						((_lr_loaded_count++))
+						((_lr_ext_loaded++))
+						((_lr_warning_count++))
+						_lr_loaded[$_lr_n]=ok
+						_lr_warn_msgs+=("ext/$_lr_n: missing core fn $_lr_mf")
+					else
+						printf '\r      %-22s - error: %s\n' "$_lr_n" "${_lr_err%%$'\n'*}"
+						((_lr_skipped_count++))
+						((_lr_ext_skipped++))
+						_lr_skip_msgs+=("ext/$_lr_n: ${_lr_err%%$'\n'*}")
+					fi
+					continue
+				fi
+
+				printf '\r      %-22s - ok\n' "$_lr_n"
+				((_lr_loaded_count++))
+				((_lr_ext_loaded++))
+				_lr_loaded[$_lr_n]=ok
+			done
+		fi
+	fi
+
+	# --- summary ---
+	echo
+	local _lr_total_loaded=$(( _lr_core_loaded + (${_lr_ext_loaded:-0}) ))
+	echo "Done! (Loaded $_lr_loaded_count modules ($_lr_core_loaded core, ${_lr_ext_loaded:-0} extensions))"
+	if (( _lr_skipped_count > 0 )); then
+		echo "Some have been skipped due to missing core module dependency or syntax error"
+		local _lr_sm
+		for _lr_sm in "${_lr_skip_msgs[@]}"; do
+			echo "  - $_lr_sm"
+		done
+	fi
+	if (( _lr_warning_count > 0 )); then
+		echo "Warnings: $_lr_warning_count (some modules loaded with reduced functionality)"
+		local _lr_wm
+		for _lr_wm in "${_lr_warn_msgs[@]}"; do
+			echo "  - $_lr_wm"
+		done
+	fi
+
+	unset -v _lr_syntax _lr_loaded _lr_loaded_count _lr_skipped_count _lr_warning_count
+	unset -v _lr_skip_msgs _lr_warn_msgs _lr_f _lr_n _lr_d _lr_en _lr_ef _lr_err _lr_rv
+	unset -v _lr_mt _lr_mf _lr_m _lr_ef _lr_core_loaded _lr_ext_loaded _lr_core_skipped _lr_ext_skipped
+	unset -v _lr_core_total _lr_core_i _lr_ext_total _lr_ext_i _lr_ext_files _lr_requires _lr_req
+	unset -v _lr_req_line _lr_req_text _lr_miss_core _lr_sm _lr_wm _lr_expected _lr_missing _lr_loaded_count
+}
+
+loader::run "$_src_dir" "$_ext_dir" "$_fh_extended"
+
+if (( _fh_interactive )); then
+	COMP_WORDBREAKS="${COMP_WORDBREAKS//:/}"
+	_framehead::complete() {
+		local current_word="${COMP_WORDS[COMP_CWORD]}"
+		local -a matches=()
+		local function_name module_name
+		local -A modules_seen=()
+		while IFS= read -r function_name; do
+			[[ "$function_name" == *::* ]] || continue
+			if [[ "$current_word" == *::* ]]; then
+				[[ "$function_name" == "$current_word"* ]] && matches+=("$function_name")
+			else
+				module_name="${function_name%%::*}"
+				if [[ "${module_name}::" == "$current_word"* ]] && [[ -z "${modules_seen[$module_name]:-}" ]]; then
+					modules_seen[$module_name]=1
+					matches+=("${module_name}::")
+				fi
+			fi
+		done < <(compgen -A function)
+
+		if (( ${#matches[@]} == 0 )); then
+			compopt -o bashdefault -o default 2>/dev/null
+			COMPREPLY=()
+		else
+			COMPREPLY=("${matches[@]}")
+		fi
+	}
+	complete -D -F _framehead::complete
+fi
+
+unset -v _src_dir _ext_dir _func_file _ext_dir_path _ext_name _fh_flag _fh_interactive _fh_extended
+export _FRAMEHEAD_LOADED=1
 return 0
