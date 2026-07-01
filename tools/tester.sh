@@ -1061,26 +1061,96 @@ test::string::colon::clean::fast() {
 # Tests — hash
 # ==============================================================================
 
-test::hash::md5()     { if [[ -n "$(hash::md5     hello)" ]]; then _pass; else _fail; fi; }
-test::hash::sha1()    { if [[ -n "$(hash::sha1    hello)" ]]; then _pass; else _fail; fi; }
-test::hash::sha512()  { if [[ -n "$(hash::sha512  hello)" ]]; then _pass; else _fail; fi; }
-test::hash::djb2()    { if [[ -n "$(hash::djb2    hello)" ]]; then _pass; else _fail; fi; }
-test::hash::djb2a()   { if [[ -n "$(hash::djb2a   hello)" ]]; then _pass; else _fail; fi; }
-test::hash::sdbm()    { if [[ -n "$(hash::sdbm    hello)" ]]; then _pass; else _fail; fi; }
-test::hash::fnv1a32() { if [[ -n "$(hash::fnv1a32 hello)" ]]; then _pass; else _fail; fi; }
-test::hash::fnv1a64() { if [[ -n "$(hash::fnv1a64 hello)" ]]; then _pass; else _fail; fi; }
-test::hash::adler32() { if [[ -n "$(hash::adler32 hello)" ]]; then _pass; else _fail; fi; }
-test::hash::murmur2() { if [[ -n "$(hash::murmur2 hello)" ]]; then _pass; else _fail; fi; }
-test::hash::crc32()   { if [[ -n "$(hash::crc32   hello)" ]]; then _pass; else _fail; fi; }
-test::hash::combine() { if [[ -n "$(hash::combine foo bar baz)" ]]; then _pass; else _fail; fi; }
-test::hash::verify()  { if hash::verify hello "$(hash::sha256 hello)" sha256; then _pass; else _fail; fi; }
+# NOTE: the test runner only invokes test::X when X matches a real public
+# API function name (see main.sh's _test_map lookup keyed off CORE_API), so
+# assertions about internal engines (_hash::*::digest) or the fallback
+# `else` branch have to live inside the test:: function for the matching
+# *public* hash::* name below — a separately-named test::hash::engine::*
+# function would never actually run.
 
+# Force the fallback branch (as if no system tool were installed), call fn,
+# then restore. Usage: _test_hash_forced_fallback fn_call...
+_test_hash_forced_fallback() {
+    local orig; orig=$(declare -f runtime::has_command)
+    runtime::has_command() { return 1; }
+    "$@"
+    eval "$orig"
+}
+
+test::hash::md5() {
+    _assert "md5 known value" "5d41402abc4b2a76b9719d911017c592" "$(hash::md5 hello)"
+    local -a bytes; _hash::str_to_bytes bytes ""
+    _assert "md5 engine, empty string" "d41d8cd98f00b204e9800998ecf8427e" "$(_hash::md5::digest bytes)"
+    _assert "md5 forced fallback" "900150983cd24fb0d6963f7d28e17f72" \
+        "$(_test_hash_forced_fallback hash::md5 abc)"
+    _sub_done
+}
+test::hash::sha1() {
+    _assert "sha1 known value" "a9993e364706816aba3e25717850c26c9cd0d89d" "$(hash::sha1 abc)"
+    local -a bytes; _hash::str_to_bytes bytes "abc"
+    _assert "sha1 engine, 'abc'" "a9993e364706816aba3e25717850c26c9cd0d89d" "$(_hash::sha1::digest bytes)"
+    _sub_done
+}
 test::hash::sha256() {
     _assert "sha256 known value" \
         "2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9824" \
         "$(hash::sha256 hello)"
+    local -a bytes; _hash::str_to_bytes bytes "abc"
+    _assert "sha256 engine, 'abc'" \
+        "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad" "$(_hash::sha256::digest bytes)"
+    _assert "sha256 forced fallback" \
+        "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad" \
+        "$(_test_hash_forced_fallback hash::sha256 abc)"
     _sub_done
 }
+test::hash::sha512() {
+    _assert "sha512 known value" \
+        "ddaf35a193617abacc417349ae20413112e6fa4e89a97ea20a9eeee64b55d39a2192992a274fc1a836ba3c23a3feebbd454d4423643ce80e2a9ac94fa54ca49f" \
+        "$(hash::sha512 abc)"
+    local -a bytes; _hash::str_to_bytes bytes "abc"
+    _assert "sha512 engine, 'abc'" \
+        "ddaf35a193617abacc417349ae20413112e6fa4e89a97ea20a9eeee64b55d39a2192992a274fc1a836ba3c23a3feebbd454d4423643ce80e2a9ac94fa54ca49f" \
+        "$(_hash::sha512::digest bytes)"
+    _sub_done
+}
+test::hash::crc32()   { if [[ -n "$(hash::crc32   hello)" ]]; then _pass; else _fail; fi; }
+test::hash::combine() { if [[ -n "$(hash::combine foo bar baz)" ]]; then _pass; else _fail; fi; }
+test::hash::verify()  { if hash::verify hello "$(hash::sha256 hello)" sha256; then _pass; else _fail; fi; }
+
+# Regression tests for a bug where djb2/djb2a/sdbm/fnv1a32/adler32/murmur2
+# all looped on an undefined variable (${#s} instead of ${#_str}), so the
+# loop body never ran and every input produced the same constant output.
+# Exact values cross-checked against independent reference implementations
+# of each algorithm (murmur2 checked for input-sensitivity only, since this
+# codebase's constants are a non-standard variant of the published algorithm).
+test::hash::djb2() {
+    _assert "djb2 known value"  "261238937"  "$(hash::djb2 hello)"
+    _assert "djb2 input-sensitive" "0" "$([[ "$(hash::djb2 hello)" != "$(hash::djb2 world)" ]]; echo $?)"
+    _sub_done
+}
+test::hash::djb2a() {
+    _assert "djb2a known value" "178056679" "$(hash::djb2a hello)"
+    _sub_done
+}
+test::hash::sdbm() {
+    _assert "sdbm known value" "684824882" "$(hash::sdbm hello)"
+    _sub_done
+}
+test::hash::fnv1a32() {
+    _assert "fnv1a32 known value" "1335831723" "$(hash::fnv1a32 hello)"
+    _sub_done
+}
+test::hash::fnv1a64() { if [[ -n "$(hash::fnv1a64 hello)" ]]; then _pass; else _fail; fi; }
+test::hash::adler32() {
+    _assert "adler32 known value" "103547413" "$(hash::adler32 hello)"
+    _sub_done
+}
+test::hash::murmur2() {
+    _assert "murmur2 input-sensitive" "0" \
+        "$([[ "$(hash::murmur2 hello)" != "$(hash::murmur2 world)" ]]; echo $?)"
+    _sub_done
+}
+
 test::hash::equal() {
     _assert "equal (true)"  "0" "$(hash::equal hello hello; echo $?)"
     _assert "equal (false)" "1" "$(hash::equal hello world; echo $?)"
@@ -1095,25 +1165,49 @@ test::hash::short() {
         "$(hash::short hello 8 | wc -c | tr -d ' ' | awk '{print $1-1}')"
     _sub_done
 }
+# hash::hmac::sha256/sha512/md5 and hash::sha3_256/blake2b now always
+# succeed (pure-Bash fallback tier), so these no longer need to skip when
+# openssl is absent — RFC 2104/4231 test case 2 (key="Jefe",
+# data="what do ya want for nothing?"), verified against openssl.
 test::hash::hmac::sha256() {
-    runtime::has_command openssl || { _skip "openssl not available"; return; }
-    if [[ -n "$(hash::hmac::sha256 mykey hello)" ]]; then _pass; else _fail; fi
+    _assert "hmac-sha256 RFC 4231 vector" \
+        "5bdcc146bf60754e6a042426089575c75a003f089d2739839dec58b964ec3843" \
+        "$(hash::hmac::sha256 Jefe "what do ya want for nothing?")"
+    _assert "hmac-sha256 forced fallback" \
+        "5bdcc146bf60754e6a042426089575c75a003f089d2739839dec58b964ec3843" \
+        "$(_test_hash_forced_fallback hash::hmac::sha256 Jefe "what do ya want for nothing?")"
+    _sub_done
 }
 test::hash::hmac::sha512() {
-    runtime::has_command openssl || { _skip "openssl not available"; return; }
-    if [[ -n "$(hash::hmac::sha512 mykey hello)" ]]; then _pass; else _fail; fi
+    _assert "hmac-sha512 RFC 4231 vector" \
+        "164b7a7bfcf819e2e395fbe73b56e0a387bd64222e831fd610270cd7ea2505549758bf75c05a994a6d034f65f8f0e6fdcaeab1a34d4a6b4b636e070a38bce737" \
+        "$(hash::hmac::sha512 Jefe "what do ya want for nothing?")"
+    _sub_done
 }
 test::hash::hmac::md5() {
-    runtime::has_command openssl || { _skip "openssl not available"; return; }
-    if [[ -n "$(hash::hmac::md5 mykey hello)" ]]; then _pass; else _fail; fi
+    _assert "hmac-md5 RFC 2104 vector" \
+        "750c783e6ab0b503eaa86e310a5db738" \
+        "$(hash::hmac::md5 Jefe "what do ya want for nothing?")"
+    _sub_done
 }
 test::hash::sha3_256() {
-    runtime::has_command openssl || runtime::has_command python3 || { _skip "openssl/python3 not available"; return; }
-    if [[ -n "$(hash::sha3_256 hello 2>/dev/null)" ]]; then _pass; else _fail; fi
+    _assert "sha3-256 known value" \
+        "3a985da74fe225b2045c172d6bd390bd855f086e3e9d525b46bfe24511431532" \
+        "$(hash::sha3_256 abc)"
+    local -a bytes; _hash::str_to_bytes bytes "abc"
+    _assert "sha3-256 engine, 'abc'" \
+        "3a985da74fe225b2045c172d6bd390bd855f086e3e9d525b46bfe24511431532" "$(_hash::sha3_256::digest bytes)"
+    _sub_done
 }
 test::hash::blake2b() {
-    runtime::has_command openssl || runtime::has_command python3 || { _skip "openssl/python3 not available"; return; }
-    if [[ -n "$(hash::blake2b hello 2>/dev/null)" ]]; then _pass; else _fail; fi
+    _assert "blake2b known value" \
+        "ba80a53f981c4d0d6a2797b69f12f6e94c212f14685ac4b74b12bb6fdbffa2d17d87c5392aab792dc252d5de4533cc9518d38aa8dbf1925ab92386edd4009923" \
+        "$(hash::blake2b abc)"
+    local -a bytes; _hash::str_to_bytes bytes "abc"
+    _assert "blake2b engine, 'abc'" \
+        "ba80a53f981c4d0d6a2797b69f12f6e94c212f14685ac4b74b12bb6fdbffa2d17d87c5392aab792dc252d5de4533cc9518d38aa8dbf1925ab92386edd4009923" \
+        "$(_hash::blake2b::digest bytes)"
+    _sub_done
 }
 test::hash::uuid5() {
     runtime::has_command openssl || runtime::has_command python3 || { _skip "openssl/python3 not available"; return; }
