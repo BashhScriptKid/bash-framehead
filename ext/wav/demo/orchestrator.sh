@@ -175,12 +175,14 @@ _le32() {
 # Precedence: caller env > composition prefer > orchestrator default.
 # ---------------------------------------------------------------
 declare -A _CALLER_SET=()
+declare -A _PREFER_SET=()
 
 prefer() {
     local _var=$1 _val=$2
     # Only set if caller hasn't explicitly provided this value
     if [[ -z "${_CALLER_SET[$_var]:-}" ]]; then
         declare -g "$_var=$_val"
+        _PREFER_SET[$_var]=1
     fi
 }
 
@@ -207,8 +209,15 @@ if [[ "${1:-}" != "_worker" && "${1:-}" != "_lead" ]]; then
         exit 1
     fi
 
-    # Source runner — sample() and prefer() calls happen here
-    source "$RUNNER"
+    # Load runner. Bash runners are sourced directly; a compiled binary
+    # runner (ELF) emits its own glue (prefer/sample/sample_batch) via the
+    # `shim` subcommand, so it can be used with no separate .sh file.
+    if [[ -x "$RUNNER" && "$(head -c 4 "$RUNNER" 2>/dev/null)" == $'\x7fELF' ]]; then
+        eval "$("$RUNNER" shim)" || {
+            echo "failed to load binary runner shim: $RUNNER" >&2; exit 1; }
+    else
+        source "$RUNNER"
+    fi
     if ! declare -f sample >/dev/null 2>&1; then
         echo "runner $RUNNER does not define sample()" >&2
         exit 1
@@ -255,9 +264,14 @@ if [[ "${1:-}" != "_worker" && "${1:-}" != "_lead" ]]; then
     elif [[ -n "$TIMEOUT" ]]; then
         TOTAL_SAMPLES=$(( TIMEOUT * SAMPLE_RATE ))
     else
-        # No target — derive from velocity
+        # No target — derive from velocity (tiny benchmark-sized render).
+        # Check what would actually be produced and warn, like a dry-run.
         OPTIMAL_BATCH=$(awk "BEGIN{v=$SAMPLE_RATE / $VELOCITY * $SPEED; b=int(v); if(b<1)b=1; print b}")
         TOTAL_SAMPLES=$(( OPTIMAL_BATCH * NUM_WORKERS ))
+        _auto_sec=$(awk "BEGIN{printf \"%.3f\", $TOTAL_SAMPLES / $SAMPLE_RATE}")
+        echo "[orch] WARNING: no TARGET_SECONDS/TARGET_SAMPLES/TIMEOUT set; output would be" >&2
+        echo "[orch] WARNING: ~${_auto_sec}s (${TOTAL_SAMPLES} samples) — effectively inaudible." >&2
+        echo "[orch] WARNING: set TARGET_SECONDS/TARGET_SAMPLES/TIMEOUT for real audio." >&2
     fi
 
     # Optimal worker count: minimize total_samples/(velocity*N) + N*fork_overhead
@@ -271,8 +285,9 @@ if [[ "${1:-}" != "_worker" && "${1:-}" != "_lead" ]]; then
         print n
     }")
 
-    # Use optimal unless user explicitly set NUM_WORKERS
-    if [[ -z "${_CALLER_SET[NUM_WORKERS]:-}" ]]; then
+    # Use optimal unless user explicitly set NUM_WORKERS (env/arg) OR the
+    # runner's `prefer NUM_WORKERS` declared it (stateful runners need this).
+    if [[ -z "${_CALLER_SET[NUM_WORKERS]:-}" && -z "${_PREFER_SET[NUM_WORKERS]:-}" ]]; then
         NUM_WORKERS=$OPTIMAL_WORKERS
     fi
 
@@ -647,8 +662,13 @@ prefer() {
     fi
 }
 
-# Source runner to get sample()
-source "$RUNNER"
+# Load runner: source bash runners, or eval the `shim` glue for ELF binaries.
+if [[ -x "$RUNNER" && "$(head -c 4 "$RUNNER" 2>/dev/null)" == $'\x7fELF' ]]; then
+    eval "$("$RUNNER" shim)" || {
+        echo "failed to load binary runner shim: $RUNNER" >&2; exit 1; }
+else
+    source "$RUNNER"
+fi
 
 START_OFFSET="${START_OFFSET:-0}"
 NO_BATCH="${NO_BATCH:-0}"
