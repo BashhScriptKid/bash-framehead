@@ -129,7 +129,7 @@ systemd::info() {
 		echo "systemd::info: requires hostnamectl" >&2
 		return 1
 	}
-	hostnamectl --no-pager --json=short 2>/dev/null
+	hostnamectl --json=short 2>/dev/null
 }
 
 # --- Scope (system / user instance switcher) ---
@@ -193,10 +193,11 @@ systemd::unit::listfiles() {
 # Return 0 if the unit exists in the given scope, 1 otherwise.
 # Usage: systemd::unit::exists <unit>
 systemd::unit::exists() {
-	local _flag
+	local _flag _unit="$1"
+	[[ "$_unit" == *.* ]] || _unit="$_unit.service"
 	_flag=$(_systemd::scope_flag) || return 1
-	systemctl list-unit-files $_flag --no-pager --no-legend -- "$1" 2>/dev/null \
-		| awk '{print $1}' | grep -Fxq -- "$1"
+	systemctl list-unit-files $_flag --no-pager --no-legend -- "$_unit" 2>/dev/null \
+		| awk '{print $1}' | grep -Fxq -- "$_unit"
 }
 
 # Return 0 if the unit is active.
@@ -453,7 +454,11 @@ systemd::unit::show() {
 	local _unit="$1" _field="$2"
 	local _flag
 	_flag=$(_systemd::scope_flag) || return 1
-	systemctl show $_flag --no-pager --property="$_field" --value -- "$_unit" 2>/dev/null
+	if [[ -n "$_field" ]]; then
+		systemctl show $_flag --no-pager --property="$_field" --value -- "$_unit" 2>/dev/null
+	else
+		systemctl show $_flag --no-pager -- "$_unit" 2>/dev/null
+	fi
 }
 
 # Synonym for show(). Kept for grep-ability alongside services::field().

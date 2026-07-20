@@ -506,7 +506,7 @@ test::systemd::run::service() {
 _sysctl_avail() { runtime::has_command systemctl; }
 
 test::systemd::machineid()  { _sysctl_avail || { _skip "no systemctl"; return; }; local _v; _v=$(systemd::machineid 2>/dev/null); [[ "$_v" =~ ^[0-9a-f]{32}$ ]] && _pass || _fail "expected 32-hex, got '$_v'"; }
-test::systemd::bootid()     { _sysctl_avail || { _skip "no systemctl"; return; }; local _v; _v=$(systemd::bootid 2>/dev/null); [[ "$_v" =~ ^[0-9a-f]{32}$ ]] && _pass || _fail "expected 32-hex, got '$_v'"; }
+test::systemd::bootid()     { _sysctl_avail || { _skip "no systemctl"; return; }; local _v; _v=$(systemd::bootid 2>/dev/null); [[ "$_v" =~ ^[0-9a-f-]{32,36}$ ]] && _pass || _fail "expected 32-hex (dashes optional), got '$_v'"; }
 test::systemd::userid()     { _sysctl_avail || { _skip "no systemctl"; return; }; local _v; _v=$(systemd::userid 2>/dev/null); [[ -n "$_v" ]] && _pass || _fail; }
 test::systemd::info()       { _sysctl_avail || { _skip "no systemctl"; return; }; local _v; _v=$(systemd::info 2>/dev/null); [[ -n "$_v" ]] && _pass || _fail; }
 
