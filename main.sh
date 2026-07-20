@@ -411,8 +411,11 @@ compile_extended() {
             ext_content="${ext_content#*$'\n'}"
         fi
 
-        # Strip from line 1 through "# --- end guard ---"
-        ext_content=$(sed '1,/^# --- end guard ---$/d' <<< "$ext_content")
+        # Strip from line 1 through "# --- end guard ---" (case-insensitive)
+        # Only strip if the end marker exists — otherwise sed deletes everything
+        if grep -qi '^# --- end guard ---' <<< "$ext_content"; then
+            ext_content=$(sed '1,/^# --- end guard ---$/Id' <<< "$ext_content")
+        fi
 
         # ---- Optimize (if enabled) ------------------------------------------
         if [[ "${OPTIMIZE:-0}" == "1" ]]; then
@@ -427,28 +430,6 @@ compile_extended() {
 
         # ---- Append ---------------------------------------------------------
         buffer+=$'\n'$'\n'"$ext_content"
-
-        # ---- Append sub-modules (*.sh in ext dir, excluding main/test/bench) -
-        local _sub_mod
-        for _sub_mod in "$ext_dir"/*.sh; do
-            [[ -f "$_sub_mod" ]] || continue
-            [[ "$_sub_mod" == "$ext_file" ]] && continue
-            [[ "$_sub_mod" == *test_ext.sh || "$_sub_mod" == *benchmark.sh ]] && continue
-            local _sub_content
-            _sub_content=$(cat "$_sub_mod")
-            if [[ "$_sub_content" =~ ^#! ]]; then
-                _sub_content="${_sub_content#*$'\n'}"
-            fi
-            _sub_content=$(sed '1,/^# --- end guard ---$/d' <<< "$_sub_content")
-            if [[ "${OPTIMIZE:-0}" == "1" ]]; then
-                local _sub_opt
-                _sub_opt=$(optimize - <<< "$_sub_content")
-                if bash -n <<< "$_sub_opt" 2>/dev/null; then
-                    _sub_content="$_sub_opt"
-                fi
-            fi
-            buffer+=$'\n'$'\n'"$_sub_content"
-        done
 
         echo " ok${issue_str_file}"
         (( ext_count++ ))
@@ -761,7 +742,7 @@ _tools_dir() {
 }
 
 minify() {
-    bash "$(_tools_dir)/obfuscate.sh" --skip-obfuscator "$@"
+    bash "$(_tools_dir)/minify.sh" "$@"
 }
 
 obfuscate() {
@@ -840,11 +821,15 @@ tester() {
     }
 
     # _matches_filter SYMBOL — true if symbol matches any filter term
+    # Matches both API symbols and their test:: counterparts so a single
+    # filter term covers both the function and its test.
     _matches_filter() {
         local _sym="$1"
-        local _f
+        local _f _t
         for _f in "${filter_modules[@]}"; do
             [[ "$_sym" == "$_f" || "$_sym" == "$_f"::* ]] && return 0
+            _t="test::$_f"
+            [[ "$_sym" == "$_t" || "$_sym" == "$_t"::* ]] && return 0
         done
         return 1
     }
@@ -1406,7 +1391,7 @@ if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
         echo "  stat             <compiled.sh>        Show diagnostics and function counts"
         echo "  profile          <compiled.sh>        Profile per-function load times"
         echo "  optimize         <input> [output]     Optimize a compiled file  (tools/optimize.sh)"
-        echo "  minify           <input> [output]     Minify a compiled file    (tools/obfuscate.sh)"
+        echo "  minify           <input> [output]     Minify a compiled file    (tools/minify.sh)"
         echo "  obfuscate        <input> [output]     Obfuscate a compiled file  (tools/obfuscate.sh)"
         echo "  wiki             <compiled> <dir>     Generate wiki documentation"
         echo ""
