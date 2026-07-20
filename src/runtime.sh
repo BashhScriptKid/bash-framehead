@@ -206,46 +206,24 @@ runtime::sysinit() {
 	_pid1=$(ps -p 1 -o comm= 2>/dev/null) || _pid1="unknown"
 
 	case "$_pid1" in
-	systemd)
-		echo "systemd"
-		;;
-	init)
-		# SysVinit or Upstart — check further
-		if [[ -d /run/systemd/system ]]; then
-			echo "systemd"
-		elif [[ -d /run/openrc ]]; then
-			echo "openrc"
-		elif [[ -d /run/runit ]]; then
-			echo "runit"
-		elif [[ -d /run/s6 ]]; then
-			echo "s6"
-		elif [[ -f /sbin/upstart ]]; then
-			echo "upstart"
-		else
-			echo "sysvinit"
-		fi
-		;;
-	launchd)
-		echo "launchd"
-		;;
-	runit)
-		echo "runit"
-		;;
-	s6-svscan)
-		echo "s6"
-		;;
-	OpenRC)
-		echo "openrc"
-		;;
-	daemon)
-		echo "rc"
-		;;
-	svc)
-		echo "runit"
-		;;
-	*)
-		echo "$_pid1"
-		;;
+		init | /sbin/init)
+			# PID 1 is generic "init" — narrow down the actual init system
+			if   [[ -f /sbin/upstart ]]; then echo "upstart"
+			elif [[ -d /run/openrc ]];   then echo "openrc"
+			elif [[ -d /run/runit ]];    then echo "runit"
+			elif [[ -d /run/s6 ]];       then echo "s6"
+			else                              echo "sysvinit"
+			fi
+			;;
+
+		launchd)              echo "launchd" ;;
+		systemd)              echo "systemd" ;;
+		runit)                echo "runit"   ;;
+		s6-svscan)            echo "s6"      ;;
+		OpenRC | openrc-init) echo "openrc"  ;;
+		daemon)               echo "rc"      ;;
+		svc)                  echo "runit"   ;;
+		*)                    echo "$_pid1"  ;;
 	esac
 }
 
