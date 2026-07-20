@@ -246,6 +246,29 @@ fs::trash() {
 		mv "$1" "$trash_dir/$(fs::path::basename "$1").$(date +%s)"
 }
 
+# --- FIFO / NAMED PIPES ---
+
+# Create a named pipe
+# Usage: fifo::create path [mode]
+fifo::create() {
+		local path="$1" mode="$2"
+		if [[ -n "$mode" ]]; then
+				mkfifo -m "$mode" "$path"
+		else
+				mkfifo "$path"
+		fi
+}
+
+# Check whether path is a FIFO
+fifo::exists() {
+		[[ -p "$1" ]]
+}
+
+# Remove a named pipe
+fifo::remove() {
+		rm -f "$1"
+}
+
 # --- TEMP FILES ---
 
 # Create a temporary file, print its path
