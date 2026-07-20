@@ -248,11 +248,20 @@ runtime::is_ci() {
 }
 
 runtime::kernel_version() {
-	[[ $(runtime::os) == "linux" ]] || return 1
-	# Number only, case of checks where you don't care about types
-	local v
-	v=$(uname -r)
-	printf '%s\n' "${v%%-*}"
+    # Fail if runtime::os is empty or failed
+    local os; os=$(runtime::os) || return 1
+    [[ -z $os ]] && return 1
+
+    local v
+    v=$(uname -r)
+
+    # Extract leading numbers and dots (e.g., "6.8.0" from "6.8.0-rc1-generic")
+    if [[ $v =~ ^([0-9]+(\.[0-9]+)+) ]]; then
+        printf '%s\n' "${BASH_REMATCH[1]}"
+    else
+        # Fallback to full string if format is unusual
+        printf '%s\n' "$v"
+    fi
 }
 
 runtime::exec_root() {
