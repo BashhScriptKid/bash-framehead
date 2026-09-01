@@ -98,17 +98,17 @@ _hash::md5::digest() {
 	local -a padded
 	padded=("${_md5_msg[@]}")
 
-	# Round table K/S — standard published constants for the algorithm,
+	# Round table k/s — standard published constants for the algorithm,
 	# adapted from the public-domain-style reference at
 	# github.com/bahamas10/bash-md5. Local (not module-global) so sourcing
 	# this file twice in one shell never hits a readonly/redeclare clash.
-	local -a _MD5_S=(
+	local -a _md5_s=(
 		7 12 17 22  7 12 17 22  7 12 17 22  7 12 17 22
 		5  9 14 20  5  9 14 20  5  9 14 20  5  9 14 20
 		4 11 16 23  4 11 16 23  4 11 16 23  4 11 16 23
 		6 10 15 21  6 10 15 21  6 10 15 21  6 10 15 21
 	)
-	local -a _MD5_K=(
+	local -a _md5_k=(
 		0xd76aa478 0xe8c7b756 0x242070db 0xc1bdceee
 		0xf57c0faf 0x4787c62a 0xa8304613 0xfd469501
 		0x698098d8 0x8b44f7af 0xffff5bb1 0x895cd7be
@@ -141,34 +141,40 @@ _hash::md5::digest() {
 
 	for (( blk=0; blk<block_count; blk++ )); do
 		local base=$(( blk * 64 ))
-		local -a M=()
+		local -a m_words=()
 		local j idx
 		for (( j=0; j<16; j++ )); do
 			idx=$(( base + j*4 ))
-			M[j]=$(( padded[idx] | (padded[idx+1] << 8) | (padded[idx+2] << 16) | (padded[idx+3] << 24) ))
+			m_words[j]=$(( padded[idx] | (padded[idx+1] << 8) | \
+				(padded[idx+2] << 16) | (padded[idx+3] << 24) ))
 		done
 
-		local A=$a0 B=$b0 C=$c0 D=$d0 F g rotated
+		local a_state=$a0 b_state=$b0 c_state=$c0 d_state=$d0 f_round g rotated
 
 		for (( i=0; i<64; i++ )); do
 			if (( i < 16 )); then
-				F=$(( (B & C) | ((~B) & D) )); g=$i
+				f_round=$(( (b_state & c_state) | ((~b_state) & d_state) ))
+				g=$i
 			elif (( i < 32 )); then
-				F=$(( (D & B) | ((~D) & C) )); g=$(( (5*i + 1) % 16 ))
+				f_round=$(( (d_state & b_state) | ((~d_state) & c_state) ))
+				g=$(( (5*i + 1) % 16 ))
 			elif (( i < 48 )); then
-				F=$(( B ^ C ^ D )); g=$(( (3*i + 5) % 16 ))
+				f_round=$(( b_state ^ c_state ^ d_state ))
+				g=$(( (3*i + 5) % 16 ))
 			else
-				F=$(( C ^ (B | ~D) )); g=$(( (7*i) % 16 ))
+				f_round=$(( c_state ^ (b_state | ~d_state) ))
+				g=$(( (7*i) % 16 ))
 			fi
 
-			F=$(( (F + A + _MD5_K[i] + M[g]) & 0xFFFFFFFF ))
-			A=$D; D=$C; C=$B
-			rotated=$(( ((F << _MD5_S[i]) | (F >> (32 - _MD5_S[i]))) & 0xFFFFFFFF ))
-			B=$(( (B + rotated) & 0xFFFFFFFF ))
+			f_round=$(( (f_round + a_state + _md5_k[i] + m_words[g]) & 0xFFFFFFFF ))
+			a_state=$d_state; d_state=$c_state; c_state=$b_state
+			rotated=$(( ((f_round << _md5_s[i]) | \
+				(f_round >> (32 - _md5_s[i]))) & 0xFFFFFFFF ))
+			b_state=$(( (b_state + rotated) & 0xFFFFFFFF ))
 		done
 
-		a0=$(( (a0 + A) & 0xFFFFFFFF )); b0=$(( (b0 + B) & 0xFFFFFFFF ))
-		c0=$(( (c0 + C) & 0xFFFFFFFF )); d0=$(( (d0 + D) & 0xFFFFFFFF ))
+		a0=$(( (a0 + a_state) & 0xFFFFFFFF )); b0=$(( (b0 + b_state) & 0xFFFFFFFF ))
+		c0=$(( (c0 + c_state) & 0xFFFFFFFF )); d0=$(( (d0 + d_state) & 0xFFFFFFFF ))
 	done
 
 	local -a outbytes=()
@@ -195,49 +201,61 @@ _hash::sha1::digest() {
 	local bit_len_lo=$(( (orig_len * 8) & 0xFFFFFFFF ))
 	local bit_len_hi=$(( (orig_len >> 29) & 0xFFFFFFFF ))
 	local i
-	for (( i=3; i>=0; i-- )); do padded+=($(( (bit_len_hi >> (i*8)) & 0xFF ))); done
-	for (( i=3; i>=0; i-- )); do padded+=($(( (bit_len_lo >> (i*8)) & 0xFF ))); done
+	for (( i=3; i>=0; i-- )); do
+		padded+=($(( (bit_len_hi >> (i*8)) & 0xFF )))
+	done
+	for (( i=3; i>=0; i-- )); do
+		padded+=($(( (bit_len_lo >> (i*8)) & 0xFF )))
+	done
 
 	local h0=0x67452301 h1=0xEFCDAB89 h2=0x98BADCFE h3=0x10325476 h4=0xC3D2E1F0
 	local block_count=$(( ${#padded[@]} / 64 )) blk
 
 	for (( blk=0; blk<block_count; blk++ )); do
 		local base=$(( blk * 64 ))
-		local -a W=()
+		local -a w_schedule=()
 		local j idx wtmp
 		for (( j=0; j<16; j++ )); do
 			idx=$(( base + j*4 ))
-			W[j]=$(( (padded[idx] << 24) | (padded[idx+1] << 16) | (padded[idx+2] << 8) | padded[idx+3] ))
+			w_schedule[j]=$(( (padded[idx] << 24) | (padded[idx+1] << 16) | \
+				(padded[idx+2] << 8) | padded[idx+3] ))
 		done
 		for (( j=16; j<80; j++ )); do
-			wtmp=$(( W[j-3] ^ W[j-8] ^ W[j-14] ^ W[j-16] ))
-			W[j]=$(( ((wtmp << 1) | (wtmp >> 31)) & 0xFFFFFFFF ))
+			wtmp=$(( w_schedule[j-3] ^ w_schedule[j-8] ^ \
+				w_schedule[j-14] ^ w_schedule[j-16] ))
+			w_schedule[j]=$(( ((wtmp << 1) | (wtmp >> 31)) & 0xFFFFFFFF ))
 		done
 
-		local A=$h0 B=$h1 C=$h2 D=$h3 E=$h4
-		local F K temp rotA rotB
+		local a_state=$h0 b_state=$h1 c_state=$h2 d_state=$h3 e_state=$h4
+		local f_round k_round temp rot_a rot_b
 
 		for (( i=0; i<80; i++ )); do
 			if (( i < 20 )); then
-				F=$(( (B & C) | ((~B) & D) )); K=0x5A827999
+				f_round=$(( (b_state & c_state) | ((~b_state) & d_state) ))
+				k_round=0x5A827999
 			elif (( i < 40 )); then
-				F=$(( B ^ C ^ D )); K=0x6ED9EBA1
+				f_round=$(( b_state ^ c_state ^ d_state ))
+				k_round=0x6ED9EBA1
 			elif (( i < 60 )); then
-				F=$(( (B & C) | (B & D) | (C & D) )); K=0x8F1BBCDC
+				f_round=$(( (b_state & c_state) | (b_state & d_state) | \
+					(c_state & d_state) ))
+				k_round=0x8F1BBCDC
 			else
-				F=$(( B ^ C ^ D )); K=0xCA62C1D6
+				f_round=$(( b_state ^ c_state ^ d_state ))
+				k_round=0xCA62C1D6
 			fi
 
-			rotA=$(( ((A << 5) | (A >> 27)) & 0xFFFFFFFF ))
-			temp=$(( (rotA + F + E + K + W[i]) & 0xFFFFFFFF ))
-			E=$D; D=$C
-			rotB=$(( ((B << 30) | (B >> 2)) & 0xFFFFFFFF ))
-			C=$rotB; B=$A; A=$temp
+			rot_a=$(( ((a_state << 5) | (a_state >> 27)) & 0xFFFFFFFF ))
+			temp=$(( (rot_a + f_round + e_state + k_round + w_schedule[i]) & \
+				0xFFFFFFFF ))
+			e_state=$d_state; d_state=$c_state
+			rot_b=$(( ((b_state << 30) | (b_state >> 2)) & 0xFFFFFFFF ))
+			c_state=$rot_b; b_state=$a_state; a_state=$temp
 		done
 
-		h0=$(( (h0 + A) & 0xFFFFFFFF )); h1=$(( (h1 + B) & 0xFFFFFFFF ))
-		h2=$(( (h2 + C) & 0xFFFFFFFF )); h3=$(( (h3 + D) & 0xFFFFFFFF ))
-		h4=$(( (h4 + E) & 0xFFFFFFFF ))
+		h0=$(( (h0 + a_state) & 0xFFFFFFFF )); h1=$(( (h1 + b_state) & 0xFFFFFFFF ))
+		h2=$(( (h2 + c_state) & 0xFFFFFFFF )); h3=$(( (h3 + d_state) & 0xFFFFFFFF ))
+		h4=$(( (h4 + e_state) & 0xFFFFFFFF ))
 	done
 
 	local -a outbytes=()
@@ -260,15 +278,18 @@ _hash::sha256::digest() {
 
 	# Local (not module-global) so sourcing this file twice in one shell
 	# never hits a readonly/redeclare clash.
-	local -a _SHA256_K=(
-		0x428a2f98 0x71374491 0xb5c0fbcf 0xe9b5dba5 0x3956c25b 0x59f111f1 0x923f82a4 0xab1c5ed5
-		0xd807aa98 0x12835b01 0x243185be 0x550c7dc3 0x72be5d74 0x80deb1fe 0x9bdc06a7 0xc19bf174
-		0xe49b69c1 0xefbe4786 0x0fc19dc6 0x240ca1cc 0x2de92c6f 0x4a7484aa 0x5cb0a9dc 0x76f988da
-		0x983e5152 0xa831c66d 0xb00327c8 0xbf597fc7 0xc6e00bf3 0xd5a79147 0x06ca6351 0x14292967
-		0x27b70a85 0x2e1b2138 0x4d2c6dfc 0x53380d13 0x650a7354 0x766a0abb 0x81c2c92e 0x92722c85
-		0xa2bfe8a1 0xa81a664b 0xc24b8b70 0xc76c51a3 0xd192e819 0xd6990624 0xf40e3585 0x106aa070
-		0x19a4c116 0x1e376c08 0x2748774c 0x34b0bcb5 0x391c0cb3 0x4ed8aa4a 0x5b9cca4f 0x682e6ff3
-		0x748f82ee 0x78a5636f 0x84c87814 0x8cc70208 0x90befffa 0xa4506ceb 0xbef9a3f7 0xc67178f2
+	local -a _sha256_k=(
+		0x428a2f98 0x71374491 0xb5c0fbcf 0xe9b5dba5 0x3956c25b 0x59f111f1
+		0x923f82a4 0xab1c5ed5 0xd807aa98 0x12835b01 0x243185be 0x550c7dc3
+		0x72be5d74 0x80deb1fe 0x9bdc06a7 0xc19bf174 0xe49b69c1 0xefbe4786
+		0x0fc19dc6 0x240ca1cc 0x2de92c6f 0x4a7484aa 0x5cb0a9dc 0x76f988da
+		0x983e5152 0xa831c66d 0xb00327c8 0xbf597fc7 0xc6e00bf3 0xd5a79147
+		0x06ca6351 0x14292967 0x27b70a85 0x2e1b2138 0x4d2c6dfc 0x53380d13
+		0x650a7354 0x766a0abb 0x81c2c92e 0x92722c85 0xa2bfe8a1 0xa81a664b
+		0xc24b8b70 0xc76c51a3 0xd192e819 0xd6990624 0xf40e3585 0x106aa070
+		0x19a4c116 0x1e376c08 0x2748774c 0x34b0bcb5 0x391c0cb3 0x4ed8aa4a
+		0x5b9cca4f 0x682e6ff3 0x748f82ee 0x78a5636f 0x84c87814 0x8cc70208
+		0x90befffa 0xa4506ceb 0xbef9a3f7 0xc67178f2
 	)
 
 	padded+=(0x80)
@@ -277,8 +298,12 @@ _hash::sha256::digest() {
 	local bit_len_lo=$(( (orig_len * 8) & 0xFFFFFFFF ))
 	local bit_len_hi=$(( (orig_len >> 29) & 0xFFFFFFFF ))
 	local i
-	for (( i=3; i>=0; i-- )); do padded+=($(( (bit_len_hi >> (i*8)) & 0xFF ))); done
-	for (( i=3; i>=0; i-- )); do padded+=($(( (bit_len_lo >> (i*8)) & 0xFF ))); done
+	for (( i=3; i>=0; i-- )); do
+		padded+=($(( (bit_len_hi >> (i*8)) & 0xFF )))
+	done
+	for (( i=3; i>=0; i-- )); do
+		padded+=($(( (bit_len_lo >> (i*8)) & 0xFF )))
+	done
 
 	local h0=0x6a09e667 h1=0xbb67ae85 h2=0x3c6ef372 h3=0xa54ff53a
 	local h4=0x510e527f h5=0x9b05688c h6=0x1f83d9ab h7=0x5be0cd19
@@ -286,40 +311,52 @@ _hash::sha256::digest() {
 
 	for (( blk=0; blk<block_count; blk++ )); do
 		local base=$(( blk * 64 ))
-		local -a W=()
-		local j idx s0 s1
+		local -a w_schedule=()
+		local j idx small_s0 small_s1 word_in
 		for (( j=0; j<16; j++ )); do
 			idx=$(( base + j*4 ))
-			W[j]=$(( (padded[idx] << 24) | (padded[idx+1] << 16) | (padded[idx+2] << 8) | padded[idx+3] ))
+			w_schedule[j]=$(( (padded[idx] << 24) | (padded[idx+1] << 16) | \
+				(padded[idx+2] << 8) | padded[idx+3] ))
 		done
 		# sigma0/sigma1 rotr32 inlined (see SHA-512 NOTE below for why).
 		for (( j=16; j<64; j++ )); do
-			s0=$(( (((W[j-15] >> 7) | (W[j-15] << 25)) & 0xFFFFFFFF) ^ (((W[j-15] >> 18) | (W[j-15] << 14)) & 0xFFFFFFFF) ^ (W[j-15] >> 3) ))
-			s1=$(( (((W[j-2] >> 17) | (W[j-2] << 15)) & 0xFFFFFFFF) ^ (((W[j-2] >> 19) | (W[j-2] << 13)) & 0xFFFFFFFF) ^ (W[j-2] >> 10) ))
-			W[j]=$(( (W[j-16] + s0 + W[j-7] + s1) & 0xFFFFFFFF ))
+			word_in=${w_schedule[j-15]}
+			small_s0=$(( (((word_in >> 7) | (word_in << 25)) & 0xFFFFFFFF) ^ \
+				(((word_in >> 18) | (word_in << 14)) & 0xFFFFFFFF) ^ (word_in >> 3) ))
+			word_in=${w_schedule[j-2]}
+			small_s1=$(( (((word_in >> 17) | (word_in << 15)) & 0xFFFFFFFF) ^ \
+				(((word_in >> 19) | (word_in << 13)) & 0xFFFFFFFF) ^ (word_in >> 10) ))
+			w_schedule[j]=$(( (w_schedule[j-16] + small_s0 + \
+				w_schedule[j-7] + small_s1) & 0xFFFFFFFF ))
 		done
 
-		local A=$h0 B=$h1 C=$h2 D=$h3 E=$h4 F=$h5 G=$h6 H=$h7
-		local S1 ch temp1 S0 maj temp2
+		local a_state=$h0 b_state=$h1 c_state=$h2 d_state=$h3
+		local e_state=$h4 f_state=$h5 g_state=$h6 h_state=$h7
+		local big_s1 ch temp1 big_s0 maj temp2
 
 		for (( i=0; i<64; i++ )); do
-			S1=$(( (((E >> 6) | (E << 26)) & 0xFFFFFFFF) ^ (((E >> 11) | (E << 21)) & 0xFFFFFFFF) ^ (((E >> 25) | (E << 7)) & 0xFFFFFFFF) ))
-			ch=$(( (E & F) ^ ((~E) & G) ))
-			temp1=$(( (H + S1 + ch + _SHA256_K[i] + W[i]) & 0xFFFFFFFF ))
-			S0=$(( (((A >> 2) | (A << 30)) & 0xFFFFFFFF) ^ (((A >> 13) | (A << 19)) & 0xFFFFFFFF) ^ (((A >> 22) | (A << 10)) & 0xFFFFFFFF) ))
-			maj=$(( (A & B) ^ (A & C) ^ (B & C) ))
-			temp2=$(( (S0 + maj) & 0xFFFFFFFF ))
+			big_s1=$(( (((e_state >> 6) | (e_state << 26)) & 0xFFFFFFFF) ^ \
+				(((e_state >> 11) | (e_state << 21)) & 0xFFFFFFFF) ^ \
+				(((e_state >> 25) | (e_state << 7)) & 0xFFFFFFFF) ))
+			ch=$(( (e_state & f_state) ^ ((~e_state) & g_state) ))
+			temp1=$(( (h_state + big_s1 + ch + _sha256_k[i] + \
+				w_schedule[i]) & 0xFFFFFFFF ))
+			big_s0=$(( (((a_state >> 2) | (a_state << 30)) & 0xFFFFFFFF) ^ \
+				(((a_state >> 13) | (a_state << 19)) & 0xFFFFFFFF) ^ \
+				(((a_state >> 22) | (a_state << 10)) & 0xFFFFFFFF) ))
+			maj=$(( (a_state & b_state) ^ (a_state & c_state) ^ (b_state & c_state) ))
+			temp2=$(( (big_s0 + maj) & 0xFFFFFFFF ))
 
-			H=$G; G=$F; F=$E
-			E=$(( (D + temp1) & 0xFFFFFFFF ))
-			D=$C; C=$B; B=$A
-			A=$(( (temp1 + temp2) & 0xFFFFFFFF ))
+			h_state=$g_state; g_state=$f_state; f_state=$e_state
+			e_state=$(( (d_state + temp1) & 0xFFFFFFFF ))
+			d_state=$c_state; c_state=$b_state; b_state=$a_state
+			a_state=$(( (temp1 + temp2) & 0xFFFFFFFF ))
 		done
 
-		h0=$(( (h0 + A) & 0xFFFFFFFF )); h1=$(( (h1 + B) & 0xFFFFFFFF ))
-		h2=$(( (h2 + C) & 0xFFFFFFFF )); h3=$(( (h3 + D) & 0xFFFFFFFF ))
-		h4=$(( (h4 + E) & 0xFFFFFFFF )); h5=$(( (h5 + F) & 0xFFFFFFFF ))
-		h6=$(( (h6 + G) & 0xFFFFFFFF )); h7=$(( (h7 + H) & 0xFFFFFFFF ))
+		h0=$(( (h0 + a_state) & 0xFFFFFFFF )); h1=$(( (h1 + b_state) & 0xFFFFFFFF ))
+		h2=$(( (h2 + c_state) & 0xFFFFFFFF )); h3=$(( (h3 + d_state) & 0xFFFFFFFF ))
+		h4=$(( (h4 + e_state) & 0xFFFFFFFF )); h5=$(( (h5 + f_state) & 0xFFFFFFFF ))
+		h6=$(( (h6 + g_state) & 0xFFFFFFFF )); h7=$(( (h7 + h_state) & 0xFFFFFFFF ))
 	done
 
 	local -a outbytes=()
@@ -335,7 +372,7 @@ _hash::sha256::digest() {
 # SHA-512 (FIPS 180-4).
 # NOTE: Bash's `>>` sign-extends negative (high-bit-set) 64-bit values, so a
 # plain `x >> n` is wrong for the unsigned right shifts SHA-512 needs.
-# `(x < 0 ? (((x >> 1) & 0x7FFF...) >> (n - 1)) : (x >> n))` is the fix:
+# `(x < 0 ? (((x >> 1) & mask63) >> (n - 1)) : (x >> n))` is the fix:
 # clearing the sign-extended bit after a 1-bit shift makes the remaining
 # (n-1)-bit shift safe, since the value is now non-negative. This is
 # inlined (rather than a real _hash::ushr64 function) to avoid forking a
@@ -346,30 +383,38 @@ _hash::sha512::digest() {
 	local orig_len=${#_sha512_msg[@]}
 	local -a padded
 	padded=("${_sha512_msg[@]}")
+	local mask63=0x7FFFFFFFFFFFFFFF
 
 	# Local (not module-global) so sourcing this file twice in one shell
 	# never hits a readonly/redeclare clash.
-	local -a _SHA512_K=(
-		0x428a2f98d728ae22 0x7137449123ef65cd 0xb5c0fbcfec4d3b2f 0xe9b5dba58189dbbc
-		0x3956c25bf348b538 0x59f111f1b605d019 0x923f82a4af194f9b 0xab1c5ed5da6d8118
-		0xd807aa98a3030242 0x12835b0145706fbe 0x243185be4ee4b28c 0x550c7dc3d5ffb4e2
-		0x72be5d74f27b896f 0x80deb1fe3b1696b1 0x9bdc06a725c71235 0xc19bf174cf692694
-		0xe49b69c19ef14ad2 0xefbe4786384f25e3 0x0fc19dc68b8cd5b5 0x240ca1cc77ac9c65
-		0x2de92c6f592b0275 0x4a7484aa6ea6e483 0x5cb0a9dcbd41fbd4 0x76f988da831153b5
-		0x983e5152ee66dfab 0xa831c66d2db43210 0xb00327c898fb213f 0xbf597fc7beef0ee4
-		0xc6e00bf33da88fc2 0xd5a79147930aa725 0x06ca6351e003826f 0x142929670a0e6e70
-		0x27b70a8546d22ffc 0x2e1b21385c26c926 0x4d2c6dfc5ac42aed 0x53380d139d95b3df
-		0x650a73548baf63de 0x766a0abb3c77b2a8 0x81c2c92e47edaee6 0x92722c851482353b
-		0xa2bfe8a14cf10364 0xa81a664bbc423001 0xc24b8b70d0f89791 0xc76c51a30654be30
-		0xd192e819d6ef5218 0xd69906245565a910 0xf40e35855771202a 0x106aa07032bbd1b8
-		0x19a4c116b8d2d0c8 0x1e376c085141ab53 0x2748774cdf8eeb99 0x34b0bcb5e19b48a8
-		0x391c0cb3c5c95a63 0x4ed8aa4ae3418acb 0x5b9cca4f7763e373 0x682e6ff3d6b2b8a3
-		0x748f82ee5defb2fc 0x78a5636f43172f60 0x84c87814a1f0ab72 0x8cc702081a6439ec
-		0x90befffa23631e28 0xa4506cebde82bde9 0xbef9a3f7b2c67915 0xc67178f2e372532b
-		0xca273eceea26619c 0xd186b8c721c0c207 0xeada7dd6cde0eb1e 0xf57d4f7fee6ed178
-		0x06f067aa72176fba 0x0a637dc5a2c898a6 0x113f9804bef90dae 0x1b710b35131c471b
-		0x28db77f523047d84 0x32caab7b40c72493 0x3c9ebe0a15c9bebc 0x431d67c49c100d4c
-		0x4cc5d4becb3e42b6 0x597f299cfc657e2a 0x5fcb6fab3ad6faec 0x6c44198c4a475817
+	local -a _sha512_k=(
+		0x428a2f98d728ae22 0x7137449123ef65cd 0xb5c0fbcfec4d3b2f
+		0xe9b5dba58189dbbc 0x3956c25bf348b538 0x59f111f1b605d019
+		0x923f82a4af194f9b 0xab1c5ed5da6d8118 0xd807aa98a3030242
+		0x12835b0145706fbe 0x243185be4ee4b28c 0x550c7dc3d5ffb4e2
+		0x72be5d74f27b896f 0x80deb1fe3b1696b1 0x9bdc06a725c71235
+		0xc19bf174cf692694 0xe49b69c19ef14ad2 0xefbe4786384f25e3
+		0x0fc19dc68b8cd5b5 0x240ca1cc77ac9c65 0x2de92c6f592b0275
+		0x4a7484aa6ea6e483 0x5cb0a9dcbd41fbd4 0x76f988da831153b5
+		0x983e5152ee66dfab 0xa831c66d2db43210 0xb00327c898fb213f
+		0xbf597fc7beef0ee4 0xc6e00bf33da88fc2 0xd5a79147930aa725
+		0x06ca6351e003826f 0x142929670a0e6e70 0x27b70a8546d22ffc
+		0x2e1b21385c26c926 0x4d2c6dfc5ac42aed 0x53380d139d95b3df
+		0x650a73548baf63de 0x766a0abb3c77b2a8 0x81c2c92e47edaee6
+		0x92722c851482353b 0xa2bfe8a14cf10364 0xa81a664bbc423001
+		0xc24b8b70d0f89791 0xc76c51a30654be30 0xd192e819d6ef5218
+		0xd69906245565a910 0xf40e35855771202a 0x106aa07032bbd1b8
+		0x19a4c116b8d2d0c8 0x1e376c085141ab53 0x2748774cdf8eeb99
+		0x34b0bcb5e19b48a8 0x391c0cb3c5c95a63 0x4ed8aa4ae3418acb
+		0x5b9cca4f7763e373 0x682e6ff3d6b2b8a3 0x748f82ee5defb2fc
+		0x78a5636f43172f60 0x84c87814a1f0ab72 0x8cc702081a6439ec
+		0x90befffa23631e28 0xa4506cebde82bde9 0xbef9a3f7b2c67915
+		0xc67178f2e372532b 0xca273eceea26619c 0xd186b8c721c0c207
+		0xeada7dd6cde0eb1e 0xf57d4f7fee6ed178 0x06f067aa72176fba
+		0x0a637dc5a2c898a6 0x113f9804bef90dae 0x1b710b35131c471b
+		0x28db77f523047d84 0x32caab7b40c72493 0x3c9ebe0a15c9bebc
+		0x431d67c49c100d4c 0x4cc5d4becb3e42b6 0x597f299cfc657e2a
+		0x5fcb6fab3ad6faec 0x6c44198c4a475817
 	)
 
 	padded+=(0x80)
@@ -380,60 +425,71 @@ _hash::sha512::digest() {
 	local bit_len=$(( orig_len * 8 ))
 	local i
 	for (( i=0; i<8; i++ )); do padded+=(0); done
-	for (( i=7; i>=0; i-- )); do padded+=($(( (bit_len >> (i*8)) & 0xFF ))); done
+	for (( i=7; i>=0; i-- )); do
+		padded+=($(( (bit_len >> (i*8)) & 0xFF )))
+	done
 
-	local h0=0x6a09e667f3bcc908 h1=0xbb67ae8584caa73b h2=0x3c6ef372fe94f82b h3=0xa54ff53a5f1d36f1
-	local h4=0x510e527fade682d1 h5=0x9b05688c2b3e6c1f h6=0x1f83d9abfb41bd6b h7=0x5be0cd19137e2179
+	local h0=0x6a09e667f3bcc908 h1=0xbb67ae8584caa73b
+	local h2=0x3c6ef372fe94f82b h3=0xa54ff53a5f1d36f1
+	local h4=0x510e527fade682d1 h5=0x9b05688c2b3e6c1f
+	local h6=0x1f83d9abfb41bd6b h7=0x5be0cd19137e2179
 	local block_count=$(( ${#padded[@]} / 128 )) blk
 
 	for (( blk=0; blk<block_count; blk++ )); do
 		local base=$(( blk * 128 ))
-		local -a W=()
-		local j idx s0 s1 x k
+		local -a w_schedule=()
+		local j idx small_s0 small_s1 x k
 		for (( j=0; j<16; j++ )); do
 			idx=$(( base + j*8 ))
-			W[j]=0
+			w_schedule[j]=0
 			for (( k=0; k<8; k++ )); do
-				W[j]=$(( (W[j] << 8) | padded[idx+k] ))
+				w_schedule[j]=$(( (w_schedule[j] << 8) | padded[idx+k] ))
 			done
 		done
 		for (( j=16; j<80; j++ )); do
-			x=${W[j-15]}
-			s0=$(( ( (x < 0 ? (((x >> 1) & 0x7FFFFFFFFFFFFFFF) >> 0) : (x >> 1)) | (x << 63) ) ^ \
-			       ( (x < 0 ? (((x >> 1) & 0x7FFFFFFFFFFFFFFF) >> 7)  : (x >> 8)) | (x << 56) ) ^ \
-			       (x < 0 ? (((x >> 1) & 0x7FFFFFFFFFFFFFFF) >> 6)  : (x >> 7)) ))
-			x=${W[j-2]}
-			s1=$(( ( (x < 0 ? (((x >> 1) & 0x7FFFFFFFFFFFFFFF) >> 18) : (x >> 19)) | (x << 45) ) ^ \
-			       ( (x < 0 ? (((x >> 1) & 0x7FFFFFFFFFFFFFFF) >> 60) : (x >> 61)) | (x << 3) ) ^ \
-			       (x < 0 ? (((x >> 1) & 0x7FFFFFFFFFFFFFFF) >> 5)  : (x >> 6)) ))
-			W[j]=$(( W[j-16] + s0 + W[j-7] + s1 ))
+			x=${w_schedule[j-15]}
+			small_s0=$(( \
+				( (x < 0 ? (((x >> 1) & mask63) >> 0) : (x >> 1)) | (x << 63) ) ^ \
+				( (x < 0 ? (((x >> 1) & mask63) >> 7) : (x >> 8)) | (x << 56) ) ^ \
+				(x < 0 ? (((x >> 1) & mask63) >> 6) : (x >> 7)) ))
+			x=${w_schedule[j-2]}
+			small_s1=$(( \
+				( (x < 0 ? (((x >> 1) & mask63) >> 18) : (x >> 19)) | (x << 45) ) ^ \
+				( (x < 0 ? (((x >> 1) & mask63) >> 60) : (x >> 61)) | (x << 3) ) ^ \
+				(x < 0 ? (((x >> 1) & mask63) >> 5) : (x >> 6)) ))
+			w_schedule[j]=$(( w_schedule[j-16] + small_s0 + w_schedule[j-7] + small_s1 ))
 		done
 
-		local A=$h0 B=$h1 C=$h2 D=$h3 E=$h4 F=$h5 G=$h6 H=$h7
-		local S1 ch temp1 S0 maj temp2
+		local a_state=$h0 b_state=$h1 c_state=$h2 d_state=$h3
+		local e_state=$h4 f_state=$h5 g_state=$h6 h_state=$h7
+		local big_s1 ch temp1 big_s0 maj temp2
 
 		for (( i=0; i<80; i++ )); do
-			x=$E
-			S1=$(( ( (x < 0 ? (((x >> 1) & 0x7FFFFFFFFFFFFFFF) >> 13) : (x >> 14)) | (x << 50) ) ^ \
-			       ( (x < 0 ? (((x >> 1) & 0x7FFFFFFFFFFFFFFF) >> 17) : (x >> 18)) | (x << 46) ) ^ \
-			       ( (x < 0 ? (((x >> 1) & 0x7FFFFFFFFFFFFFFF) >> 40) : (x >> 41)) | (x << 23) ) ))
-			ch=$(( (E & F) ^ ((~E) & G) ))
-			temp1=$(( H + S1 + ch + _SHA512_K[i] + W[i] ))
-			x=$A
-			S0=$(( ( (x < 0 ? (((x >> 1) & 0x7FFFFFFFFFFFFFFF) >> 27) : (x >> 28)) | (x << 36) ) ^ \
-			       ( (x < 0 ? (((x >> 1) & 0x7FFFFFFFFFFFFFFF) >> 33) : (x >> 34)) | (x << 30) ) ^ \
-			       ( (x < 0 ? (((x >> 1) & 0x7FFFFFFFFFFFFFFF) >> 38) : (x >> 39)) | (x << 25) ) ))
-			maj=$(( (A & B) ^ (A & C) ^ (B & C) ))
-			temp2=$(( S0 + maj ))
+			x=$e_state
+			big_s1=$(( \
+				( (x < 0 ? (((x >> 1) & mask63) >> 13) : (x >> 14)) | (x << 50) ) ^ \
+				( (x < 0 ? (((x >> 1) & mask63) >> 17) : (x >> 18)) | (x << 46) ) ^ \
+				( (x < 0 ? (((x >> 1) & mask63) >> 40) : (x >> 41)) | (x << 23) ) ))
+			ch=$(( (e_state & f_state) ^ ((~e_state) & g_state) ))
+			temp1=$(( h_state + big_s1 + ch + _sha512_k[i] + w_schedule[i] ))
+			x=$a_state
+			big_s0=$(( \
+				( (x < 0 ? (((x >> 1) & mask63) >> 27) : (x >> 28)) | (x << 36) ) ^ \
+				( (x < 0 ? (((x >> 1) & mask63) >> 33) : (x >> 34)) | (x << 30) ) ^ \
+				( (x < 0 ? (((x >> 1) & mask63) >> 38) : (x >> 39)) | (x << 25) ) ))
+			maj=$(( (a_state & b_state) ^ (a_state & c_state) ^ (b_state & c_state) ))
+			temp2=$(( big_s0 + maj ))
 
-			H=$G; G=$F; F=$E
-			E=$(( D + temp1 ))
-			D=$C; C=$B; B=$A
-			A=$(( temp1 + temp2 ))
+			h_state=$g_state; g_state=$f_state; f_state=$e_state
+			e_state=$(( d_state + temp1 ))
+			d_state=$c_state; c_state=$b_state; b_state=$a_state
+			a_state=$(( temp1 + temp2 ))
 		done
 
-		h0=$(( h0 + A )); h1=$(( h1 + B )); h2=$(( h2 + C )); h3=$(( h3 + D ))
-		h4=$(( h4 + E )); h5=$(( h5 + F )); h6=$(( h6 + G )); h7=$(( h7 + H ))
+		h0=$(( h0 + a_state )); h1=$(( h1 + b_state ))
+		h2=$(( h2 + c_state )); h3=$(( h3 + d_state ))
+		h4=$(( h4 + e_state )); h5=$(( h5 + f_state ))
+		h6=$(( h6 + g_state )); h7=$(( h7 + h_state ))
 	done
 
 	local -a outbytes=()
@@ -454,19 +510,28 @@ _hash::keccakf1600() {
 	local -n _kf_st="$1"
 	local r i j t t2 tt n
 	local b0 b1 b2 b3 b4
+	local mask63=0x7FFFFFFFFFFFFFFF
 
 	# Local (not module-global) so sourcing this file twice in one shell
 	# never hits a readonly/redeclare clash.
-	local -a _KECCAK_RNDC=(
-		0x0000000000000001 0x0000000000008082 0x800000000000808a 0x8000000080008000
-		0x000000000000808b 0x0000000080000001 0x8000000080008081 0x8000000000008009
-		0x000000000000008a 0x0000000000000088 0x0000000080008009 0x000000008000000a
-		0x000000008000808b 0x800000000000008b 0x8000000000008089 0x8000000000008003
-		0x8000000000008002 0x8000000000000080 0x000000000000800a 0x800000008000000a
-		0x8000000080008081 0x8000000000008080 0x0000000080000001 0x8000000080008008
+	local -a _keccak_rndc=(
+		0x0000000000000001 0x0000000000008082 0x800000000000808a
+		0x8000000080008000 0x000000000000808b 0x0000000080000001
+		0x8000000080008081 0x8000000000008009 0x000000000000008a
+		0x0000000000000088 0x0000000080008009 0x000000008000000a
+		0x000000008000808b 0x800000000000008b 0x8000000000008089
+		0x8000000000008003 0x8000000000008002 0x8000000000000080
+		0x000000000000800a 0x800000008000000a 0x8000000080008081
+		0x8000000000008080 0x0000000080000001 0x8000000080008008
 	)
-	local -a _KECCAK_ROTC=(1 3 6 10 15 21 28 36 45 55 2 14 27 41 56 8 25 43 62 18 39 61 20 44)
-	local -a _KECCAK_PILN=(10 7 11 17 18 3 5 16 8 21 24 4 15 23 19 13 12 2 20 14 22 9 6 1)
+	local -a _keccak_rotc=(
+		1 3 6 10 15 21 28 36 45 55 2 14 27 41 56
+		8 25 43 62 18 39 61 20 44
+	)
+	local -a _keccak_piln=(
+		10 7 11 17 18 3 5 16 8 21 24 4 15 23 19
+		13 12 2 20 14 22 9 6 1
+	)
 
 	for (( r=0; r<24; r++ )); do
 		# Theta
@@ -476,30 +541,42 @@ _hash::keccakf1600() {
 		b3=$(( _kf_st[3] ^ _kf_st[8] ^ _kf_st[13] ^ _kf_st[18] ^ _kf_st[23] ))
 		b4=$(( _kf_st[4] ^ _kf_st[9] ^ _kf_st[14] ^ _kf_st[19] ^ _kf_st[24] ))
 
-		tt=$b1; t=$(( (tt < 0 ? (((tt >> 1) & 0x7FFFFFFFFFFFFFFF) >> 62) : (tt >> 63)) | (tt << 1) )); t=$(( b4 ^ t ))
+		tt=$b1
+		t=$(( (tt < 0 ? (((tt >> 1) & mask63) >> 62) : (tt >> 63)) | (tt << 1) ))
+		t=$(( b4 ^ t ))
 		for (( j=0; j<25; j+=5 )); do _kf_st[j+0]=$(( _kf_st[j+0] ^ t )); done
-		tt=$b2; t=$(( (tt < 0 ? (((tt >> 1) & 0x7FFFFFFFFFFFFFFF) >> 62) : (tt >> 63)) | (tt << 1) )); t=$(( b0 ^ t ))
+		tt=$b2
+		t=$(( (tt < 0 ? (((tt >> 1) & mask63) >> 62) : (tt >> 63)) | (tt << 1) ))
+		t=$(( b0 ^ t ))
 		for (( j=0; j<25; j+=5 )); do _kf_st[j+1]=$(( _kf_st[j+1] ^ t )); done
-		tt=$b3; t=$(( (tt < 0 ? (((tt >> 1) & 0x7FFFFFFFFFFFFFFF) >> 62) : (tt >> 63)) | (tt << 1) )); t=$(( b1 ^ t ))
+		tt=$b3
+		t=$(( (tt < 0 ? (((tt >> 1) & mask63) >> 62) : (tt >> 63)) | (tt << 1) ))
+		t=$(( b1 ^ t ))
 		for (( j=0; j<25; j+=5 )); do _kf_st[j+2]=$(( _kf_st[j+2] ^ t )); done
-		tt=$b4; t=$(( (tt < 0 ? (((tt >> 1) & 0x7FFFFFFFFFFFFFFF) >> 62) : (tt >> 63)) | (tt << 1) )); t=$(( b2 ^ t ))
+		tt=$b4
+		t=$(( (tt < 0 ? (((tt >> 1) & mask63) >> 62) : (tt >> 63)) | (tt << 1) ))
+		t=$(( b2 ^ t ))
 		for (( j=0; j<25; j+=5 )); do _kf_st[j+3]=$(( _kf_st[j+3] ^ t )); done
-		tt=$b0; t=$(( (tt < 0 ? (((tt >> 1) & 0x7FFFFFFFFFFFFFFF) >> 62) : (tt >> 63)) | (tt << 1) )); t=$(( b3 ^ t ))
+		tt=$b0
+		t=$(( (tt < 0 ? (((tt >> 1) & mask63) >> 62) : (tt >> 63)) | (tt << 1) ))
+		t=$(( b3 ^ t ))
 		for (( j=0; j<25; j+=5 )); do _kf_st[j+4]=$(( _kf_st[j+4] ^ t )); done
 
 		# Rho + Pi
 		t=${_kf_st[1]}
 		for (( i=0; i<24; i++ )); do
-			j=${_KECCAK_PILN[i]}
+			j=${_keccak_piln[i]}
 			t2=${_kf_st[j]}
-			n=${_KECCAK_ROTC[i]}
-			_kf_st[j]=$(( (t < 0 ? (((t >> 1) & 0x7FFFFFFFFFFFFFFF) >> (63 - n)) : (t >> (64 - n))) | (t << n) ))
+			n=${_keccak_rotc[i]}
+			_kf_st[j]=$(( (t < 0 ? (((t >> 1) & mask63) >> (63 - n)) : \
+				(t >> (64 - n))) | (t << n) ))
 			t=$t2
 		done
 
 		# Chi
 		for (( j=0; j<25; j+=5 )); do
-			b0=${_kf_st[j+0]}; b1=${_kf_st[j+1]}; b2=${_kf_st[j+2]}; b3=${_kf_st[j+3]}; b4=${_kf_st[j+4]}
+			b0=${_kf_st[j+0]}; b1=${_kf_st[j+1]}; b2=${_kf_st[j+2]}
+			b3=${_kf_st[j+3]}; b4=${_kf_st[j+4]}
 			_kf_st[j+0]=$(( b0 ^ ((~b1) & b2) ))
 			_kf_st[j+1]=$(( b1 ^ ((~b2) & b3) ))
 			_kf_st[j+2]=$(( b2 ^ ((~b3) & b4) ))
@@ -508,7 +585,7 @@ _hash::keccakf1600() {
 		done
 
 		# Iota
-		_kf_st[0]=$(( _kf_st[0] ^ _KECCAK_RNDC[r] ))
+		_kf_st[0]=$(( _kf_st[0] ^ _keccak_rndc[r] ))
 	done
 }
 
@@ -564,11 +641,11 @@ _hash::blake2b::digest() {
 
 	# Local (not module-global) so sourcing this file twice in one shell
 	# never hits a readonly/redeclare clash.
-	local -a _BLAKE2B_IV=(
+	local -a _blake2b_iv=(
 		0x6a09e667f3bcc908 0xbb67ae8584caa73b 0x3c6ef372fe94f82b 0xa54ff53a5f1d36f1
 		0x510e527fade682d1 0x9b05688c2b3e6c1f 0x1f83d9abfb41bd6b 0x5be0cd19137e2179
 	)
-	local -a _BLAKE2B_SIGMA=(
+	local -a _blake2b_sigma=(
 		0 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15
 		14 10 4 8 9 15 13 6 1 12 0 2 11 7 5 3
 		11 8 12 0 5 2 15 13 10 14 3 6 7 1 9 4
@@ -580,12 +657,18 @@ _hash::blake2b::digest() {
 		6 15 14 9 11 3 0 8 12 2 13 7 1 4 10 5
 		10 2 8 4 7 6 1 5 15 11 9 14 3 12 13 0
 	)
+	local mask63=0x7FFFFFFFFFFFFFFF
 
 	# BLAKE2b always compresses at least one (possibly all-zero) block.
-	while (( ${#padded[@]} % 128 != 0 || ${#padded[@]} == 0 )); do padded+=(0); done
+	while (( ${#padded[@]} % 128 != 0 || ${#padded[@]} == 0 )); do
+		padded+=(0)
+	done
 
-	local h0=$(( _BLAKE2B_IV[0] ^ 0x01010040 )) h1=${_BLAKE2B_IV[1]} h2=${_BLAKE2B_IV[2]} h3=${_BLAKE2B_IV[3]}
-	local h4=${_BLAKE2B_IV[4]} h5=${_BLAKE2B_IV[5]} h6=${_BLAKE2B_IV[6]} h7=${_BLAKE2B_IV[7]}
+	local h0=$(( _blake2b_iv[0] ^ 0x01010040 ))
+	local h1=${_blake2b_iv[1]} h2=${_blake2b_iv[2]}
+	local h3=${_blake2b_iv[3]} h4=${_blake2b_iv[4]}
+	local h5=${_blake2b_iv[5]} h6=${_blake2b_iv[6]}
+	local h7=${_blake2b_iv[7]}
 	local block_count=$(( ${#padded[@]} / 128 )) blk bytes_compressed=0
 
 	for (( blk=0; blk<block_count; blk++ )); do
@@ -607,9 +690,12 @@ _hash::blake2b::digest() {
 			bytes_compressed=$(( bytes_compressed + 128 ))
 		fi
 
-		local v0=$h0 v1=$h1 v2=$h2 v3=$h3 v4=$h4 v5=$h5 v6=$h6 v7=$h7
-		local v8=${_BLAKE2B_IV[0]} v9=${_BLAKE2B_IV[1]} v10=${_BLAKE2B_IV[2]} v11=${_BLAKE2B_IV[3]}
-		local v12=${_BLAKE2B_IV[4]} v13=${_BLAKE2B_IV[5]} v14=${_BLAKE2B_IV[6]} v15=${_BLAKE2B_IV[7]}
+		local v0=$h0 v1=$h1 v2=$h2 v3=$h3
+		local v4=$h4 v5=$h5 v6=$h6 v7=$h7
+		local v8=${_blake2b_iv[0]} v9=${_blake2b_iv[1]}
+		local v10=${_blake2b_iv[2]} v11=${_blake2b_iv[3]}
+		local v12=${_blake2b_iv[4]} v13=${_blake2b_iv[5]}
+		local v14=${_blake2b_iv[6]} v15=${_blake2b_iv[7]}
 
 		v12=$(( v12 ^ bytes_compressed ))
 		# v13 would XOR the high 64 bits of the byte counter; always 0 here
@@ -623,53 +709,85 @@ _hash::blake2b::digest() {
 			# Each G(v,a,b,c,d,x,y) mixes one column or diagonal of the
 			# state; rotr64 by 32/24/16/63 is inlined via the ushr64
 			# ternary trick (see SHA-512 NOTE) since this runs 8x/round.
-			x=${m[_BLAKE2B_SIGMA[sbase+0]]}; y=${m[_BLAKE2B_SIGMA[sbase+1]]}
-			v0=$(( v0 + v4 + x )); t=$(( v12 ^ v0 )); v12=$(( (t < 0 ? (((t >> 1) & 0x7FFFFFFFFFFFFFFF) >> 31) : (t >> 32)) | (t << 32) ))
-			v8=$(( v8 + v12 )); t=$(( v4 ^ v8 )); v4=$(( (t < 0 ? (((t >> 1) & 0x7FFFFFFFFFFFFFFF) >> 23) : (t >> 24)) | (t << 40) ))
-			v0=$(( v0 + v4 + y )); t=$(( v12 ^ v0 )); v12=$(( (t < 0 ? (((t >> 1) & 0x7FFFFFFFFFFFFFFF) >> 15) : (t >> 16)) | (t << 48) ))
-			v8=$(( v8 + v12 )); t=$(( v4 ^ v8 )); v4=$(( (t < 0 ? (((t >> 1) & 0x7FFFFFFFFFFFFFFF) >> 62) : (t >> 63)) | (t << 1) ))
+			x=${m[_blake2b_sigma[sbase+0]]}; y=${m[_blake2b_sigma[sbase+1]]}
+			v0=$(( v0 + v4 + x )); t=$(( v12 ^ v0 ))
+			v12=$(( (t < 0 ? (((t >> 1) & mask63) >> 31) : (t >> 32)) | (t << 32) ))
+			v8=$(( v8 + v12 )); t=$(( v4 ^ v8 ))
+			v4=$(( (t < 0 ? (((t >> 1) & mask63) >> 23) : (t >> 24)) | (t << 40) ))
+			v0=$(( v0 + v4 + y )); t=$(( v12 ^ v0 ))
+			v12=$(( (t < 0 ? (((t >> 1) & mask63) >> 15) : (t >> 16)) | (t << 48) ))
+			v8=$(( v8 + v12 )); t=$(( v4 ^ v8 ))
+			v4=$(( (t < 0 ? (((t >> 1) & mask63) >> 62) : (t >> 63)) | (t << 1) ))
 
-			x=${m[_BLAKE2B_SIGMA[sbase+2]]}; y=${m[_BLAKE2B_SIGMA[sbase+3]]}
-			v1=$(( v1 + v5 + x )); t=$(( v13 ^ v1 )); v13=$(( (t < 0 ? (((t >> 1) & 0x7FFFFFFFFFFFFFFF) >> 31) : (t >> 32)) | (t << 32) ))
-			v9=$(( v9 + v13 )); t=$(( v5 ^ v9 )); v5=$(( (t < 0 ? (((t >> 1) & 0x7FFFFFFFFFFFFFFF) >> 23) : (t >> 24)) | (t << 40) ))
-			v1=$(( v1 + v5 + y )); t=$(( v13 ^ v1 )); v13=$(( (t < 0 ? (((t >> 1) & 0x7FFFFFFFFFFFFFFF) >> 15) : (t >> 16)) | (t << 48) ))
-			v9=$(( v9 + v13 )); t=$(( v5 ^ v9 )); v5=$(( (t < 0 ? (((t >> 1) & 0x7FFFFFFFFFFFFFFF) >> 62) : (t >> 63)) | (t << 1) ))
+			x=${m[_blake2b_sigma[sbase+2]]}; y=${m[_blake2b_sigma[sbase+3]]}
+			v1=$(( v1 + v5 + x )); t=$(( v13 ^ v1 ))
+			v13=$(( (t < 0 ? (((t >> 1) & mask63) >> 31) : (t >> 32)) | (t << 32) ))
+			v9=$(( v9 + v13 )); t=$(( v5 ^ v9 ))
+			v5=$(( (t < 0 ? (((t >> 1) & mask63) >> 23) : (t >> 24)) | (t << 40) ))
+			v1=$(( v1 + v5 + y )); t=$(( v13 ^ v1 ))
+			v13=$(( (t < 0 ? (((t >> 1) & mask63) >> 15) : (t >> 16)) | (t << 48) ))
+			v9=$(( v9 + v13 )); t=$(( v5 ^ v9 ))
+			v5=$(( (t < 0 ? (((t >> 1) & mask63) >> 62) : (t >> 63)) | (t << 1) ))
 
-			x=${m[_BLAKE2B_SIGMA[sbase+4]]}; y=${m[_BLAKE2B_SIGMA[sbase+5]]}
-			v2=$(( v2 + v6 + x )); t=$(( v14 ^ v2 )); v14=$(( (t < 0 ? (((t >> 1) & 0x7FFFFFFFFFFFFFFF) >> 31) : (t >> 32)) | (t << 32) ))
-			v10=$(( v10 + v14 )); t=$(( v6 ^ v10 )); v6=$(( (t < 0 ? (((t >> 1) & 0x7FFFFFFFFFFFFFFF) >> 23) : (t >> 24)) | (t << 40) ))
-			v2=$(( v2 + v6 + y )); t=$(( v14 ^ v2 )); v14=$(( (t < 0 ? (((t >> 1) & 0x7FFFFFFFFFFFFFFF) >> 15) : (t >> 16)) | (t << 48) ))
-			v10=$(( v10 + v14 )); t=$(( v6 ^ v10 )); v6=$(( (t < 0 ? (((t >> 1) & 0x7FFFFFFFFFFFFFFF) >> 62) : (t >> 63)) | (t << 1) ))
+			x=${m[_blake2b_sigma[sbase+4]]}; y=${m[_blake2b_sigma[sbase+5]]}
+			v2=$(( v2 + v6 + x )); t=$(( v14 ^ v2 ))
+			v14=$(( (t < 0 ? (((t >> 1) & mask63) >> 31) : (t >> 32)) | (t << 32) ))
+			v10=$(( v10 + v14 )); t=$(( v6 ^ v10 ))
+			v6=$(( (t < 0 ? (((t >> 1) & mask63) >> 23) : (t >> 24)) | (t << 40) ))
+			v2=$(( v2 + v6 + y )); t=$(( v14 ^ v2 ))
+			v14=$(( (t < 0 ? (((t >> 1) & mask63) >> 15) : (t >> 16)) | (t << 48) ))
+			v10=$(( v10 + v14 )); t=$(( v6 ^ v10 ))
+			v6=$(( (t < 0 ? (((t >> 1) & mask63) >> 62) : (t >> 63)) | (t << 1) ))
 
-			x=${m[_BLAKE2B_SIGMA[sbase+6]]}; y=${m[_BLAKE2B_SIGMA[sbase+7]]}
-			v3=$(( v3 + v7 + x )); t=$(( v15 ^ v3 )); v15=$(( (t < 0 ? (((t >> 1) & 0x7FFFFFFFFFFFFFFF) >> 31) : (t >> 32)) | (t << 32) ))
-			v11=$(( v11 + v15 )); t=$(( v7 ^ v11 )); v7=$(( (t < 0 ? (((t >> 1) & 0x7FFFFFFFFFFFFFFF) >> 23) : (t >> 24)) | (t << 40) ))
-			v3=$(( v3 + v7 + y )); t=$(( v15 ^ v3 )); v15=$(( (t < 0 ? (((t >> 1) & 0x7FFFFFFFFFFFFFFF) >> 15) : (t >> 16)) | (t << 48) ))
-			v11=$(( v11 + v15 )); t=$(( v7 ^ v11 )); v7=$(( (t < 0 ? (((t >> 1) & 0x7FFFFFFFFFFFFFFF) >> 62) : (t >> 63)) | (t << 1) ))
+			x=${m[_blake2b_sigma[sbase+6]]}; y=${m[_blake2b_sigma[sbase+7]]}
+			v3=$(( v3 + v7 + x )); t=$(( v15 ^ v3 ))
+			v15=$(( (t < 0 ? (((t >> 1) & mask63) >> 31) : (t >> 32)) | (t << 32) ))
+			v11=$(( v11 + v15 )); t=$(( v7 ^ v11 ))
+			v7=$(( (t < 0 ? (((t >> 1) & mask63) >> 23) : (t >> 24)) | (t << 40) ))
+			v3=$(( v3 + v7 + y )); t=$(( v15 ^ v3 ))
+			v15=$(( (t < 0 ? (((t >> 1) & mask63) >> 15) : (t >> 16)) | (t << 48) ))
+			v11=$(( v11 + v15 )); t=$(( v7 ^ v11 ))
+			v7=$(( (t < 0 ? (((t >> 1) & mask63) >> 62) : (t >> 63)) | (t << 1) ))
 
-			x=${m[_BLAKE2B_SIGMA[sbase+8]]}; y=${m[_BLAKE2B_SIGMA[sbase+9]]}
-			v0=$(( v0 + v5 + x )); t=$(( v15 ^ v0 )); v15=$(( (t < 0 ? (((t >> 1) & 0x7FFFFFFFFFFFFFFF) >> 31) : (t >> 32)) | (t << 32) ))
-			v10=$(( v10 + v15 )); t=$(( v5 ^ v10 )); v5=$(( (t < 0 ? (((t >> 1) & 0x7FFFFFFFFFFFFFFF) >> 23) : (t >> 24)) | (t << 40) ))
-			v0=$(( v0 + v5 + y )); t=$(( v15 ^ v0 )); v15=$(( (t < 0 ? (((t >> 1) & 0x7FFFFFFFFFFFFFFF) >> 15) : (t >> 16)) | (t << 48) ))
-			v10=$(( v10 + v15 )); t=$(( v5 ^ v10 )); v5=$(( (t < 0 ? (((t >> 1) & 0x7FFFFFFFFFFFFFFF) >> 62) : (t >> 63)) | (t << 1) ))
+			x=${m[_blake2b_sigma[sbase+8]]}; y=${m[_blake2b_sigma[sbase+9]]}
+			v0=$(( v0 + v5 + x )); t=$(( v15 ^ v0 ))
+			v15=$(( (t < 0 ? (((t >> 1) & mask63) >> 31) : (t >> 32)) | (t << 32) ))
+			v10=$(( v10 + v15 )); t=$(( v5 ^ v10 ))
+			v5=$(( (t < 0 ? (((t >> 1) & mask63) >> 23) : (t >> 24)) | (t << 40) ))
+			v0=$(( v0 + v5 + y )); t=$(( v15 ^ v0 ))
+			v15=$(( (t < 0 ? (((t >> 1) & mask63) >> 15) : (t >> 16)) | (t << 48) ))
+			v10=$(( v10 + v15 )); t=$(( v5 ^ v10 ))
+			v5=$(( (t < 0 ? (((t >> 1) & mask63) >> 62) : (t >> 63)) | (t << 1) ))
 
-			x=${m[_BLAKE2B_SIGMA[sbase+10]]}; y=${m[_BLAKE2B_SIGMA[sbase+11]]}
-			v1=$(( v1 + v6 + x )); t=$(( v12 ^ v1 )); v12=$(( (t < 0 ? (((t >> 1) & 0x7FFFFFFFFFFFFFFF) >> 31) : (t >> 32)) | (t << 32) ))
-			v11=$(( v11 + v12 )); t=$(( v6 ^ v11 )); v6=$(( (t < 0 ? (((t >> 1) & 0x7FFFFFFFFFFFFFFF) >> 23) : (t >> 24)) | (t << 40) ))
-			v1=$(( v1 + v6 + y )); t=$(( v12 ^ v1 )); v12=$(( (t < 0 ? (((t >> 1) & 0x7FFFFFFFFFFFFFFF) >> 15) : (t >> 16)) | (t << 48) ))
-			v11=$(( v11 + v12 )); t=$(( v6 ^ v11 )); v6=$(( (t < 0 ? (((t >> 1) & 0x7FFFFFFFFFFFFFFF) >> 62) : (t >> 63)) | (t << 1) ))
+			x=${m[_blake2b_sigma[sbase+10]]}; y=${m[_blake2b_sigma[sbase+11]]}
+			v1=$(( v1 + v6 + x )); t=$(( v12 ^ v1 ))
+			v12=$(( (t < 0 ? (((t >> 1) & mask63) >> 31) : (t >> 32)) | (t << 32) ))
+			v11=$(( v11 + v12 )); t=$(( v6 ^ v11 ))
+			v6=$(( (t < 0 ? (((t >> 1) & mask63) >> 23) : (t >> 24)) | (t << 40) ))
+			v1=$(( v1 + v6 + y )); t=$(( v12 ^ v1 ))
+			v12=$(( (t < 0 ? (((t >> 1) & mask63) >> 15) : (t >> 16)) | (t << 48) ))
+			v11=$(( v11 + v12 )); t=$(( v6 ^ v11 ))
+			v6=$(( (t < 0 ? (((t >> 1) & mask63) >> 62) : (t >> 63)) | (t << 1) ))
 
-			x=${m[_BLAKE2B_SIGMA[sbase+12]]}; y=${m[_BLAKE2B_SIGMA[sbase+13]]}
-			v2=$(( v2 + v7 + x )); t=$(( v13 ^ v2 )); v13=$(( (t < 0 ? (((t >> 1) & 0x7FFFFFFFFFFFFFFF) >> 31) : (t >> 32)) | (t << 32) ))
-			v8=$(( v8 + v13 )); t=$(( v7 ^ v8 )); v7=$(( (t < 0 ? (((t >> 1) & 0x7FFFFFFFFFFFFFFF) >> 23) : (t >> 24)) | (t << 40) ))
-			v2=$(( v2 + v7 + y )); t=$(( v13 ^ v2 )); v13=$(( (t < 0 ? (((t >> 1) & 0x7FFFFFFFFFFFFFFF) >> 15) : (t >> 16)) | (t << 48) ))
-			v8=$(( v8 + v13 )); t=$(( v7 ^ v8 )); v7=$(( (t < 0 ? (((t >> 1) & 0x7FFFFFFFFFFFFFFF) >> 62) : (t >> 63)) | (t << 1) ))
+			x=${m[_blake2b_sigma[sbase+12]]}; y=${m[_blake2b_sigma[sbase+13]]}
+			v2=$(( v2 + v7 + x )); t=$(( v13 ^ v2 ))
+			v13=$(( (t < 0 ? (((t >> 1) & mask63) >> 31) : (t >> 32)) | (t << 32) ))
+			v8=$(( v8 + v13 )); t=$(( v7 ^ v8 ))
+			v7=$(( (t < 0 ? (((t >> 1) & mask63) >> 23) : (t >> 24)) | (t << 40) ))
+			v2=$(( v2 + v7 + y )); t=$(( v13 ^ v2 ))
+			v13=$(( (t < 0 ? (((t >> 1) & mask63) >> 15) : (t >> 16)) | (t << 48) ))
+			v8=$(( v8 + v13 )); t=$(( v7 ^ v8 ))
+			v7=$(( (t < 0 ? (((t >> 1) & mask63) >> 62) : (t >> 63)) | (t << 1) ))
 
-			x=${m[_BLAKE2B_SIGMA[sbase+14]]}; y=${m[_BLAKE2B_SIGMA[sbase+15]]}
-			v3=$(( v3 + v4 + x )); t=$(( v14 ^ v3 )); v14=$(( (t < 0 ? (((t >> 1) & 0x7FFFFFFFFFFFFFFF) >> 31) : (t >> 32)) | (t << 32) ))
-			v9=$(( v9 + v14 )); t=$(( v4 ^ v9 )); v4=$(( (t < 0 ? (((t >> 1) & 0x7FFFFFFFFFFFFFFF) >> 23) : (t >> 24)) | (t << 40) ))
-			v3=$(( v3 + v4 + y )); t=$(( v14 ^ v3 )); v14=$(( (t < 0 ? (((t >> 1) & 0x7FFFFFFFFFFFFFFF) >> 15) : (t >> 16)) | (t << 48) ))
-			v9=$(( v9 + v14 )); t=$(( v4 ^ v9 )); v4=$(( (t < 0 ? (((t >> 1) & 0x7FFFFFFFFFFFFFFF) >> 62) : (t >> 63)) | (t << 1) ))
+			x=${m[_blake2b_sigma[sbase+14]]}; y=${m[_blake2b_sigma[sbase+15]]}
+			v3=$(( v3 + v4 + x )); t=$(( v14 ^ v3 ))
+			v14=$(( (t < 0 ? (((t >> 1) & mask63) >> 31) : (t >> 32)) | (t << 32) ))
+			v9=$(( v9 + v14 )); t=$(( v4 ^ v9 ))
+			v4=$(( (t < 0 ? (((t >> 1) & mask63) >> 23) : (t >> 24)) | (t << 40) ))
+			v3=$(( v3 + v4 + y )); t=$(( v14 ^ v3 ))
+			v14=$(( (t < 0 ? (((t >> 1) & mask63) >> 15) : (t >> 16)) | (t << 48) ))
+			v9=$(( v9 + v14 )); t=$(( v4 ^ v9 ))
+			v4=$(( (t < 0 ? (((t >> 1) & mask63) >> 62) : (t >> 63)) | (t << 1) ))
 		done
 
 		h0=$(( h0 ^ v0 ^ v8 )); h1=$(( h1 ^ v1 ^ v9 ))
