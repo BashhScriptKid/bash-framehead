@@ -143,8 +143,8 @@ runtime::de() {
 		esac
 
 		local -A _procs=(
-				[gnome-shell]=gnome   [plasmashell]=kde       [xfce4-session]=xfce
-				[lxqt-session]=lxqt   [lxsession]=lxde        [mate-session]=mate
+				[gnome-shell]=gnome   [plasmashell]=kde      [xfce4-session]=xfce
+				[lxqt-session]=lxqt   [lxsession]=lxde       [mate-session]=mate
 				[cinnamon]=cinnamon   [budgie-daemon]=budgie  [deepin-session]=deepin
 				[pantheon]=pantheon   [unity]=unity           [cosmic-session]=cosmic
 		)
@@ -180,15 +180,14 @@ runtime::wm() {
 		fi
 
 		local -A _procs=(
-				[hyprland]=hyprland       [sway]=sway          [wayfire]=wayfire
-				[river]=river             [mutter]=mutter      [kwin_wayland]=kwin
-				[kwin_x11]=kwin           [xfwm4]=xfwm4        [openbox]=openbox
-				[i3]=i3                   [bspwm]=bspwm        [awesome]=awesome
-				[fluxbox]=fluxbox         [icewm]=icewm        [jwm]=jwm
-				[qtile]=qtile             [xmonad]=xmonad      [marco]=marco
-				[metacity]=metacity       [compiz]=compiz
-				[enlightenment]=enlightenment
-				[herbstluftwm]=herbstluftwm
+				[hyprland]=hyprland      [sway]=sway          [wayfire]=wayfire
+				[river]=river            [mutter]=mutter       [kwin_wayland]=kwin
+				[kwin_x11]=kwin          [xfwm4]=xfwm4        [openbox]=openbox
+				[i3]=i3                  [bspwm]=bspwm         [awesome]=awesome
+				[herbstluftwm]=herbstluftwm                   [fluxbox]=fluxbox
+				[icewm]=icewm            [jwm]=jwm             [qtile]=qtile
+				[xmonad]=xmonad          [marco]=marco         [metacity]=metacity
+				[compiz]=compiz          [enlightenment]=enlightenment
 		)
 		local _p
 		for _p in "${!_procs[@]}"; do
@@ -206,24 +205,46 @@ runtime::sysinit() {
 	_pid1=$(ps -p 1 -o comm= 2>/dev/null) || _pid1="unknown"
 
 	case "$_pid1" in
-		init | /sbin/init)
-			# PID 1 is generic "init" — narrow down the actual init system
-			if   [[ -f /sbin/upstart ]]; then echo "upstart"
-			elif [[ -d /run/openrc ]];   then echo "openrc"
-			elif [[ -d /run/runit ]];    then echo "runit"
-			elif [[ -d /run/s6 ]];       then echo "s6"
-			else                              echo "sysvinit"
-			fi
-			;;
-
-		launchd)              echo "launchd" ;;
-		systemd)              echo "systemd" ;;
-		runit)                echo "runit"   ;;
-		s6-svscan)            echo "s6"      ;;
-		OpenRC | openrc-init) echo "openrc"  ;;
-		daemon)               echo "rc"      ;;
-		svc)                  echo "runit"   ;;
-		*)                    echo "$_pid1"  ;;
+	systemd)
+		echo "systemd"
+		;;
+	init)
+		# SysVinit or Upstart — check further
+		if [[ -d /run/systemd/system ]]; then
+			echo "systemd"
+		elif [[ -d /run/openrc ]]; then
+			echo "openrc"
+		elif [[ -d /run/runit ]]; then
+			echo "runit"
+		elif [[ -d /run/s6 ]]; then
+			echo "s6"
+		elif [[ -f /sbin/upstart ]]; then
+			echo "upstart"
+		else
+			echo "sysvinit"
+		fi
+		;;
+	launchd)
+		echo "launchd"
+		;;
+	runit)
+		echo "runit"
+		;;
+	s6-svscan)
+		echo "s6"
+		;;
+	OpenRC)
+		echo "openrc"
+		;;
+	daemon)
+		echo "rc"
+		;;
+	svc)
+		echo "runit"
+		;;
+	*)
+		echo "$_pid1"
+		;;
 	esac
 }
 
@@ -248,20 +269,11 @@ runtime::is_ci() {
 }
 
 runtime::kernel_version() {
-    # Fail if runtime::os is empty or failed
-    local os; os=$(runtime::os) || return 1
-    [[ -z $os ]] && return 1
-
-    local v
-    v=$(uname -r)
-
-    # Extract leading numbers and dots (e.g., "6.8.0" from "6.8.0-rc1-generic")
-    if [[ $v =~ ^([0-9]+(\.[0-9]+)+) ]]; then
-        printf '%s\n' "${BASH_REMATCH[1]}"
-    else
-        # Fallback to full string if format is unusual
-        printf '%s\n' "$v"
-    fi
+	[[ $(runtime::os) == "linux" ]] || return 1
+	# Number only, case of checks where you don't care about types
+	local v
+	v=$(uname -r)
+	printf '%s\n' "${v%%-*}"
 }
 
 runtime::exec_root() {
@@ -307,21 +319,21 @@ runtime::os() {
 	fi
 
 	case "$(uname -s)" in
-	Linux*)  echo "linux"   ;;
-	Darwin*) echo "darwin"  ;;
-	CYGWIN*) echo "cygwin"  ;;
-	MINGW*)  echo "mingw"   ;;
-	*)       echo "unknown" ;;
+	Linux*) echo "linux" ;;
+	Darwin*) echo "darwin" ;;
+	CYGWIN*) echo "cygwin" ;;
+	MINGW*) echo "mingw" ;;
+	*) echo "unknown" ;;
 	esac
 }
 
 runtime::arch() {
 	case "$(uname -m)" in
-	x86_64)  echo "amd64"   ;;
-	i386)    echo "386"     ;;
-	armv7l)  echo "armv7"   ;;
-	aarch64) echo "arm64"   ;;
-	*)       echo "unknown" ;;
+	x86_64) echo "amd64" ;;
+	i386) echo "386" ;;
+	armv7l) echo "armv7" ;;
+	aarch64) echo "arm64" ;;
+	*) echo "unknown" ;;
 	esac
 }
 
@@ -430,19 +442,29 @@ runtime::is_virtualized() {
 
 
 runtime::pm() {
-    runtime::has_command apt-get      && { echo "apt";    return 0; }
-    runtime::has_command pacman       && { echo "pacman"; return 0; }
-    runtime::has_command dnf          && { echo "dnf";    return 0; }
-    runtime::has_command yum          && { echo "yum";    return 0; }
-    runtime::has_command zypper       && { echo "zypper"; return 0; }
-    runtime::has_command apk          && { echo "apk";    return 0; }
-    runtime::has_command brew         && { echo "brew";   return 0; }
-    runtime::has_command pkg          && { echo "pkg";    return 0; }
-    runtime::has_command xbps-install && { echo "xbps";   return 0; }
-    runtime::has_command nix-env      && { echo "nix";    return 0; }
-
-    echo "unknown"
-    return 1
+	if runtime::has_command apt-get; then
+		echo "apt"
+	elif runtime::has_command pacman; then
+		echo "pacman"
+	elif runtime::has_command dnf; then
+		echo "dnf"
+	elif runtime::has_command yum; then
+		echo "yum"
+	elif runtime::has_command zypper; then
+		echo "zypper"
+	elif runtime::has_command apk; then
+		echo "apk"
+	elif runtime::has_command brew; then
+		echo "brew"
+	elif runtime::has_command pkg; then
+		echo "pkg"
+	elif runtime::has_command xbps-install; then
+		echo "xbps"
+	elif runtime::has_command nix-env; then
+		echo "nix"
+	else
+		echo "unknown"
+	fi
 }
 
 # --- COPROC ---

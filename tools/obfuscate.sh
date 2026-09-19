@@ -22,499 +22,15 @@
 #   source ./obfuscate.sh
 #   obfuscate "$content" passes_assoc_array
 #
-# Flag precedence: first flag specified wins (--verbose --quiet = verbose)
-#
-# Requires: bash 4.3+ (namerefs), base32 (GNU coreutils, build-time only)
-# _minify_log_mode: unset = progress, "verbose" = verbose, "quiet" = quiet
+# Requires: bash 4.3+ (namerefs), base32 (GNU coreutils, build-time only),
+#           tools/tokeniser.sh, tools/minify.sh
 
-# Shared tokeniser — logging cluster + tokenise()
-source "$(dirname "${BASH_SOURCE[0]}")/tokeniser.sh"
-
-minify() {
-    local input="$1"
-    # Optional pre-built token arrays: minify "src" tokens token_count
-    # If provided, skip internal tokenisation (shared pipeline path).
-    local token_count=0
-    if [[ -n "${2:-}" ]]; then
-        local -n tokens_type="${2}_type" tokens_val="${2}_val" _mf_tc="$3"
-        token_count=$_mf_tc
-        _log_verbose "[Minifier] Using pre-built token arrays (${token_count} tokens)"
-    else
-        local -a tokens_type=() tokens_val=()
-        _log_verbose "[Minifier] Starting tokenisation..."
-        tokenise "$input" tokens token_count
-        _log_verbose "[Minifier] Tokenisation complete: ${token_count} tokens"
-    fi
-
-    # COMMENT tokens are skipped during emit — newline collapse handled by tokenise
-
-    # Build minified output from tokens
-    local -a parts=()          # accumulator — O(1) append, joined once at end
-    local _last_was_space=0    # true when last appended element was whitespace
-    local prev_type="" prev_val=""
-    local i=0
-    local _paren_stack=()    # Stack of paren contexts: 'subshell' | 'array' | 'funcdef'
-    local array_depth=0      # Track depth inside [[]] for conditionals
-    local bracket_depth=0    # Track depth inside [] for array subscripts
-    local brace_expand=0     # Set when { follows a word/string (brace expansion, not command group)
-
-    # --------------------------------------------------------------------------
-    # _update_depth — track bracket/paren depth for array/subshell handling
-    # --------------------------------------------------------------------------
-    _update_depth() {
-        local type="$1" val="$2"
-        if [[ "$type" == "OP" ]]; then
-            case "$val" in
-                '(')
-                    # Classify paren context from prev token:
-                    # - assign LHS (ends with =) → array literal
-                    # - immediately closed ()   → funcdef (handled at ) time)
-                    # - otherwise               → subshell
-                    if [[ "$prev_type" == WORD && "$prev_val" =~ ([a-zA-Z0-9_]|\]|\+)=$ ]]; then
-                        _paren_stack+=('array')
-                    else
-                        _paren_stack+=('subshell')
-                    fi
-                    ;;
-                ')')
-                    # Collapse funcdef: if stack top is 'subshell' but prev_val was '('
-                    # (empty parens f()) reclassify as funcdef
-                    if (( ${#_paren_stack[@]} )); then
-                        if [[ "${_paren_stack[-1]}" == subshell && "$prev_val" == '(' ]]; then
-                            _paren_stack[-1]='funcdef'
-                        fi
-                        unset '_paren_stack[-1]'
-                    fi
-                    ;;
-                '[')  (( bracket_depth++ )) ;;
-                ']')  (( bracket_depth > 0 )) && (( bracket_depth-- )) ;;
-            esac
-        elif [[ "$type" == "WORD" ]]; then
-            case "$val" in
-                '[[') (( array_depth++ )) ;;
-                ']]') (( array_depth > 0 )) && (( array_depth-- )) ;;
-            esac
-        fi
-    }
-
-    # --------------------------------------------------------------------------
-    # _unescape — convert literalized \\n \\t back to \n \t for output
-    # Also converts \\\\ to \\
-    # --------------------------------------------------------------------------
-    _unescape() {
-        local s="$1"
-        # Convert \\n to actual newline, \\t to actual tab
-        s="${s//\\n/$'\n'}"
-        s="${s//\\t/$'\t'}"
-        # Convert \\\\ to single \\
-        s="${s//\\\\/\\}"
-        printf '%s' "$s"
-    }
-
-    # --------------------------------------------------------------------------
-    # _unescape_str — convert literalized escapes for string output
-    # Converts \\n to \n (the two-char sequence), \\t to \t, \\\\ to \\
-    # --------------------------------------------------------------------------
-    _unescape_str() {
-        local s="$1"
-        # For string output, we want to preserve escape sequences as-is
-        # Just convert \\\\ to \\
-        s="${s//\\\\/\\}"
-        printf '%s' "$s"
-    }
-
-    # --------------------------------------------------------------------------
-    # _token_to_string — rebuild token content for output
-    # --------------------------------------------------------------------------
-    _token_to_string() {
-        local type="$1" val="$2"
-        case "$type" in
-            WORD|REDIRECT|VAR_LITERAL|RICH_STRING|REGEX_PATTERN) printf '%s' "$val" ;;
-            OP) [[ "$val" == 'CASE)' ]] && printf ')' || printf '%s' "$val" ;;
-            STRING_SQ)
-                if [[ "$val" == *$'\n'* ]]; then
-                    # Multi-line — convert to $'...' so output stays on one line
-                    local _sq="$val"
-                    _sq="${_sq//\\/\\\\}"  # \ → \\
-                    _sq="${_sq//'/\\'}"        # ' → \'
-                    _sq="${_sq//$'\n'/\\n}"    # real newline → \n
-                    printf "\$'%s'" "$_sq"
-                else
-                    printf "'%s'" "$val"
-                fi ;;
-            STRING_DQ) printf '"%s"' "$(_unescape_str "$val")" ;;
-            ARITH)
-                # Statement position: (( )) — no $ prefix
-                # Expression position: $(( )) — needs $ prefix
-                # Statement position = after keywords, semicolons, newlines, or braces
-                local _arith_stmt=0
-                if [[ "$prev_val" =~ ^(for|if|while|elif|then|do|else|esac|done|fi|\{)$ ]]; then
-                    _arith_stmt=1
-                elif [[ "$prev_type" == "OP" && ( "$prev_val" == ';' || "$prev_val" == $'\n' || "$prev_val" == '{' || "$prev_val" == '(' || "$prev_val" == ';;' || "$prev_val" == ';;&' || "$prev_val" == ';&' || "$prev_val" == 'CASE)' || "$prev_val" == '&&' || "$prev_val" == '||' || "$prev_val" == '|' ) ]]; then
-                    _arith_stmt=1
-                elif [[ -z "$prev_type" ]]; then
-                    _arith_stmt=1
-                fi
-                if (( _arith_stmt )); then
-                    printf '((%s))' "$(_unescape "$val")"
-                else
-                    printf '$((%s))' "$(_unescape "$val")"
-                fi
-                ;;
-            CMD_SUB)
-                # Newlines in body become spaces — bare newlines before | are invalid bash
-                local _cs="$val"
-                _cs="${_cs//\\n/ }"
-                _cs="${_cs//\\t/ }"
-                _cs="${_cs//\\\\/\\}"
-                printf '$(%s)' "$_cs" ;;
-            PROC_SUB)
-                local dir="${val%%|*}"
-                local content="${val#*|}"
-                printf '%s(%s)' "$dir" "$(_unescape "$content")"
-                ;;
-            PARAM_EXP) printf '${%s}' "$val" ;;
-            HEREDOC_HEAD) printf '%s' "$val" ;;
-            HEREDOC_TAG) printf '%s' "$val" ;;
-            HEREDOC_BODY) printf '\n%s' "$(_unescape "$val")" ;;
-            HEREDOC_TAIL) printf '\n%s' "$val" ;;
-            *) printf '%s' "$val" ;;
-        esac
-    }
-
-    # --------------------------------------------------------------------------
-    # _skip_semi — return 0 (true) if we should NOT add semicolon
-    # --------------------------------------------------------------------------
-    _skip_semi() {
-        local prev_type="$1" prev_val="$2" curr_type="$3" curr_val="$4"
-
-        # Never insert semi before a comment (shouldn't reach here after pre-processing)
-        [[ "$curr_type" == "COMMENT" ]] && return 0
-
-        # Never insert semi when prev is already a statement separator
-        [[ "$prev_type" == "OP" && "$prev_val" == ';' ]] && return 0
-
-        # Never insert semi around REGEX_PATTERN
-        [[ "$curr_type" == "REGEX_PATTERN" ]] && return 0
-        [[ "$prev_type" == "REGEX_PATTERN" ]] && return 0
-
-        # Never insert semi around heredoc tokens
-        [[ "$curr_type" =~ ^HEREDOC ]] && return 0
-        [[ "$prev_type" =~ ^(HEREDOC_TAG|HEREDOC_HEAD)$ ]] && return 0
-
-        # No semi after background operator
-        [[ "$prev_type" == "OP" && "$prev_val" == "&" ]] && return 0
-
-        # No semi before closing parens
-        [[ "$curr_type" == "OP" && "$curr_val" == ")" ]] && return 0
-        # Allow semicolons before } - Bash requires semicolon or newline before } in function bodies
-
-        # No semi before block STARTERS (then/do/in) - they follow conditionals
-        [[ "$curr_type" == "WORD" && "$curr_val" =~ ^(then|do|in)$ ]] && return 0
-
-        # No semi after opening braces/parens
-        [[ "$prev_type" == "OP" && "$prev_val" == "(" ]] && return 0
-        [[ "$prev_type" == "OP" && "$prev_val" == "{" ]] && return 0
-
-        # No semi after block keywords (then/do/in/else/elif)
-        [[ "$prev_type" == "WORD" && "$prev_val" =~ ^(then|do|in|else|elif)$ ]] && return 0
-
-        # No semi after case operators or case arm terminator
-        [[ "$prev_type" == "OP" && "$prev_val" =~ ^(;;|;;&|;&|CASE\))$ ]] && return 0
-
-        # No semi before case operators or case arm terminator
-        [[ "$curr_type" == "OP" && "$curr_val" =~ ^(;;|;;&|;&|CASE\))$ ]] && return 0
-
-        # No semi after heredoc
-        [[ "$prev_type" == "HEREDOC_TAIL" ]] && return 0
-
-        # No semi after && or || or | (they continue the expression)
-        [[ "$prev_type" == "OP" && "$prev_val" == "&&" ]] && return 0
-        [[ "$prev_type" == "OP" && "$prev_val" == "||" ]] && return 0
-        [[ "$prev_type" == "OP" && "$prev_val" == "|"  ]] && return 0
-
-        return 1  # Default: add semi (including before fi/done/esac)
-    }
-
-    # --------------------------------------------------------------------------
-    # _needs_space — should a space be emitted between prev and curr token?
-    # Returns 0 (true) = emit space, 1 (false) = no space.
-    #
-    # Organised in four sections:
-    #   1. Context overrides  — in_cond / brace_expand take priority
-    #   2. Assignment RHS     — unified check for var=RHS, no-space attachment
-    #   3. Prev-token rules   — space required AFTER a given prev token type/val
-    #   4. Curr-token rules   — space required BEFORE a given curr token type/val
-    # Default: no space.
-    # --------------------------------------------------------------------------
-    _needs_space() {
-        local prev_type="$1" prev_val="$2" curr_type="$3" curr_val="$4" \
-              in_cond="${5:-0}" brace_expand="${6:-0}" pre_paren_top="${7:-}" post_paren_top="${8:-}"
-
-        # ---- 1. Context overrides --------------------------------------------
-
-        # Inside a brace expansion — no space after the opening {
-        (( brace_expand )) && return 1
-
-        # Array subscript context — prev WORD ends with single [ (e.g. arr[) but not [[
-        # No space between the [ and its content, or between content and ]=
-        [[ "$prev_type" == WORD && "$prev_val" == *'[' && "$prev_val" != *'[['  ]] && return 1
-        [[ "$curr_type" == WORD && "$curr_val" =~ ^\](\+?=) && "$prev_type" != OP ]] && return 1
-
-        # Inside [[ ]] — < and > are string comparisons, not redirects
-        if (( in_cond )); then
-            [[ "$curr_type" == REDIRECT && ( "$curr_val" == '<' || "$curr_val" == '>' ) ]] && return 0
-            [[ "$prev_type" == REDIRECT && ( "$prev_val" == '<' || "$prev_val" == '>' ) ]] && return 0
-        fi
-
-        # ---- 2. Assignment RHS — no space between var= and its value --------
-        # Applies outside [[ ]] only (inside, = is a comparison operator).
-        # Pattern: WORD ending with [ident]= or ]+= or ]= (covers var= arr+= arr[i]=)
-        local _assign_lhs=''
-        (( in_cond == 0 )) && [[ "$prev_type" == WORD ]] && \
-            [[ "$prev_val" =~ ([a-zA-Z0-9_]|\]|\+)=$ ]] && \
-            _assign_lhs=1
-
-        if [[ -n "$_assign_lhs" ]]; then
-            # RHS token types that attach directly
-            [[ "$curr_type" =~ ^(PARAM_EXP|VAR_LITERAL|ARITH|CMD_SUB|RICH_STRING)$ ]] && return 1
-            [[ "$curr_type" =~ ^STRING                                              ]] && return 1
-            [[ "$curr_type" == OP && "$curr_val" == '('                             ]] && return 1
-            # WORD after = still needs space (e.g. IFS= read, var= word)
-        fi
-
-        # ---- 3. Prev-token rules — space after prev --------------------------
-
-        # After any WORD that is a block keyword or conditional bracket
-        [[ "$prev_type" == WORD ]] && case "$prev_val" in
-            then|do|in|else|elif|\[\[|\]\]|=~) return 0 ;;
-        esac
-
-        # After OP tokens that open or separate
-        [[ "$prev_type" == OP ]] && case "$prev_val" in
-            '{')        return 0 ;;   # { cmd  — command group body
-            '(')        # Space after ( for subshell only; not funcdef f() or array arr=(
-                        [[ "$post_paren_top" == subshell ]] && return 0
-                        return 1 ;;
-            '&')        return 0 ;;   # cmd& next  — background then next cmd
-            ';')        return 0 ;;   # ; next  — statement separator
-            '&&'|'||')  return 0 ;;   # boolean operators
-            ';;'|';;&'|';&') return 0 ;; # case arm terminators
-            'CASE)')    return 0 ;;   # case pattern ) body
-        esac
-
-        # After expansion/substitution tokens
-        [[ "$prev_type" == ARITH    && "$curr_type" != OP ]] && return 0
-        [[ "$prev_type" == CMD_SUB  && "$curr_type" != OP ]] && return 0
-        [[ "$prev_type" == PROC_SUB && "$curr_type" != OP ]] && return 0
-        [[ "$prev_type" == PARAM_EXP && "$curr_type" == WORD ]] && return 0
-        [[ "$prev_type" == VAR_LITERAL && "$curr_type" == WORD ]] && return 0
-
-        # After ) — function def ) { or ) word
-        [[ "$prev_type" == OP && "$prev_val" == ')' ]] && {
-            [[ "$curr_type" == OP   && "$curr_val" == '{' ]] && return 0
-            [[ "$curr_type" == WORD                       ]] && return 0
-        }
-
-        # After REGEX_PATTERN — space before ]] or next token; CASE) attaches directly
-        [[ "$prev_type" == REGEX_PATTERN ]] && {
-            [[ "$curr_type" == OP && "$curr_val" == 'CASE)' ]] && return 1
-            return 0
-        }
-
-        # After string-like tokens before words/strings that need separation
-        [[ "$prev_type" =~ ^(STRING_SQ|STRING_DQ|RICH_STRING)$ ]] && {
-            [[ "$curr_type" == WORD && "$curr_val" != '*' ]] && return 0
-            [[ "$curr_type" =~ ^(STRING_SQ|STRING_DQ|RICH_STRING)$ ]] && return 0
-        }
-
-        # REDIRECT target attaches directly (2>/dev/null, >>file) — explicit no-space
-        [[ "$prev_type" == REDIRECT && "$curr_type" == WORD ]] && return 1
-
-        # ---- 4. Curr-token rules — space before curr ------------------------
-
-        # Before block keywords
-        [[ "$curr_type" == WORD ]] && case "$curr_val" in
-            then|do|in) return 0 ;;
-            ']]') return 0 ;;   # space before ]] closing conditional
-        esac
-
-        # Before OP tokens that need breathing room
-        [[ "$curr_type" == OP ]] && case "$curr_val" in
-            '&&'|'||')           return 0 ;;
-            ';;'|';;&'|';&')     return 0 ;;
-            '(')  # Space before ( for subshell openers — not for func def or array assign
-                  # Subshell ( follows: keyword, OP, or start-of-input
-                  [[ -n "$_assign_lhs" ]] && return 1   # arr=( — no space
-                  [[ "$prev_type" == WORD ]] && case "$prev_val" in
-                      if|while|until|for|then|do|else|elif|'!') return 0 ;;
-                  esac
-                  [[ "$prev_type" == OP ]] && return 0
-                  [[ -z "$prev_type"   ]] && return 0
-                  return 1 ;;
-            ')')  # Space before ) for subshell close only
-                  # paren_top is the pre-update stack top (before _update_depth popped it)
-                  [[ "$pre_paren_top" == subshell ]] && return 0
-                  return 1 ;;
-            '{')  # Space before { — command group (after keyword/OP) but not brace expansion
-                  # Brace expansion: prev is string/var (already handled by brace_expand flag)
-                  # Bare word before {: e.g. echo {A,B} — needs space
-                  [[ "$prev_type" == WORD && -z "$_assign_lhs" ]] && return 0 ;;
-            '}')  [[ "$prev_type" == OP && "$prev_val" == ';' ]] && return 0
-                  [[ "$prev_type" != OP ]] && return 0 ;;
-        esac
-
-        # Before expansion tokens (when not following an OP)
-        [[ "$curr_type" == ARITH    && "$prev_type" != OP ]] && return 0
-        [[ "$curr_type" == PROC_SUB                       ]] && return 0
-        [[ "$curr_type" == REGEX_PATTERN                  ]] && return 0
-
-        # Before strings/expansions following a plain WORD (not assign, not glob)
-        [[ "$prev_type" == WORD && -z "$_assign_lhs" && "$prev_val" != '*' ]] && {
-            [[ "$curr_type" =~ ^(STRING_SQ|STRING_DQ|RICH_STRING)$ ]] && return 0
-            [[ "$curr_type" =~ ^(PARAM_EXP|VAR_LITERAL|CMD_SUB)$  ]] && return 0
-            [[ "$curr_type" == REDIRECT                            ]] && return 0
-            [[ "$curr_type" == HEREDOC_HEAD                        ]] && return 0
-        }
-
-        # WORD WORD always needs space
-        [[ "$prev_type" == WORD && "$curr_type" == WORD ]] && return 0
-
-        return 1  # Default: no space
-    }
-
-    # --------------------------------------------------------------------------
-    # Main token processing loop
-    # --------------------------------------------------------------------------
-    _log_verbose "[Minifier] Starting token processing loop (${token_count} tokens)..."
-    while (( i < token_count )); do
-        local type="${tokens_type[i]}"
-        local val="${tokens_val[i]}"
-        (( i++ ))
-
-        # Skip comments — preserved in token stream for other consumers
-        [[ "$type" == "COMMENT" ]] && { _log_verbose "[Minifier] Skipping COMMENT token '${val:0:50}...'"; continue; }
-
-        # Handle newlines: convert to semicolons (conservative default)
-        if [[ "$type" == "OP" && "$val" == $'\n' ]]; then
-            # Backslash continuation — strip the \ already in parts and join with space
-            if [[ "$prev_type" == "OP" && "$prev_val" == '\' ]]; then
-                parts[-1]="${parts[-1]%\\}"
-                parts+=(" "); _last_was_space=1
-                prev_type=""
-                prev_val=""
-                _update_depth "$type" "$val"
-                continue
-            fi
-
-            # Preserve newline after HEREDOC_TAIL
-            if [[ "$prev_type" == "HEREDOC_TAIL" ]]; then
-                parts+=($'\n'); _last_was_space=1
-                prev_type=""
-                prev_val=""
-                _update_depth "$type" "$val"
-                continue
-            fi
-
-            # Skip consecutive newlines
-            while (( i < token_count )); do
-                local next_type="${tokens_type[i]}"
-                local next_val="${tokens_val[i]}"
-                [[ "$next_type" == "OP" && "$next_val" == $'\n' ]] && { (( i++ )); continue; }
-                break
-            done
-
-            # Inside brackets/parens (arrays), use space instead of semicolon
-            if (( ${#_paren_stack[@]} > 0 || array_depth > 0 || bracket_depth > 0 )); then
-                parts+=(" "); _last_was_space=1
-                prev_type="OP"; prev_val=" "
-            elif [[ -n "$prev_type" ]] && (( !_last_was_space )); then
-                if (( i < token_count )); then
-                    local next_type="${tokens_type[i]}"
-                    local next_val="${tokens_val[i]}"
-                    # else\nif is genuinely nested (not elif) — keep newline so shellcheck
-                    # doesn't flag SC1075 "use elif instead of else if"
-                    if [[ "$prev_val" == "else" && "$next_type" == "WORD" && "$next_val" == "if" ]]; then
-                        parts+=($'\n'); _last_was_space=1
-                        _log_verbose "[Minifier] Preserving newline for else-if pattern"
-                        prev_type="OP"; prev_val=$'\n'
-                    elif ! _skip_semi "$prev_type" "$prev_val" "$next_type" "$next_val"; then
-                        parts+=("; "); _last_was_space=1
-                        _log_verbose "[Minifier] Inserting semicolon between ${prev_type}(${prev_val}) and ${next_type}(${next_val})"
-                        prev_type="OP"; prev_val=";"
-                    else
-                        _log_verbose "[Minifier] Skipping semicolon between ${prev_type}(${prev_val}) and ${next_type}(${next_val})"
-                    fi
-                fi
-            fi
-            _update_depth "$type" "$val"
-            continue
-        fi
-
-        # Update depth tracking before processing token
-        local pre_paren_depth=${#_paren_stack[@]}
-        local pre_paren_top="${_paren_stack[$((pre_paren_depth > 0 ? pre_paren_depth-1 : 0))]:-}"
-        _update_depth "$type" "$val"
-        local post_paren_depth=${#_paren_stack[@]}
-        local post_paren_top="${_paren_stack[$((post_paren_depth > 0 ? post_paren_depth-1 : 0))]:-}"
-
-        # Add space if needed
-        if [[ -n "$prev_type" ]] && (( !_last_was_space )); then
-            if _needs_space "$prev_type" "$prev_val" "$type" "$val" "$array_depth" "$brace_expand" "$pre_paren_top" "$post_paren_top"; then
-                _log_verbose "[Minifier] Adding space for ${prev_type}(${prev_val})-${type}(${val}) pattern"
-                parts+=(" "); _last_was_space=1
-            else
-                _log_verbose "[Minifier] No space for ${prev_type}(${prev_val})-${type}(${val}) pattern"
-            fi
-        fi
-
-        # Append token
-        local _tok_str
-        _tok_str="$(_token_to_string "$type" "$val")"
-        parts+=("$_tok_str"); _last_was_space=0
-        _log_verbose "[Minifier] Appended '${val}' (${type}), parts: ${#parts[@]}"
-        _progress_render "Minifying..." "$i" "$token_count"
-
-        # Track brace expansion: { directly after an expansion/string token = brace expansion.
-        # Bare WORD before { is always a command group in minified output — never set brace_expand.
-        if [[ "$type" == "OP" && "$val" == "{" ]]; then
-            if [[ "$prev_type" =~ ^(STRING_DQ|STRING_SQ|VAR_LITERAL|PARAM_EXP|RICH_STRING)$ ]]; then
-                brace_expand=1
-            else
-                brace_expand=0
-            fi
-        else
-            brace_expand=0
-        fi
-        prev_type="$type"
-        prev_val="$val"
-    done
-
-    # One-time join — O(N) single pass, happens exactly once.
-    # printf '%s' "${parts[@]}" concatenates all elements with no separator.
-    local buffer
-    buffer="$(printf '%s' "${parts[@]}")"
-
-    # Trim leading/trailing space and any trailing semicolon from a real ; token at end of source
-    buffer="${buffer# }"
-    buffer="${buffer% }"
-    buffer="${buffer%;}"
-
-    printf '%s\n' "$buffer"
-}
-
-
-
-
-
-# obfuscate — main entry point
-# Usage: obfuscate "content" passes_nameref
-#   passes_nameref: associative array with keys: private_functions functions
-#                   local_variables variables strings
-#                   values: 1 = enabled, 0 = disabled
+_tools_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# minify.sh sources tokeniser.sh transitively — sourcing it here too would
+# re-run tokeniser.sh's `readonly _B32D_HELPER` and emit a spurious warning.
+source "${_tools_dir}/minify.sh"
 obfuscate() {
     # ---- Subfunctions ----
-    # ==============================================================================
     # ==============================================================================
     # OBFUSCATOR
     # ==============================================================================
@@ -527,6 +43,8 @@ obfuscate() {
     #   local_variables    — rename all local vars → _v0, _v1, ...         (default)
     #   variables          — rename globals (bare VAR=, VAR+=, excl. export)
     #   strings            — encode STRING_SQ/STRING_DQ via base32 + baked _b32d helper
+    #   arith              — rename vars inside $(( )) and (( )) expressions
+    #   globs              — rename vars inside EXTGLOB patterns
     #   all                — enable all passes
     #
     # Pipeline: [minify →] obfuscate
@@ -549,30 +67,28 @@ obfuscate() {
 
     local src="$1"
     local -n _passes="$2"
-    # Optional pre-built token arrays: obfuscate "src" passes tokens token_count pe_table
-    # If provided, skip internal tokenisation (shared pipeline path).
-    # Arrays declared in exactly one branch to avoid -a/-n redeclaration conflict.
+    local skip_minifier="${3:-0}"
+
+    local -a tokens_type=() tokens_val=()
+    local -A _pe_table=()
     local token_count=0
-    if [[ -n "${3:-}" ]]; then
-        local -n tokens_type="${3}_type" tokens_val="${3}_val" _pe_table="$5" _ob_tc="$4"
-        token_count=$_ob_tc
-        _log_verbose "[Obfuscator] Using pre-built token arrays (${token_count} tokens)"
-    else
-        local -a tokens_type=() tokens_val=()
-        local -A _pe_table=()
-        _log_verbose "[Obfuscator] Starting tokenisation with PARSE_PE=1..."
-        PARSE_PE=1 tokenise "$src" tokens token_count _pe_table
-        _log_verbose "[Obfuscator] Tokenisation complete: ${token_count} tokens"
-    fi
+
+    _log_verbose "[Obfuscator] Starting tokenisation with PARSE_PE=1..."
+    PARSE_PE=1 tokenise "$src" tokens token_count _pe_table
+    _log_verbose "[Obfuscator] Tokenisation complete: ${token_count} tokens"
+
+    # Dump tokens if requested
+    (( _minify_dump_tokens )) && _dump_tokens tokens "$token_count"
 
     local _do_privfn=0  _do_fns=0  _do_lvar=0  _do_vars=0  _do_strings=0
+    local _do_arith=0   _do_globs=0
     [[ "${_passes[private_functions]:-0}" == 1 ]] && _do_privfn=1
     [[ "${_passes[functions]:-0}"         == 1 ]] && _do_fns=1
     [[ "${_passes[local_variables]:-0}"   == 1 ]] && _do_lvar=1
     [[ "${_passes[variables]:-0}"         == 1 ]] && _do_vars=1
     [[ "${_passes[strings]:-0}"           == 1 ]] && _do_strings=1
-    # Optional 6th arg: skip_minifier flag — controls comment strip pass
-    local skip_minifier="${6:-0}"
+    [[ "${_passes[arith]:-0}"             == 1 ]] && _do_arith=1
+    [[ "${_passes[globs]:-0}"             == 1 ]] && _do_globs=1
 
     # ------------------------------------------------------------------
     # Name generators
@@ -698,9 +214,12 @@ obfuscate() {
             if [[ "$type" == WORD ]]; then
                 [[ "$val" =~ ^-[a-zA-Z]+$ ]] && { prev_type="$type"; prev_val="$val"; continue; }
                 local _vname="${val%%=*}"
-                if [[ -z "${_var_map[${_cur_fn_idx}:${_vname}]+x}" && "$_cur_fn_idx" -ge 0 ]]; then
-                    _var_map[${_cur_fn_idx}:${_vname}]="$(_vn_name $_local_counter)"
-                    _log_verbose "[Obfuscator] Mapping local: ${_vname} → ${_var_map[${_cur_fn_idx}:${_vname}]}"
+                local _var_key="${_cur_fn_idx}:${_vname}"
+                # If not inside a function, use -1 as scope key
+                (( _cur_fn_idx < 0 )) && _var_key="-1:${_vname}"
+                if [[ -z "${_var_map[$_var_key]+x}" ]]; then
+                    _var_map[$_var_key]="$(_vn_name $_local_counter)"
+                    _log_verbose "[Obfuscator] Mapping local: ${_vname} → ${_var_map[$_var_key]}"
                     (( _local_counter++ ))
                 fi
             elif [[ "$type" == OP && ( "$val" == ';' || "$val" == $'\n' ) ]]; then
@@ -744,6 +263,7 @@ obfuscate() {
     # _repl_order: insertion-ordered keys for longest-first application
     local -A _replacements=()
     local -a _repl_order=()
+    local -A _arith_original=()  # __arith_N__ → original ARITH/ARITH_STMT val
 
     local _p2i _p2t _p2v _p2pt='' _p2pv=''
     for (( _p2i=0; _p2i<token_count; _p2i++ )); do
@@ -854,9 +374,9 @@ obfuscate() {
                 fi
             fi
             ;;
-        ARITH)
-            # Bare var names inside (( )) — rename in token val directly
-            if (( _do_lvar && ${#_var_map[@]} > 0 )); then
+        ARITH|ARITH_STMT)
+            # Bare var names inside (( )) / $(( )) — rename in token val directly
+            if (( _do_arith && _do_lvar && ${#_var_map[@]} > 0 )); then
                 local _av="$_p2v" _ak _aon _arn
                 for _ak in "${!_var_map[@]}"; do
                     _aon="${_ak#*:}"
@@ -864,8 +384,27 @@ obfuscate() {
                     _av="${_av//${_aon}/${_arn}}"
                 done
                 if [[ "$_av" != "$_p2v" ]]; then
+                    # Use token index as unique key to avoid special-char issues
+                    local _replacement_key="__arith_${_p2i}__"
+                    _replacements[$_replacement_key]="$_av"
+                    _repl_order+=("$_replacement_key")
+                    # Store original value for the apply phase
+                    _arith_original[$_replacement_key]="$_p2v"
+                fi
+            fi
+            ;;
+        EXTGLOB)
+            # EXTGLOB patterns rarely contain variable refs, but scan for safety
+            if (( _do_globs && _do_lvar && ${#_var_map[@]} > 0 )); then
+                local _gv="$_p2v" _gk _gon _grn
+                for _gk in "${!_var_map[@]}"; do
+                    _gon="${_gk#*:}"
+                    _grn="${_var_map[$_gk]}"
+                    _gv="${_gv//${_gon}/${_grn}}"
+                done
+                if [[ "$_gv" != "$_p2v" ]]; then
                     if [[ -z "${_replacements[$_p2v]+x}" ]]; then
-                        _replacements[$_p2v]="$_av"
+                        _replacements[$_p2v]="$_gv"
                         _repl_order+=("$_p2v")
                     fi
                 fi
@@ -881,16 +420,32 @@ obfuscate() {
 
     # Apply replacements — longest key first to avoid partial-name clobbering
     local _rk _rv _ri=0 _rtotal=${#_repl_order[@]}
-    # Sort by length descending
+    # Sort by length descending using bash
     local -a _sorted_keys=()
-    while IFS= read -r _rk; do
-        _sorted_keys+=("$_rk")
-    done < <(printf '%s
-' "${_repl_order[@]}" |         awk '{ print length, $0 }' | sort -rn | cut -d' ' -f2-)
+    local _sk
+    for _sk in "${_repl_order[@]}"; do
+        local _sk_len=${#_sk}
+        local _inserted=0
+        local _si
+        for (( _si=0; _si<${#_sorted_keys[@]}; _si++ )); do
+            if (( ${#_sorted_keys[$_si]} < _sk_len )); then
+                _sorted_keys=("$_sk" "${_sorted_keys[@]:$_si}")
+                _inserted=1
+                break
+            fi
+        done
+        (( ! _inserted )) && _sorted_keys+=("$_sk")
+    done
 
     for _rk in "${_sorted_keys[@]}"; do
         _rv="${_replacements[$_rk]}"
-        result="${result//"${_rk}"/"${_rv}"}"
+        # __arith_N__ keys: use original ARITH/ARITH_STMT value as search pattern
+        if [[ "$_rk" == __arith_* ]]; then
+            local _orig="${_arith_original[$_rk]}"
+            result="${result//"${_orig}"/"${_rv}"}"
+        else
+            result="${result//"${_rk}"/"${_rv}"}"
+        fi
         (( _ri++ ))
         _progress_render "Obfuscating (pass 2/apply)..." "$_ri" "$_rtotal"
         _log_verbose "[Obfuscator] Applied: ${_rk} → ${_rv}"
@@ -906,7 +461,6 @@ obfuscate() {
         _log_verbose "[Obfuscator] Comment strip pass complete"
     fi
 
-    # ---- 2pevar. PARAM_EXP rename via pe_table ----
     # ---- 2pevar. PARAM_EXP rename via pe_table ----
     if (( _do_lvar && ${#_var_map[@]} > 0 )); then
         local -A _pe_seen_vars=()
@@ -994,43 +548,16 @@ obfuscate() {
 }
 
 
+
+# ==============================================================================
+# CLI
+# ==============================================================================
 _cli() {
-    # ---- Subfunctions ----
-    # ==============================================================================
-    # CLI
-    # ==============================================================================
-
-    # _syntax_check — validate bash syntax, with shellcheck fallback for diagnostics
-    #
-    # Usage: _syntax_check "content" "label"
-    #   label  — description shown in error messages (e.g. "input", "minified output")
-    # Returns 0 if valid, 1 if not.
-    # shellcheck is optional — if absent, bash -n errors are shown directly.
-    _syntax_check() {
-        local content="$1" label="$2"
-        local _sc_tmp
-        _sc_tmp=$(mktemp /tmp/obfuscate_sc.XXXXXX.sh)
-        printf '%s\n' "$content" > "$_sc_tmp"
-        _log_progress "Verifying ${label} syntax..."
-        if bash -n "$_sc_tmp" 2>/dev/null; then
-            rm -f "$_sc_tmp"
-            _log "Verifying ${label} syntax... ok"
-            return 0
-        fi
-        _log "Verifying ${label} syntax... FAILED"
-        if command -v shellcheck >/dev/null 2>&1; then
-            shellcheck --format=gcc --severity=error --shell=bash "$_sc_tmp" >&2
-        else
-            bash -n "$_sc_tmp" 2>&1 | head -10 >&2
-        fi
-        rm -f "$_sc_tmp"
-        return 1
-    }
-
-    local check=0 skip_minifier=0 skip_obfuscator=0
+    local check=0 skip_minifier=0
     local input_file="" output_file=""
     local -A passes=([private_functions]=1 [local_variables]=1
-                     [functions]=0 [variables]=0 [strings]=0)
+                     [functions]=0 [variables]=0 [strings]=0
+                     [arith]=0 [globs]=0)
 
     while (( $# )); do
         case "$1" in
@@ -1038,25 +565,24 @@ _cli() {
             --verbose)        [[ -z "$_minify_log_mode" ]] && _minify_log_mode=verbose ;;
             --quiet)          [[ -z "$_minify_log_mode" ]] && _minify_log_mode=quiet ;;
             --skip-minifier)  skip_minifier=1 ;;
-            --skip-obfuscator) skip_obfuscator=1 ;;
+            --dump-tokens)    _minify_dump_tokens=1 ;;
             --obfuscate=*)
                 local _ob_val="${1#--obfuscate=}"
-                # Reset to all-off first, then apply requested passes
                 for k in "${!passes[@]}"; do passes[$k]=0; done
                 local _ob_pass
                 IFS=',' read -ra _ob_passes <<< "$_ob_val"
                 for _ob_pass in "${_ob_passes[@]}"; do
-                    _ob_pass="${_ob_pass// /}"  # trim spaces
+                    _ob_pass="${_ob_pass// /}"
                     case "$_ob_pass" in
                         all)
                             for k in "${!passes[@]}"; do passes[$k]=1; done
                             ;;
-                        private_functions|functions|local_variables|variables|strings)
+                        private_functions|functions|local_variables|variables|strings|arith|globs)
                             passes[$_ob_pass]=1
                             ;;
                         *)
                             echo "obfuscate.sh: unknown pass: ${_ob_pass}" >&2
-                            echo "  valid passes: all, private_functions, functions, local_variables, variables, strings" >&2
+                            echo "  valid passes: all, private_functions, functions, local_variables, variables, strings, arith, globs" >&2
                             return 1
                             ;;
                     esac
@@ -1084,17 +610,16 @@ _cli() {
         echo "" >&2
         echo "Options:" >&2
         echo "  --obfuscate=PASSES  Comma-separated: all,private_functions,functions," >&2
-        echo "                      local_variables,variables,strings" >&2
+        echo "                      local_variables,variables,strings,arith,globs" >&2
         echo "                      (default: private_functions,local_variables)" >&2
         echo "  --skip-minifier     Obfuscate raw source without minifying first" >&2
-        echo "  --skip-obfuscator   Minify only, skip the obfuscation pass" >&2
+        echo "  --dump-tokens       Print token stream to stderr before processing" >&2
         echo "  --check             Validate output syntax only, do not write" >&2
         echo "  --verbose           Log every decision to stderr" >&2
         echo "  --quiet             Suppress all progress output" >&2
         return 1
     fi
 
-    # Read input
     local content
     if [[ "$input_file" == "-" ]]; then
         content=$(cat)
@@ -1104,56 +629,50 @@ _cli() {
     fi
 
     local input_bytes=${#content}
-    local label="${input_file}" target="${output_file:-stdout}"
 
-    # Validate input syntax before doing any work
-    _syntax_check "$content" "input" || return 1
+    # Validate input syntax
+    local _sc_tmp
+    _sc_tmp=$(mktemp /tmp/obfuscate_sc.XXXXXX.sh)
+    printf '%s\n' "$content" > "$_sc_tmp"
+    if ! bash -n "$_sc_tmp" 2>/dev/null; then
+        echo "obfuscate.sh: input failed syntax check" >&2
+        bash -n "$_sc_tmp" 2>&1 | head -5 >&2
+        rm -f "$_sc_tmp"
+        return 1
+    fi
+    rm -f "$_sc_tmp"
 
-    # Tokenise once — shared token arrays live here, passed by base name to stages.
-    # Base name "_sh" avoids circular nameref collision with internal locals
-    # named tokens_type/tokens_val/token_count inside minify() and obfuscate().
-    local -a _sh_type=() _sh_val=()
-    local -A _sh_pe=()
-    local _sh_tc=0
-    _log_verbose "[Pipeline] Tokenising input..."
-    PARSE_PE=1 tokenise "$content" _sh _sh_tc _sh_pe
-    _progress_done
-    _log_verbose "[Pipeline] Tokenisation complete: ${_sh_tc} tokens"
-
-    # Step 1: minify (unless skipped) — reuses shared token arrays
+    # Step 1: minify (unless skipped)
     local to_obfuscate="$content"
     if (( !skip_minifier )); then
         _log_verbose "[Pipeline] Minifying..."
-        to_obfuscate=$(minify "$content" _sh _sh_tc)
+        to_obfuscate=$(minify "$content")
         _progress_done
-        _syntax_check "$to_obfuscate" "minified output" || return 1
         _log_verbose "[Pipeline] Minification done (${#to_obfuscate} bytes)"
     fi
 
-    # Step 2: obfuscate (unless skipped) — reuses shared token arrays
-    # obfuscate src is raw content (--skip-minifier) or minified string;
-    # token array is always from raw content — used as correctness oracle only
+    # Step 2: obfuscate
     local obfuscated
-    if (( skip_obfuscator )); then
-        obfuscated="$to_obfuscate"
-        _log_verbose "[Pipeline] Skipping obfuscation pass."
-    else
-        obfuscated=$(obfuscate "$to_obfuscate" passes _sh _sh_tc _sh_pe "$skip_minifier")
-        _progress_done
-    fi
+    obfuscated=$(obfuscate "$to_obfuscate" passes "$skip_minifier")
+    _progress_done
 
-    # Validate syntax
-    if ! _syntax_check "$obfuscated" "obfuscated output"; then
+    # Validate output syntax
+    _sc_tmp=$(mktemp /tmp/obfuscate_sc.XXXXXX.sh)
+    printf '%s\n' "$obfuscated" > "$_sc_tmp"
+    if ! bash -n "$_sc_tmp" 2>/dev/null; then
+        echo "obfuscate.sh: output failed syntax check" >&2
+        bash -n "$_sc_tmp" 2>&1 | head -5 >&2
         if [[ -n "$output_file" && "$output_file" != "-" ]]; then
             printf '%s\n' "$obfuscated" > "${output_file}.broken"
             echo "obfuscate.sh: broken output written to ${output_file}.broken" >&2
         fi
+        rm -f "$_sc_tmp"
         return 1
     fi
+    rm -f "$_sc_tmp"
 
     local output_bytes=${#obfuscated}
     local reduction=$(( (input_bytes - output_bytes) * 100 / (input_bytes > 0 ? input_bytes : 1) ))
-    _log_verbose "[Obfuscator] Output: ${output_bytes} bytes (${reduction}% vs original input)"
 
     (( check )) && { echo "obfuscate.sh: syntax OK (${output_bytes} bytes)" >&2; return 0; }
 
@@ -1164,13 +683,11 @@ _cli() {
         chmod +x "$output_file"
         [[ "$_minify_log_mode" != quiet ]] && {
             local _op_label="Obfuscated"
-            (( skip_obfuscator )) && _op_label="Minified"
             echo "${_op_label} ${input_file} -> ${output_file} (${input_bytes} -> ${output_bytes} bytes, ${reduction}%)" >&2
         }
     fi
 }
 
-# Run CLI if executed directly, otherwise just define functions for sourcing
 if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
     _cli "$@"
 fi

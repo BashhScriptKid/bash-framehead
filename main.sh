@@ -151,8 +151,9 @@ compile_files() {
     if [[ "${MINIFY:-0}" == "1" ]]; then
         echo -n "Minifying entire buffer..."
         local minified
-        minified=$(minify - <<< "$buffer")
-        if ! bash -n <<< "$minified" 2>/dev/null; then
+        if ! minified=$(minify - <<< "$buffer") || [[ -z "${minified//[[:space:]]/}" ]]; then
+            echo "Warning: Minification failed, using pre-minified version" >&2
+        elif ! bash -n <<< "$minified" 2>/dev/null; then
             echo "Warning: Minification produced invalid syntax, using pre-minified version" >&2
         else
             buffer="$minified"
@@ -439,8 +440,9 @@ compile_extended() {
     if [[ "${MINIFY:-0}" == "1" ]]; then
         echo -n "Minifying entire buffer..."
         local minified
-        minified=$(minify - <<< "$buffer")
-        if bash -n <<< "$minified" 2>/dev/null; then
+        if ! minified=$(minify - <<< "$buffer") || [[ -z "${minified//[[:space:]]/}" ]]; then
+            echo "  Warning: Minification failed, using pre-minified version" >&2
+        elif bash -n <<< "$minified" 2>/dev/null; then
             buffer="$minified"
             echo " ok"
         else

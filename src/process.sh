@@ -371,11 +371,19 @@ process::lock::wait() {
 }
 
 # --- DAEMON / SERVICE ---
+#
+# LEGACY SHIM: prefer ext/systemd (systemd::services::*, systemd::unit::*)
+# for new code. These process::service::* wrappers exist for backward
+# compatibility with callers that only source core. When ext/systemd is
+# loaded, they delegate to it; otherwise they fall back to systemctl or
+# the legacy `service` command, then to process::is_running::name.
 
 # Check if a systemd service is running
 # Usage: process::service::is_running service_name
 process::service::is_running() {
-		if runtime::has_command systemctl; then
+		if declare -f systemd::services::isactive &>/dev/null; then
+				systemd::services::isactive "$1"
+		elif runtime::has_command systemctl; then
 				systemctl is-active --quiet "$1" 2>/dev/null
 		elif runtime::has_command service; then
 				service "$1" status >/dev/null 2>&1
@@ -385,35 +393,47 @@ process::service::is_running() {
 }
 
 # Start a systemd service
+# Usage: process::service::start <service>
 process::service::start() {
-		if runtime::has_command systemctl; then
-				systemctl start "$1"
+		if declare -f systemd::services::start &>/dev/null; then
+				systemd::services::start "$@"
+		elif runtime::has_command systemctl; then
+				systemctl start "$@"
 		elif runtime::has_command service; then
 				service "$1" start
 		fi
 }
 
 # Stop a systemd service
+# Usage: process::service::stop <service>
 process::service::stop() {
-		if runtime::has_command systemctl; then
-				systemctl stop "$1"
+		if declare -f systemd::services::stop &>/dev/null; then
+				systemd::services::stop "$@"
+		elif runtime::has_command systemctl; then
+				systemctl stop "$@"
 		elif runtime::has_command service; then
 				service "$1" stop
 		fi
 }
 
 # Restart a systemd service
+# Usage: process::service::restart <service>
 process::service::restart() {
-		if runtime::has_command systemctl; then
-				systemctl restart "$1"
+		if declare -f systemd::services::restart &>/dev/null; then
+				systemd::services::restart "$@"
+		elif runtime::has_command systemctl; then
+				systemctl restart "$@"
 		elif runtime::has_command service; then
 				service "$1" restart
 		fi
 }
 
 # Check if a service is enabled at boot
+# Usage: process::service::is_enabled <service>
 process::service::is_enabled() {
-		if runtime::has_command systemctl; then
+		if declare -f systemd::services::isenabled &>/dev/null; then
+				systemd::services::isenabled "$1"
+		elif runtime::has_command systemctl; then
 				systemctl is-enabled --quiet "$1" 2>/dev/null
 		fi
 }

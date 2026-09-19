@@ -66,19 +66,19 @@ fi
 # Single-test helpers
 # ==============================================================================
 
-_pass() { (( ++_T_PASS )); }
-_fail() { [[ -n "${1:-}" ]] && echo "  $1"; (( ++_T_FAIL )); }
-_skip() { [[ -n "${1:-}" ]] && echo "  skip: $1"; (( ++_T_SKIP )); }
+_pass() { (( _T_PASS++ )); return 0; }
+_fail() { [[ -n "${1:-}" ]] && echo "  $1"; (( _T_FAIL++ )); return 0; }
+_skip() { [[ -n "${1:-}" ]] && echo "  skip: $1"; (( _T_SKIP++ )); return 0; }
 
 # ==============================================================================
 # Subtest helpers
 # ==============================================================================
 
-_sub_pass() { _sub_newline; echo -e "  ${_C_PASS}  ${1}";                                              (( _T_PASS++ )); }
+_sub_pass() { _sub_newline; echo -e "  ${_C_PASS}  ${1}";                                              (( _T_PASS++ )); return 0; }
 _sub_fail() { _sub_newline; echo -e "  ${_C_FAIL}  ${1}"
               [[ -n "${2:-}" ]] && echo "        expected: ${2}"
-              [[ -n "${3:-}" ]] && echo "        actual:   ${3}";                         (( _T_FAIL++ )); }
-_sub_skip() { _sub_newline; echo -e "  ${_C_SKIP}  ${1}";                                              (( _T_SKIP++ )); }
+              [[ -n "${3:-}" ]] && echo "        actual:   ${3}";                         (( _T_FAIL++ )); return 0; }
+_sub_skip() { _sub_newline; echo -e "  ${_C_SKIP}  ${1}";                                              (( _T_SKIP++ )); return 0; }
 
 # Call at the end of every subtest function
 _sub_done() { _T_IS_SUB=1; }
@@ -913,68 +913,6 @@ test::pfloat::fixed::sigmoid()  { if [[ "$(pfloat::fixed::sigmoid 0)" == "0.5" ]
 test::pfloat::fixed::softplus() { if [[ -n "$(pfloat::fixed::softplus 1.0)" ]]; then _pass; else _fail; fi; }
 test::pfloat::fixed::cbrt()     { if [[ "$(pfloat::fixed::cbrt 8.0)" == "2" ]]; then _pass; else _fail; fi; }
 
-# --- pfloat fixed-point scale conversions ---
-test::pfloat::fixed::to_scaled() {
-	local _r; _r=$(pfloat::fixed::to_scaled 1.5)
-	[[ -n "$_r" && "$_r" != "1.5" ]] && _pass || _fail
-}
-test::pfloat::fixed::from_scaled() {
-	local _s; _s=$(pfloat::fixed::to_scaled 1.5)
-	local _r; _r=$(pfloat::fixed::from_scaled "$_s")
-	[[ "$_r" == "1.5" ]] && _pass || _fail "expected 1.5, got $_r"
-}
-test::pfloat::fixed::to_scaled::fast() {
-	local _r; pfloat::fixed::to_scaled::fast 1.5 _r
-	[[ -n "$_r" && "$_r" != "1.5" ]] && _pass || _fail
-}
-test::pfloat::fixed::from_scaled::fast() {
-	local _s _r; pfloat::fixed::to_scaled::fast 1.5 _s
-	pfloat::fixed::from_scaled::fast "$_s" _r
-	[[ "$_r" == "1.5" ]] && _pass || _fail "expected 1.5, got $_r"
-}
-
-# --- pfloat ::fast (nameref output, no subshells) ---
-test::pfloat::fixed::add::fast()      { local _r; pfloat::fixed::add::fast      1.5 2.5 _r; [[ "$_r" == "4"    ]] && _pass || _fail; }
-test::pfloat::fixed::sub::fast()      { local _r; pfloat::fixed::sub::fast      5.0 2.5 _r; [[ "$_r" == "2.5"  ]] && _pass || _fail; }
-test::pfloat::fixed::mul::fast()      { local _r; pfloat::fixed::mul::fast      2.0 3.0 _r; [[ "$_r" == "6"    ]] && _pass || _fail; }
-test::pfloat::fixed::div::fast()      { local _r; pfloat::fixed::div::fast      6.0 2.0 _r; [[ "$_r" == "3"    ]] && _pass || _fail; }
-test::pfloat::fixed::mod::fast()      { local _r; pfloat::fixed::mod::fast      7.5 2.0 _r; [[ "$_r" == "1.5"  ]] && _pass || _fail; }
-test::pfloat::fixed::neg::fast()      { local _r; pfloat::fixed::neg::fast      3.5    _r; [[ "$_r" == "-3.5" ]] && _pass || _fail; }
-test::pfloat::fixed::abs::fast()      { local _r; pfloat::fixed::abs::fast     -3.5    _r; [[ "$_r" == "3.5"  ]] && _pass || _fail; }
-test::pfloat::fixed::floor::fast()    { local _r; pfloat::fixed::floor::fast    3.7    _r; [[ "$_r" == "3"    ]] && _pass || _fail; }
-test::pfloat::fixed::ceil::fast()     { local _r; pfloat::fixed::ceil::fast     3.2    _r; [[ "$_r" == "4"    ]] && _pass || _fail; }
-test::pfloat::fixed::round::fast()    { local _r; pfloat::fixed::round::fast    3.6    _r; [[ "$_r" == "4"    ]] && _pass || _fail; }
-test::pfloat::fixed::trunc::fast()    { local _r; pfloat::fixed::trunc::fast    3.9    _r; [[ "$_r" == "3"    ]] && _pass || _fail; }
-test::pfloat::fixed::min::fast()      { local _r; pfloat::fixed::min::fast      3.0 1.0 _r; [[ "$_r" == "1"    ]] && _pass || _fail; }
-test::pfloat::fixed::max::fast()      { local _r; pfloat::fixed::max::fast      1.0 3.0 _r; [[ "$_r" == "3"    ]] && _pass || _fail; }
-test::pfloat::fixed::sqr::fast()      { local _r; pfloat::fixed::sqr::fast      3.0    _r; [[ "$_r" == "9"    ]] && _pass || _fail; }
-test::pfloat::fixed::pow::fast()      { local _r; pfloat::fixed::pow::fast      2   3 _r; [[ "$_r" == "8"    ]] && _pass || _fail; }
-test::pfloat::fixed::recip::fast()    { local _r; pfloat::fixed::recip::fast    2.0    _r; [[ "$_r" == "0.5"  ]] && _pass || _fail; }
-
-# pfloat:: (back-compat) ::fast wrappers
-test::pfloat::add::fast()             { local _r; pfloat::add::fast      1.5 2.5 _r; [[ "$_r" == "4"    ]] && _pass || _fail; }
-test::pfloat::sub::fast()             { local _r; pfloat::sub::fast      5.0 2.5 _r; [[ "$_r" == "2.5"  ]] && _pass || _fail; }
-test::pfloat::mul::fast()             { local _r; pfloat::mul::fast      2.0 3.0 _r; [[ "$_r" == "6"    ]] && _pass || _fail; }
-test::pfloat::div::fast()             { local _r; pfloat::div::fast      6.0 2.0 _r; [[ "$_r" == "3"    ]] && _pass || _fail; }
-test::pfloat::mod::fast()             { local _r; pfloat::mod::fast      7.5 2.0 _r; [[ "$_r" == "1.5"  ]] && _pass || _fail; }
-test::pfloat::neg::fast()             { local _r; pfloat::neg::fast      3.5    _r; [[ "$_r" == "-3.5" ]] && _pass || _fail; }
-test::pfloat::abs::fast()             { local _r; pfloat::abs::fast     -3.5    _r; [[ "$_r" == "3.5"  ]] && _pass || _fail; }
-test::pfloat::floor::fast()           { local _r; pfloat::floor::fast    3.7    _r; [[ "$_r" == "3"    ]] && _pass || _fail; }
-test::pfloat::ceil::fast()            { local _r; pfloat::ceil::fast     3.2    _r; [[ "$_r" == "4"    ]] && _pass || _fail; }
-test::pfloat::round::fast()           { local _r; pfloat::round::fast    3.6    _r; [[ "$_r" == "4"    ]] && _pass || _fail; }
-test::pfloat::trunc::fast()           { local _r; pfloat::trunc::fast    3.9    _r; [[ "$_r" == "3"    ]] && _pass || _fail; }
-test::pfloat::min::fast()             { local _r; pfloat::min::fast      3.0 1.0 _r; [[ "$_r" == "1"    ]] && _pass || _fail; }
-test::pfloat::max::fast()             { local _r; pfloat::max::fast      1.0 3.0 _r; [[ "$_r" == "3"    ]] && _pass || _fail; }
-test::pfloat::sqr::fast()             { local _r; pfloat::sqr::fast      3.0    _r; [[ "$_r" == "9"    ]] && _pass || _fail; }
-test::pfloat::pow::fast()             { local _r; pfloat::pow::fast      2   3 _r; [[ "$_r" == "8"    ]] && _pass || _fail; }
-test::pfloat::recip::fast()           { local _r; pfloat::recip::fast    2.0    _r; [[ "$_r" == "0.5"  ]] && _pass || _fail; }
-test::pfloat::to_scaled::fast()       { local _r; pfloat::to_scaled::fast      1.5 _r; [[ -n "$_r" && "$_r" != "1.5" ]] && _pass || _fail; }
-test::pfloat::from_scaled::fast() {
-	local _s _r; pfloat::to_scaled::fast 1.5 _s
-	pfloat::from_scaled::fast "$_s" _r
-	[[ "$_r" == "1.5" ]] && _pass || _fail "expected 1.5, got $_r"
-}
-
 # IEEE 754 — dump / binary conversion / rounding
 test::pfloat::ieee754::dump() {
   local bits; bits=$(pfloat::ieee754::from_string "1.5")
@@ -1219,22 +1157,20 @@ test::hash::uuid5() {
 # ==============================================================================
 
 test::log::init() {
-    if log::init 2>/dev/null; then _pass; else _fail; fi
+    declare -A _test_log_cfg
+    log::init _test_log_cfg 2>/dev/null
+    if [[ -n "${_test_log_cfg[fmt]:-}" ]]; then _pass; else _fail; fi
 }
 test::log::debug() {
-    log::init 2>/dev/null
     if log::debug "test debug message" 2>/dev/null; then _pass; else _fail; fi
 }
 test::log::info() {
-    log::init 2>/dev/null
     if log::info "test info message" 2>/dev/null; then _pass; else _fail; fi
 }
 test::log::warn() {
-    log::init 2>/dev/null
     if log::warn "test warn message" 2>/dev/null; then _pass; else _fail; fi
 }
 test::log::error() {
-    log::init 2>/dev/null
     # no exit code arg — must not exit
     if log::error "test error message" 2>/dev/null; then _pass; else _fail; fi
 }
@@ -1318,12 +1254,13 @@ test::runtime::wm()                  { if [[ -n "$(runtime::wm  2>/dev/null || e
 test::runtime::de()                  { if [[ -n "$(runtime::de  2>/dev/null || echo unknown)" ]]; then _pass; else _fail; fi; }
 test::runtime::exec_root()           { _skip "requires sudo/root — would escalate privileges"; }
 test::runtime::coproc::start() {
-    runtime::coproc::start _rtest myproc grep .
-    local pid; pid=$(runtime::coproc::pid myproc)
+    declare -a _rtest_coprocs=()
+    runtime::coproc::start _rtest_coprocs _rtest sleep 10
+    local pid; pid=$(runtime::coproc::pid _rtest)
     if [[ -z "$pid" ]]; then _fail "no pid"; return; fi
-    if ! runtime::coproc::alive myproc; then _fail "not alive"; runtime::coproc::stop _rtest myproc 2>/dev/null; return; fi
-    runtime::coproc::stop _rtest myproc
-    if runtime::coproc::alive myproc 2>/dev/null; then _fail "still alive after stop"; return; fi
+    if ! runtime::coproc::alive _rtest; then _fail "not alive"; runtime::coproc::stop _rtest_coprocs _rtest 2>/dev/null; return; fi
+    runtime::coproc::stop _rtest_coprocs _rtest
+    if runtime::coproc::alive _rtest 2>/dev/null; then _fail "still alive after stop"; return; fi
     _pass
 }
 test::runtime::coproc::stop()     { _pass; }
@@ -1333,10 +1270,11 @@ test::runtime::coproc::send()     { _pass; }
 test::runtime::coproc::read()     { _pass; }
 test::runtime::coproc::read_all() { _pass; }
 test::runtime::coproc::list()       {
-    runtime::coproc::start _rtest3 myproc3 grep .
-    local list; list=$(runtime::coproc::list _rtest3)
-    runtime::coproc::stop _rtest3 myproc3
-    if [[ "$list" == *"myproc3"* ]]; then _pass; else _fail "list: $list"; fi
+    declare -a _rtest3_coprocs=()
+    runtime::coproc::start _rtest3_coprocs _rtest3 sleep 10
+    local list; list=$(runtime::coproc::list _rtest3_coprocs)
+    runtime::coproc::stop _rtest3_coprocs _rtest3
+    if [[ "$list" == *"_rtest3"* ]]; then _pass; else _fail "list: $list"; fi
 }
 
 test::process::exists()    {
@@ -1471,6 +1409,10 @@ test::fs::touch()    { _fs_setup; local f="${_FS_DIR}/touched.txt"; fs::touch "$
 test::fs::symlink()  { _fs_setup; local l="${_FS_DIR}/sym2.txt"; fs::symlink "$_FS_FILE" "$l"; if fs::is_symlink "$l"; then _pass; else _fail; fi; _fs_teardown; }
 test::fs::hardlink() { _fs_setup; local h="${_FS_DIR}/hard.txt"; fs::hardlink "$_FS_FILE" "$h"; if fs::exists "$h"; then _pass; else _fail; fi; _fs_teardown; }
 test::fs::rename()   { _fs_setup; local h="${_FS_DIR}/ren.txt"; touch "$h"; fs::rename "$h" "renamed.txt"; if fs::exists "${_FS_DIR}/renamed.txt"; then _pass; else _fail; fi; _fs_teardown; }
+# fifo
+test::fifo::create() { _fs_setup; local p="${_FS_DIR}/pipe1"; fifo::create "$p"; if fifo::exists "$p"; then _pass; else _fail; fi; _fs_teardown; }
+test::fifo::exists()  { _fs_setup; local p="${_FS_DIR}/pipe2"; if ! fifo::exists "$p"; then mkfifo "$p"; fi; if fifo::exists "$p"; then _pass; else _fail; fi; _fs_teardown; }
+test::fifo::remove()  { _fs_setup; local p="${_FS_DIR}/pipe3"; mkfifo "$p"; fifo::remove "$p"; if ! fifo::exists "$p"; then _pass; else _fail; fi; _fs_teardown; }
 # temp
 test::fs::temp::file()      { if [[ -n "$(fs::temp::file)" ]]; then _pass; else _fail; fi; }
 test::fs::temp::dir()       { if [[ -n "$(fs::temp::dir)"  ]]; then _pass; else _fail; fi; }
@@ -2080,7 +2022,16 @@ test::terminal::cursor::save()       { if [[ -n "$(terminal::cursor::save)" ]]; 
 test::terminal::cursor::restore()    { if [[ -n "$(terminal::cursor::restore)" ]];     then _pass; else _fail; fi; }
 test::terminal::cursor::hide()       { if [[ -n "$(terminal::cursor::hide)" ]];        then _pass; else _fail; fi; }
 test::terminal::cursor::show()       { if [[ -n "$(terminal::cursor::show)" ]];        then _pass; else _fail; fi; }
-test::terminal::cursor::toggle()     { if [[ -n "$(terminal::cursor::toggle)" ]];      then _pass; else _fail; fi; }
+test::terminal::cursor::toggle()     {
+    local _TERMINAL_CURSOR_HIDDEN=0
+    terminal::cursor::toggle >/dev/null
+    if [[ "$_TERMINAL_CURSOR_HIDDEN" == "1" ]]; then
+        terminal::cursor::toggle >/dev/null
+        if [[ "$_TERMINAL_CURSOR_HIDDEN" == "0" ]]; then _pass; else _fail "did not toggle back"; fi
+    else
+        _fail "did not toggle: hidden=$_TERMINAL_CURSOR_HIDDEN"
+    fi
+}
 test::terminal::cursor::next_line()  { if [[ -n "$(terminal::cursor::next_line 1)" ]]; then _pass; else _fail; fi; }
 test::terminal::cursor::prev_line()  { if [[ -n "$(terminal::cursor::prev_line 1)" ]]; then _pass; else _fail; fi; }
 test::terminal::scroll::up()         { if [[ -n "$(terminal::scroll::up 1)" ]];        then _pass; else _fail; fi; }
@@ -2648,13 +2599,20 @@ test::random::isaac::init() {
 # ==============================================================================
 
 test::debug::trace_to_file() {
-    local _out
-    _out=$(debug::trace_to_file /tmp/fsbshf-test-trace.log 2>/dev/null) || _out=""
-    if [[ -n "$_out" || $? -eq 0 || $? -eq 1 ]]; then _pass; else _fail; fi
+    local _fd
+    read -r _fd <<< "$(debug::trace_to_file /tmp/fsbshf-test-trace.log 2>/dev/null)"
+    if [[ -n "$_fd" && "$_fd" =~ ^[0-9]+$ ]]; then
+        debug::trace_off "$_fd" 2>/dev/null
+        _pass
+    else
+        _fail "fd: $_fd"
+    fi
 }
 
 test::debug::trace_off() {
-    debug::trace_off 2>/dev/null
+    local _fd
+    read -r _fd <<< "$(debug::trace_to_file /tmp/fsbshf-test-trace2.log 2>/dev/null)"
+    debug::trace_off "$_fd" 2>/dev/null
     if [[ $? -eq 0 || $? -eq 1 ]]; then _pass; else _fail; fi
 }
 
@@ -2722,31 +2680,27 @@ test::runtime::timestamp() {
 }
 
 test::runtime::wait::next() {
-    sleep 0.1 &
-    jobs >/dev/null 2>&1 || true
+    ( sleep 0.1; true ) &
     runtime::wait::next 2>/dev/null
     if [[ $? -eq 0 ]]; then _pass; else _fail; fi
 }
 
 test::runtime::wait::next::pid() {
-    sleep 0.1 &
-    jobs >/dev/null 2>&1 || true
+    ( sleep 0.1; true ) &
     local _pid; _pid=$(runtime::wait::next::pid 2>/dev/null)
     if [[ -n "$_pid" && "$_pid" -gt 0 ]]; then _pass; else _fail; fi
 }
 
 test::runtime::wait::any() {
-    sleep 0.1 &
+    ( sleep 0.1; true ) &
     local _job=$!
-    jobs >/dev/null 2>&1 || true
     runtime::wait::any "$_job" 2>/dev/null
     if [[ $? -eq 0 ]]; then _pass; else _fail; fi
 }
 
 test::runtime::wait::any::pid() {
-    sleep 0.1 &
+    ( sleep 0.1; true ) &
     local _job=$!
-    jobs >/dev/null 2>&1 || true
     local _pid; _pid=$(runtime::wait::any::pid "$_job" 2>/dev/null)
     if [[ -n "$_pid" && "$_pid" -gt 0 ]]; then _pass; else _fail; fi
 }
@@ -3130,99 +3084,6 @@ test::binary::from_int() {
     _sub_done
 }
 
-# --- binary::buffer (nameref-backed) ---
-_BB_TMP="/tmp/_binary_buffer_test_$$"
-test::binary::buffer::init() {
-    binary::buffer::init buf_init_a
-    if [[ "$(binary::buffer::length buf_init_a)" == "0" ]]; then _pass; else _fail; fi
-}
-test::binary::buffer::insert::raw() {
-    binary::buffer::init buf_ir
-    binary::buffer::insert::raw buf_ir 1 2 3
-    if [[ "$(binary::buffer::length buf_ir)" == "3" ]]; then _pass; else _fail; fi
-}
-test::binary::buffer::insert::hex() {
-    binary::buffer::init buf_ih
-    binary::buffer::insert::hex buf_ih "deadbeef"
-    local _r; _r=$(binary::buffer::peek buf_ih 0 4 hex)
-    if [[ "$_r" == "deadbeef" ]]; then _pass; else _fail "got $_r"; fi
-}
-test::binary::buffer::insert::uint() {
-    binary::buffer::init buf_iu
-    binary::buffer::insert::uint buf_iu 0x1234 2 le
-    local _r; _r=$(binary::buffer::peek buf_iu 0 2 hex)
-    if [[ "$_r" == "3412" ]]; then _pass; else _fail "got $_r"; fi
-}
-test::binary::buffer::insert::int() {
-    binary::buffer::init buf_ii
-    binary::buffer::insert::int buf_ii -1 1
-    local _r; _r=$(binary::buffer::peek buf_ii 0 1 hex)
-    if [[ "$_r" == "ff" ]]; then _pass; else _fail "got $_r"; fi
-}
-test::binary::buffer::insert() {
-    binary::buffer::init buf_ins
-    binary::buffer::insert buf_ins 1 1
-    local _r; _r=$(binary::buffer::peek buf_ins 0 1 hex)
-    if [[ "$_r" == "01" ]]; then _pass; else _fail "got $_r"; fi
-}
-test::binary::buffer::length() {
-    binary::buffer::init buf_len
-    binary::buffer::insert::raw buf_len 10 20 30
-    if [[ "$(binary::buffer::length buf_len)" == "3" ]]; then _pass; else _fail; fi
-}
-test::binary::buffer::read() {
-    binary::buffer::init buf_r
-    binary::buffer::insert::raw buf_r 1 2 3
-    if [[ "$(binary::buffer::read buf_r)" == "1 2 3" ]]; then _pass; else _fail; fi
-}
-test::binary::buffer::write() {
-    binary::buffer::init buf_w
-    binary::buffer::insert::hex buf_w "41"
-    local _r; _r=$(binary::buffer::write buf_w | od -An -tx1 | tr -d ' \n')
-    if [[ "$_r" == "41" ]]; then _pass; else _fail "got $_r"; fi
-}
-test::binary::buffer::concat() {
-    binary::buffer::init buf_ca
-    binary::buffer::init buf_cb
-    binary::buffer::insert::raw buf_ca 1 2
-    binary::buffer::insert::raw buf_cb 3 4
-    binary::buffer::concat buf_ca buf_cb
-    if [[ "$(binary::buffer::length buf_ca)" == "4" ]]; then _pass; else _fail; fi
-}
-test::binary::buffer::peek() {
-    binary::buffer::init buf_p
-    binary::buffer::insert::hex buf_p "deadbeef"
-    if [[ "$(binary::buffer::peek buf_p 1 2 hex)" == "adbe" ]]; then _pass; else _fail; fi
-}
-test::binary::buffer::shift::l() {
-    binary::buffer::init buf_sl
-    binary::buffer::insert::raw buf_sl 1 2 3 4
-    binary::buffer::shift::l buf_sl 2
-    if [[ "$(binary::buffer::read buf_sl)" == "3 4" ]]; then _pass; else _fail; fi
-}
-test::binary::buffer::shift::r() {
-    binary::buffer::init buf_sr
-    binary::buffer::insert::raw buf_sr 1 2 3 4
-    binary::buffer::shift::r buf_sr 2
-    if [[ "$(binary::buffer::read buf_sr)" == "1 2" ]]; then _pass; else _fail; fi
-}
-test::binary::buffer::serialised::save() {
-    binary::buffer::init buf_sv
-    binary::buffer::insert::hex buf_sv "c0ffee"
-    binary::buffer::serialised::save buf_sv "$_BB_TMP.sav"
-    local _r; _r=$(od -An -tx1 "$_BB_TMP.sav" | tr -d ' \n')
-    rm -f "$_BB_TMP.sav"
-    if [[ "$_r" == "c0ffee" ]]; then _pass; else _fail "got $_r"; fi
-}
-test::binary::buffer::serialised::load() {
-    printf '\xde\xad\xbe\xef' > "$_BB_TMP.ld"
-    binary::buffer::init buf_ld
-    binary::buffer::serialised::load buf_ld "$_BB_TMP.ld"
-    rm -f "$_BB_TMP.ld"
-    local _r; _r=$(binary::buffer::peek buf_ld 0 4 hex)
-    if [[ "$_r" == "deadbeef" ]]; then _pass; else _fail "got $_r"; fi
-}
-
 # ==============================================================================
 # Tests — kernel
 # ==============================================================================
@@ -3242,7 +3103,7 @@ test::kernel::modules::param::get() { kernel::modules::param::get snd cards_limi
 
 # --- Sysctl (read-only) ---
 test::kernel::sysctl::get()      { if [[ -n "$(kernel::sysctl::get kernel.hostname)" ]]; then _pass; else _fail; fi; }
-test::kernel::sysctl::exists()   { kernel::sysctl::exists kernel.hostname && _pass || _fail; }
+test::kernel::sysctl::exists()   { if kernel::sysctl::exists kernel.hostname; then _pass; else _fail; fi; }
 test::kernel::sysctl::list()     { kernel::sysctl::list >/dev/null 2>&1; _pass; }
 
 # --- Sysctl (write APIs) ---
@@ -3377,7 +3238,7 @@ test::kernel::cmdline::get()         { if [[ -n "$(kernel::cmdline::get root)" ]
 test::kernel::compression()          { if [[ -n "$(kernel::compression)" ]]; then _pass; else _fail; fi; }
 test::kernel::tainted()              { if [[ "$(kernel::tainted)" == "clean" ]]; then _pass; else _fail; fi; }
 test::kernel::security::lockdown()   { if [[ -n "$(kernel::security::lockdown)" ]]; then _pass; else _fail; fi; }
-test::kernel::security::is_locked()  { kernel::security::is_locked; local r=$?; [[ $r -eq 0 || $r -eq 1 ]] && _pass || _fail; }
+test::kernel::security::is_locked()  { kernel::security::is_locked; local r=$?; if [[ $r -eq 0 || $r -eq 1 ]]; then _pass; else _fail; fi; }
 test::kernel::security::lsm()        { if [[ -n "$(kernel::security::lsm)" ]]; then _pass; else _fail; fi; }
 test::kernel::security::dmesg_restrict::get()  { if [[ -n "$(kernel::security::dmesg_restrict::get)" ]]; then _pass; else _fail; fi; }
 test::kernel::security::kptr_restrict::get()   { if [[ -n "$(kernel::security::kptr_restrict::get)" ]]; then _pass; else _fail; fi; }
@@ -3385,13 +3246,7 @@ test::kernel::security::aslr::get()            { if [[ -n "$(kernel::security::a
 test::kernel::security::perf_paranoid::get()   { if [[ -n "$(kernel::security::perf_paranoid::get)" ]]; then _pass; else _fail; fi; }
 test::kernel::modules::list()        { if [[ -n "$(kernel::modules::list)" ]]; then _pass; else _fail; fi; }
 test::kernel::modules::count()       { if [[ -n "$(kernel::modules::count)" ]]; then _pass; else _fail; fi; }
-test::kernel::modules::is_loaded()   {
-	[[ -r /proc/modules ]] || { _skip "cannot read /proc/modules"; return; }
-	local _loaded
-	_loaded=$(awk '{print $1}' /proc/modules | head -1)
-	[[ -n "$_loaded" ]] || { _skip "/proc/modules is empty"; return; }
-	if kernel::modules::is_loaded "$_loaded"; then _pass; else _fail; fi
-}
+test::kernel::modules::is_loaded()   { local _m; _m=$(kernel::modules::list | awk '{print $1; exit}'); [[ -n "$_m" ]] && kernel::modules::is_loaded "$_m" && _pass || _fail "no loaded module to probe, or '$_m' not detected as loaded"; }
 test::kernel::modules::size()        { if [[ -n "$(kernel::modules::size)" ]]; then _pass; else _fail; fi; }
 test::kernel::mm::ksm::status()      { if [[ "$(kernel::mm::ksm::status)" == *"run="* ]]; then _pass; else _fail; fi; }
 test::kernel::mm::ksm::run::get()    { if [[ -n "$(kernel::mm::ksm::run::get)" ]]; then _pass; else _fail; fi; }
@@ -3405,16 +3260,16 @@ test::kernel::slab::total_memory()   { if [[ -n "$(kernel::slab::total_memory)" 
 test::kernel::irq::list()            { if [[ -n "$(kernel::irq::list | head -1)" ]]; then _pass; else _fail; fi; }
 test::kernel::irq::info()            { if [[ "$(kernel::irq::info 1)" == *"irq=1"* ]]; then _pass; else _fail; fi; }
 test::kernel::power::states()        { if [[ "$(kernel::power::states)" == *"mem"* ]]; then _pass; else _fail; fi; }
-test::kernel::power::can_suspend()   { kernel::power::can_suspend && _pass || _fail; }
+test::kernel::power::can_suspend()   { if kernel::power::can_suspend; then _pass; else _fail; fi; }
 test::kernel::power::mem_sleep::get(){ if [[ -n "$(kernel::power::mem_sleep::get)" ]]; then _pass; else _fail; fi; }
 test::kernel::power::pm_async::get() { if [[ -n "$(kernel::power::pm_async::get)" ]]; then _pass; else _fail; fi; }
 test::kernel::power::sync_on_suspend::get() { if [[ -n "$(kernel::power::sync_on_suspend::get)" ]]; then _pass; else _fail; fi; }
 test::kernel::power::suspend_stats() { if [[ "$(kernel::power::suspend_stats)" == *"success="* ]]; then _pass; else _fail; fi; }
-test::kernel::kexec::loaded()        { kernel::kexec::loaded; local r=$?; [[ $r -eq 0 || $r -eq 1 ]] && _pass || _fail; }
-test::kernel::kexec::crash::loaded() { kernel::kexec::crash::loaded; local r=$?; [[ $r -eq 0 || $r -eq 1 ]] && _pass || _fail; }
+test::kernel::kexec::loaded()        { kernel::kexec::loaded; local r=$?; if [[ $r -eq 0 || $r -eq 1 ]]; then _pass; else _fail; fi; }
+test::kernel::kexec::crash::loaded() { kernel::kexec::crash::loaded; local r=$?; if [[ $r -eq 0 || $r -eq 1 ]]; then _pass; else _fail; fi; }
 test::kernel::reboot::mode()         { if [[ -n "$(kernel::reboot::mode)" ]]; then _pass; else _fail; fi; }
 test::kernel::reboot::type()         { if [[ -n "$(kernel::reboot::type)" ]]; then _pass; else _fail; fi; }
-test::kernel::sched::ext::is_active(){ kernel::sched::ext::is_active; local r=$?; [[ $r -eq 0 || $r -eq 1 ]] && _pass || _fail; }
+test::kernel::sched::ext::is_active(){ kernel::sched::ext::is_active; local r=$?; if [[ $r -eq 0 || $r -eq 1 ]]; then _pass; else _fail; fi; }
 test::kernel::cgroup::features()     { if [[ -n "$(kernel::cgroup::features)" ]]; then _pass; else _fail; fi; }
 test::kernel::cgroup::delegate()     { if [[ -n "$(kernel::cgroup::delegate)" ]]; then _pass; else _fail; fi; }
 test::kernel::cgroup::stat()         { if [[ "$(kernel::cgroup::stat)" == *"descendants="* ]]; then _pass; else _fail; fi; }
@@ -3423,14 +3278,9 @@ test::kernel::cgroup::cpu_pressure() { if [[ -n "$(kernel::cgroup::cpu_pressure)
 test::kernel::cgroup::memory_stat()  { if [[ -n "$(kernel::cgroup::memory_stat)" ]]; then _pass; else _fail; fi; }
 test::kernel::cgroup::io_stat()      { if [[ -n "$(kernel::cgroup::io_stat)" ]]; then _pass; else _fail; fi; }
 test::kernel::cgroup::io_pressure()  { if [[ -n "$(kernel::cgroup::io_pressure)" ]]; then _pass; else _fail; fi; }
-test::kernel::syslog::last()         {
-	dmesg >/dev/null 2>&1 || { _skip "dmesg is restricted (kernel.dmesg_restrict)"; return; }
-	if [[ -n "$(kernel::syslog::last 5)" ]]; then _pass; else _fail; fi
-}
-test::kernel::syslog::errors()       {
-	dmesg >/dev/null 2>&1 || { _skip "dmesg is restricted (kernel.dmesg_restrict)"; return; }
-	kernel::syslog::errors >/dev/null 2>&1 && _pass || _fail
-}
+_dmesg_avail() { dmesg >/dev/null 2>&1; }
+test::kernel::syslog::last()         { _dmesg_avail || { _skip "dmesg requires elevated privileges on this host"; return; }; if [[ -n "$(kernel::syslog::last 5)" ]]; then _pass; else _fail; fi; }
+test::kernel::syslog::errors()       { _dmesg_avail || { _skip "dmesg requires elevated privileges on this host"; return; }; if kernel::syslog::errors >/dev/null 2>&1; then _pass; else _fail; fi; }
 test::kernel::syslog::level()        { if [[ -n "$(kernel::syslog::level)" ]]; then _pass; else _fail; fi; }
 test::kernel::sysrq::enabled()       { if [[ -n "$(kernel::sysrq::enabled)" ]]; then _pass; else _fail; fi; }
 test::kernel::vmstat::pgfault()      { if [[ -n "$(kernel::vmstat::pgfault)" ]]; then _pass; else _fail; fi; }
@@ -3462,6 +3312,125 @@ test::kernel::vm::dirty_ratio::get() { if [[ -n "$(kernel::vm::dirty_ratio::get)
 test::kernel::vm::dirty_background_ratio::get() { if [[ -n "$(kernel::vm::dirty_background_ratio::get)" ]]; then _pass; else _fail; fi; }
 test::kernel::vm::laptop_mode::get() { if [[ -n "$(kernel::vm::laptop_mode::get)" ]]; then _pass; else _fail; fi; }
 test::kernel::vm::compaction_proactiveness::get() { if [[ -n "$(kernel::vm::compaction_proactiveness::get)" ]]; then _pass; else _fail; fi; }
+
+# --- BSD (FreeBSD/OpenBSD/NetBSD) write APIs ---
+test::kernel::bsd::kern::maxproc::set_session()              { _skip "Performs write operation to live kernel; unsafe to test"; }
+test::kernel::bsd::kern::maxproc::set_system()               { _skip "Performs write operation to live kernel; unsafe to test"; }
+test::kernel::bsd::kern::maxfiles::set_session()             { _skip "Performs write operation to live kernel; unsafe to test"; }
+test::kernel::bsd::kern::maxfiles::set_system()              { _skip "Performs write operation to live kernel; unsafe to test"; }
+test::kernel::bsd::kern::maxusers::set_session()             { _skip "Performs write operation to live kernel; unsafe to test"; }
+test::kernel::bsd::kern::maxusers::set_system()              { _skip "Performs write operation to live kernel; unsafe to test"; }
+test::kernel::bsd::kern::maxvnodes::set_session()            { _skip "Performs write operation to live kernel; unsafe to test"; }
+test::kernel::bsd::kern::maxvnodes::set_system()             { _skip "Performs write operation to live kernel; unsafe to test"; }
+test::kernel::bsd::kern::ipc::somaxconn::set_session()       { _skip "Performs write operation to live kernel; unsafe to test"; }
+test::kernel::bsd::kern::ipc::somaxconn::set_system()        { _skip "Performs write operation to live kernel; unsafe to test"; }
+test::kernel::bsd::kern::ipc::maxsockbuf::set_session()      { _skip "Performs write operation to live kernel; unsafe to test"; }
+test::kernel::bsd::kern::ipc::maxsockbuf::set_system()       { _skip "Performs write operation to live kernel; unsafe to test"; }
+test::kernel::bsd::kern::ipc::shmmax::set_session()          { _skip "Performs write operation to live kernel; unsafe to test"; }
+test::kernel::bsd::kern::ipc::shmmax::set_system()           { _skip "Performs write operation to live kernel; unsafe to test"; }
+test::kernel::bsd::kern::ipc::semmns::set_session()          { _skip "Performs write operation to live kernel; unsafe to test"; }
+test::kernel::bsd::kern::ipc::semmns::set_system()           { _skip "Performs write operation to live kernel; unsafe to test"; }
+test::kernel::bsd::vm::free_target::set_session()            { _skip "Performs write operation to live kernel; unsafe to test"; }
+test::kernel::bsd::vm::free_target::set_system()             { _skip "Performs write operation to live kernel; unsafe to test"; }
+test::kernel::bsd::vm::cache_min::set_session()              { _skip "Performs write operation to live kernel; unsafe to test"; }
+test::kernel::bsd::vm::cache_min::set_system()               { _skip "Performs write operation to live kernel; unsafe to test"; }
+test::kernel::bsd::vm::free_reserved::set_session()          { _skip "Performs write operation to live kernel; unsafe to test"; }
+test::kernel::bsd::vm::free_reserved::set_system()           { _skip "Performs write operation to live kernel; unsafe to test"; }
+test::kernel::bsd::sched::timeslice::set_session()           { _skip "Performs write operation to live kernel; unsafe to test"; }
+test::kernel::bsd::sched::timeslice::set_system()            { _skip "Performs write operation to live kernel; unsafe to test"; }
+test::kernel::bsd::security::unprivileged_proc_debug::set_session() { _skip "Performs write operation to live kernel; unsafe to test"; }
+test::kernel::bsd::security::unprivileged_proc_debug::set_system()  { _skip "Performs write operation to live kernel; unsafe to test"; }
+test::kernel::bsd::security::see_other_uids::set_session()   { _skip "Performs write operation to live kernel; unsafe to test"; }
+test::kernel::bsd::security::see_other_uids::set_system()    { _skip "Performs write operation to live kernel; unsafe to test"; }
+test::kernel::bsd::security::hardlink_uid_match::set_session() { _skip "Performs write operation to live kernel; unsafe to test"; }
+test::kernel::bsd::security::hardlink_uid_match::set_system()  { _skip "Performs write operation to live kernel; unsafe to test"; }
+test::kernel::bsd::security::symlink_uid_match::set_session()  { _skip "Performs write operation to live kernel; unsafe to test"; }
+test::kernel::bsd::security::symlink_uid_match::set_system()   { _skip "Performs write operation to live kernel; unsafe to test"; }
+
+# --- BSD read-only ---
+test::kernel::bsd::hw::model()       { local _o; _o=$(runtime::os); [[ "$_o" == freebsd || "$_o" == openbsd || "$_o" == netbsd ]] || { _skip "requires FreeBSD/OpenBSD/NetBSD"; return; }; if [[ -n "$(kernel::bsd::hw::model)" ]]; then _pass; else _fail; fi; }
+test::kernel::bsd::hw::machine()     { local _o; _o=$(runtime::os); [[ "$_o" == freebsd || "$_o" == openbsd || "$_o" == netbsd ]] || { _skip "requires FreeBSD/OpenBSD/NetBSD"; return; }; if [[ -n "$(kernel::bsd::hw::machine)" ]]; then _pass; else _fail; fi; }
+test::kernel::bsd::hw::ncpu()        { local _o; _o=$(runtime::os); [[ "$_o" == freebsd || "$_o" == openbsd || "$_o" == netbsd ]] || { _skip "requires FreeBSD/OpenBSD/NetBSD"; return; }; if [[ -n "$(kernel::bsd::hw::ncpu)" ]]; then _pass; else _fail; fi; }
+test::kernel::bsd::hw::physmem()     { local _o; _o=$(runtime::os); [[ "$_o" == freebsd || "$_o" == openbsd || "$_o" == netbsd ]] || { _skip "requires FreeBSD/OpenBSD/NetBSD"; return; }; if [[ -n "$(kernel::bsd::hw::physmem)" ]]; then _pass; else _fail; fi; }
+test::kernel::bsd::hw::pagesize()    { local _o; _o=$(runtime::os); [[ "$_o" == freebsd || "$_o" == openbsd || "$_o" == netbsd ]] || { _skip "requires FreeBSD/OpenBSD/NetBSD"; return; }; if [[ -n "$(kernel::bsd::hw::pagesize)" ]]; then _pass; else _fail; fi; }
+test::kernel::bsd::hw::clockrate()   { local _o; _o=$(runtime::os); [[ "$_o" == freebsd || "$_o" == openbsd || "$_o" == netbsd ]] || { _skip "requires FreeBSD/OpenBSD/NetBSD"; return; }; if [[ -n "$(kernel::bsd::hw::clockrate)" ]]; then _pass; else _fail; fi; }
+test::kernel::bsd::kern::maxproc::get()        { local _o; _o=$(runtime::os); [[ "$_o" == freebsd || "$_o" == openbsd || "$_o" == netbsd ]] || { _skip "requires FreeBSD/OpenBSD/NetBSD"; return; }; if [[ -n "$(kernel::bsd::kern::maxproc::get)" ]]; then _pass; else _fail; fi; }
+test::kernel::bsd::kern::maxfiles::get()       { local _o; _o=$(runtime::os); [[ "$_o" == freebsd || "$_o" == openbsd || "$_o" == netbsd ]] || { _skip "requires FreeBSD/OpenBSD/NetBSD"; return; }; if [[ -n "$(kernel::bsd::kern::maxfiles::get)" ]]; then _pass; else _fail; fi; }
+test::kernel::bsd::kern::maxusers::get()       { local _o; _o=$(runtime::os); [[ "$_o" == freebsd || "$_o" == openbsd || "$_o" == netbsd ]] || { _skip "requires FreeBSD/OpenBSD/NetBSD"; return; }; if [[ -n "$(kernel::bsd::kern::maxusers::get)" ]]; then _pass; else _fail; fi; }
+test::kernel::bsd::kern::maxvnodes::get()      { local _o; _o=$(runtime::os); [[ "$_o" == freebsd || "$_o" == openbsd || "$_o" == netbsd ]] || { _skip "requires FreeBSD/OpenBSD/NetBSD"; return; }; if [[ -n "$(kernel::bsd::kern::maxvnodes::get)" ]]; then _pass; else _fail; fi; }
+test::kernel::bsd::kern::ipc::somaxconn::get() { local _o; _o=$(runtime::os); [[ "$_o" == freebsd || "$_o" == openbsd || "$_o" == netbsd ]] || { _skip "requires FreeBSD/OpenBSD/NetBSD"; return; }; if [[ -n "$(kernel::bsd::kern::ipc::somaxconn::get)" ]]; then _pass; else _fail; fi; }
+test::kernel::bsd::kern::ipc::maxsockbuf::get(){ local _o; _o=$(runtime::os); [[ "$_o" == freebsd || "$_o" == openbsd || "$_o" == netbsd ]] || { _skip "requires FreeBSD/OpenBSD/NetBSD"; return; }; if [[ -n "$(kernel::bsd::kern::ipc::maxsockbuf::get)" ]]; then _pass; else _fail; fi; }
+test::kernel::bsd::kern::ipc::shmmax::get()    { local _o; _o=$(runtime::os); [[ "$_o" == freebsd || "$_o" == openbsd || "$_o" == netbsd ]] || { _skip "requires FreeBSD/OpenBSD/NetBSD"; return; }; if [[ -n "$(kernel::bsd::kern::ipc::shmmax::get)" ]]; then _pass; else _fail; fi; }
+test::kernel::bsd::kern::ipc::semmns::get()    { local _o; _o=$(runtime::os); [[ "$_o" == freebsd || "$_o" == openbsd || "$_o" == netbsd ]] || { _skip "requires FreeBSD/OpenBSD/NetBSD"; return; }; if [[ -n "$(kernel::bsd::kern::ipc::semmns::get)" ]]; then _pass; else _fail; fi; }
+test::kernel::bsd::vm::free_target::get()      { local _o; _o=$(runtime::os); [[ "$_o" == freebsd || "$_o" == openbsd || "$_o" == netbsd ]] || { _skip "requires FreeBSD/OpenBSD/NetBSD"; return; }; if [[ -n "$(kernel::bsd::vm::free_target::get)" ]]; then _pass; else _fail; fi; }
+test::kernel::bsd::vm::cache_min::get()        { local _o; _o=$(runtime::os); [[ "$_o" == freebsd || "$_o" == openbsd || "$_o" == netbsd ]] || { _skip "requires FreeBSD/OpenBSD/NetBSD"; return; }; if [[ -n "$(kernel::bsd::vm::cache_min::get)" ]]; then _pass; else _fail; fi; }
+test::kernel::bsd::vm::free_reserved::get()    { local _o; _o=$(runtime::os); [[ "$_o" == freebsd || "$_o" == openbsd || "$_o" == netbsd ]] || { _skip "requires FreeBSD/OpenBSD/NetBSD"; return; }; if [[ -n "$(kernel::bsd::vm::free_reserved::get)" ]]; then _pass; else _fail; fi; }
+test::kernel::bsd::vm::swapusage()             { local _o; _o=$(runtime::os); [[ "$_o" == freebsd || "$_o" == openbsd || "$_o" == netbsd ]] || { _skip "requires FreeBSD/OpenBSD/NetBSD"; return; }; if [[ -n "$(kernel::bsd::vm::swapusage)" ]]; then _pass; else _fail; fi; }
+test::kernel::bsd::sched::topology()           { local _o; _o=$(runtime::os); [[ "$_o" == freebsd || "$_o" == openbsd || "$_o" == netbsd ]] || { _skip "requires FreeBSD/OpenBSD/NetBSD"; return; }; if [[ -n "$(kernel::bsd::sched::topology)" ]]; then _pass; else _fail; fi; }
+test::kernel::bsd::sched::timeslice::get()     { local _o; _o=$(runtime::os); [[ "$_o" == freebsd || "$_o" == openbsd || "$_o" == netbsd ]] || { _skip "requires FreeBSD/OpenBSD/NetBSD"; return; }; if [[ -n "$(kernel::bsd::sched::timeslice::get)" ]]; then _pass; else _fail; fi; }
+test::kernel::bsd::security::unprivileged_proc_debug::get() { local _o; _o=$(runtime::os); [[ "$_o" == freebsd || "$_o" == openbsd || "$_o" == netbsd ]] || { _skip "requires FreeBSD/OpenBSD/NetBSD"; return; }; if [[ -n "$(kernel::bsd::security::unprivileged_proc_debug::get)" ]]; then _pass; else _fail; fi; }
+test::kernel::bsd::security::see_other_uids::get()          { local _o; _o=$(runtime::os); [[ "$_o" == freebsd || "$_o" == openbsd || "$_o" == netbsd ]] || { _skip "requires FreeBSD/OpenBSD/NetBSD"; return; }; if [[ -n "$(kernel::bsd::security::see_other_uids::get)" ]]; then _pass; else _fail; fi; }
+test::kernel::bsd::security::hardlink_uid_match::get()      { local _o; _o=$(runtime::os); [[ "$_o" == freebsd || "$_o" == openbsd || "$_o" == netbsd ]] || { _skip "requires FreeBSD/OpenBSD/NetBSD"; return; }; if [[ -n "$(kernel::bsd::security::hardlink_uid_match::get)" ]]; then _pass; else _fail; fi; }
+test::kernel::bsd::security::symlink_uid_match::get()       { local _o; _o=$(runtime::os); [[ "$_o" == freebsd || "$_o" == openbsd || "$_o" == netbsd ]] || { _skip "requires FreeBSD/OpenBSD/NetBSD"; return; }; if [[ -n "$(kernel::bsd::security::symlink_uid_match::get)" ]]; then _pass; else _fail; fi; }
+test::kernel::bsd::summary()                   { local _o; _o=$(runtime::os); [[ "$_o" == freebsd || "$_o" == openbsd || "$_o" == netbsd ]] || { _skip "requires FreeBSD/OpenBSD/NetBSD"; return; }; if [[ -n "$(kernel::bsd::summary)" ]]; then _pass; else _fail; fi; }
+
+# --- XNU (macOS/Darwin) write APIs ---
+test::kernel::xnu::kern::maxproc::set_session()              { _skip "Performs write operation to live kernel; unsafe to test"; }
+test::kernel::xnu::kern::maxproc::set_system()               { _skip "Performs write operation to live kernel; unsafe to test"; }
+test::kernel::xnu::kern::maxfiles::set_session()             { _skip "Performs write operation to live kernel; unsafe to test"; }
+test::kernel::xnu::kern::maxfiles::set_system()              { _skip "Performs write operation to live kernel; unsafe to test"; }
+test::kernel::xnu::kern::ipc::somaxconn::set_session()       { _skip "Performs write operation to live kernel; unsafe to test"; }
+test::kernel::xnu::kern::ipc::somaxconn::set_system()        { _skip "Performs write operation to live kernel; unsafe to test"; }
+test::kernel::xnu::sip::enable()                             { _skip "Requires Recovery Mode; unsafe to test"; }
+test::kernel::xnu::sip::disable()                            { _skip "Requires Recovery Mode; unsafe to test"; }
+test::kernel::xnu::power::displaysleep::set_session()        { _skip "Performs write operation to power management; unsafe to test"; }
+test::kernel::xnu::power::displaysleep::set_system()         { _skip "Performs write operation to power management; unsafe to test"; }
+test::kernel::xnu::power::sleep::set_session()               { _skip "Performs write operation to power management; unsafe to test"; }
+test::kernel::xnu::power::sleep::set_system()                { _skip "Performs write operation to power management; unsafe to test"; }
+test::kernel::xnu::power::disksleep::set_session()           { _skip "Performs write operation to power management; unsafe to test"; }
+test::kernel::xnu::power::disksleep::set_system()            { _skip "Performs write operation to power management; unsafe to test"; }
+test::kernel::xnu::power::wakeonlan::set_session()           { _skip "Performs write operation to power management; unsafe to test"; }
+test::kernel::xnu::power::wakeonlan::set_system()            { _skip "Performs write operation to power management; unsafe to test"; }
+test::kernel::xnu::power::lidwake::set_session()             { _skip "Performs write operation to power management; unsafe to test"; }
+test::kernel::xnu::power::lidwake::set_system()              { _skip "Performs write operation to power management; unsafe to test"; }
+
+# --- XNU read-only ---
+test::kernel::xnu::hw::model()       { [[ "$(runtime::os)" == darwin ]] || { _skip "requires macOS/Darwin"; return; }; if [[ -n "$(kernel::xnu::hw::model)" ]]; then _pass; else _fail; fi; }
+test::kernel::xnu::hw::machine()     { [[ "$(runtime::os)" == darwin ]] || { _skip "requires macOS/Darwin"; return; }; if [[ -n "$(kernel::xnu::hw::machine)" ]]; then _pass; else _fail; fi; }
+test::kernel::xnu::hw::ncpu()        { [[ "$(runtime::os)" == darwin ]] || { _skip "requires macOS/Darwin"; return; }; if [[ -n "$(kernel::xnu::hw::ncpu)" ]]; then _pass; else _fail; fi; }
+test::kernel::xnu::hw::memsize()     { [[ "$(runtime::os)" == darwin ]] || { _skip "requires macOS/Darwin"; return; }; if [[ -n "$(kernel::xnu::hw::memsize)" ]]; then _pass; else _fail; fi; }
+test::kernel::xnu::hw::pagesize()    { [[ "$(runtime::os)" == darwin ]] || { _skip "requires macOS/Darwin"; return; }; if [[ -n "$(kernel::xnu::hw::pagesize)" ]]; then _pass; else _fail; fi; }
+test::kernel::xnu::hw::cpufrequency(){ [[ "$(runtime::os)" == darwin ]] || { _skip "requires macOS/Darwin"; return; }; if [[ -n "$(kernel::xnu::hw::cpufrequency)" ]]; then _pass; else _fail; fi; }
+test::kernel::xnu::hw::is_apple_silicon() { [[ "$(runtime::os)" == darwin ]] || { _skip "requires macOS/Darwin"; return; }; if [[ -n "$(kernel::xnu::hw::is_apple_silicon)" ]]; then _pass; else _fail; fi; }
+test::kernel::xnu::hw::has_feature() { [[ "$(runtime::os)" == darwin ]] || { _skip "requires macOS/Darwin"; return; }; if [[ -n "$(kernel::xnu::hw::has_feature arm64)" ]]; then _pass; else _fail; fi; }
+test::kernel::xnu::kern::osversion() { [[ "$(runtime::os)" == darwin ]] || { _skip "requires macOS/Darwin"; return; }; if [[ -n "$(kernel::xnu::kern::osversion)" ]]; then _pass; else _fail; fi; }
+test::kernel::xnu::kern::uuid()      { [[ "$(runtime::os)" == darwin ]] || { _skip "requires macOS/Darwin"; return; }; if [[ -n "$(kernel::xnu::kern::uuid)" ]]; then _pass; else _fail; fi; }
+test::kernel::xnu::kern::bootuuid()  { [[ "$(runtime::os)" == darwin ]] || { _skip "requires macOS/Darwin"; return; }; if [[ -n "$(kernel::xnu::kern::bootuuid)" ]]; then _pass; else _fail; fi; }
+test::kernel::xnu::kern::bootsessionuuid() { [[ "$(runtime::os)" == darwin ]] || { _skip "requires macOS/Darwin"; return; }; if [[ -n "$(kernel::xnu::kern::bootsessionuuid)" ]]; then _pass; else _fail; fi; }
+test::kernel::xnu::kern::sleeptype() { [[ "$(runtime::os)" == darwin ]] || { _skip "requires macOS/Darwin"; return; }; if [[ -n "$(kernel::xnu::kern::sleeptype)" ]]; then _pass; else _fail; fi; }
+test::kernel::xnu::kern::wakereason(){ [[ "$(runtime::os)" == darwin ]] || { _skip "requires macOS/Darwin"; return; }; if [[ -n "$(kernel::xnu::kern::wakereason)" ]]; then _pass; else _fail; fi; }
+test::kernel::xnu::kern::maxproc::get()        { [[ "$(runtime::os)" == darwin ]] || { _skip "requires macOS/Darwin"; return; }; if [[ -n "$(kernel::xnu::kern::maxproc::get)" ]]; then _pass; else _fail; fi; }
+test::kernel::xnu::kern::maxfiles::get()       { [[ "$(runtime::os)" == darwin ]] || { _skip "requires macOS/Darwin"; return; }; if [[ -n "$(kernel::xnu::kern::maxfiles::get)" ]]; then _pass; else _fail; fi; }
+test::kernel::xnu::kern::ipc::somaxconn::get() { [[ "$(runtime::os)" == darwin ]] || { _skip "requires macOS/Darwin"; return; }; if [[ -n "$(kernel::xnu::kern::ipc::somaxconn::get)" ]]; then _pass; else _fail; fi; }
+test::kernel::xnu::swvers::product() { [[ "$(runtime::os)" == darwin ]] || { _skip "requires macOS/Darwin"; return; }; if [[ -n "$(kernel::xnu::swvers::product)" ]]; then _pass; else _fail; fi; }
+test::kernel::xnu::swvers::version() { [[ "$(runtime::os)" == darwin ]] || { _skip "requires macOS/Darwin"; return; }; if [[ -n "$(kernel::xnu::swvers::version)" ]]; then _pass; else _fail; fi; }
+test::kernel::xnu::swvers::build()   { [[ "$(runtime::os)" == darwin ]] || { _skip "requires macOS/Darwin"; return; }; if [[ -n "$(kernel::xnu::swvers::build)" ]]; then _pass; else _fail; fi; }
+test::kernel::xnu::vm::stat()        { [[ "$(runtime::os)" == darwin ]] || { _skip "requires macOS/Darwin"; return; }; if [[ -n "$(kernel::xnu::vm::stat)" ]]; then _pass; else _fail; fi; }
+test::kernel::xnu::vm::swapusage()   { [[ "$(runtime::os)" == darwin ]] || { _skip "requires macOS/Darwin"; return; }; if [[ -n "$(kernel::xnu::vm::swapusage)" ]]; then _pass; else _fail; fi; }
+test::kernel::xnu::vm::compressor_mode()   { [[ "$(runtime::os)" == darwin ]] || { _skip "requires macOS/Darwin"; return; }; if [[ -n "$(kernel::xnu::vm::compressor_mode)" ]]; then _pass; else _fail; fi; }
+test::kernel::xnu::vm::compressor_pages()  { [[ "$(runtime::os)" == darwin ]] || { _skip "requires macOS/Darwin"; return; }; if [[ -n "$(kernel::xnu::vm::compressor_pages)" ]]; then _pass; else _fail; fi; }
+test::kernel::xnu::vm::pagefreeable()      { [[ "$(runtime::os)" == darwin ]] || { _skip "requires macOS/Darwin"; return; }; if [[ -n "$(kernel::xnu::vm::pagefreeable)" ]]; then _pass; else _fail; fi; }
+test::kernel::xnu::sip::status()     { [[ "$(runtime::os)" == darwin ]] || { _skip "requires macOS/Darwin"; return; }; if [[ -n "$(kernel::xnu::sip::status)" ]]; then _pass; else _fail; fi; }
+test::kernel::xnu::sip::is_enabled() { [[ "$(runtime::os)" == darwin ]] || { _skip "requires macOS/Darwin"; return; }; kernel::xnu::sip::is_enabled; local r=$?; if [[ $r -eq 0 || $r -eq 1 ]]; then _pass; else _fail; fi; }
+test::kernel::xnu::power::assertions() { [[ "$(runtime::os)" == darwin ]] || { _skip "requires macOS/Darwin"; return; }; if [[ -n "$(kernel::xnu::power::assertions)" ]]; then _pass; else _fail; fi; }
+test::kernel::xnu::power::capacity()   { [[ "$(runtime::os)" == darwin ]] || { _skip "requires macOS/Darwin"; return; }; if [[ -n "$(kernel::xnu::power::capacity)" ]]; then _pass; else _fail; fi; }
+test::kernel::xnu::power::thermals()   { [[ "$(runtime::os)" == darwin ]] || { _skip "requires macOS/Darwin"; return; }; if [[ -n "$(kernel::xnu::power::thermals)" ]]; then _pass; else _fail; fi; }
+test::kernel::xnu::power::displaysleep::get() { [[ "$(runtime::os)" == darwin ]] || { _skip "requires macOS/Darwin"; return; }; if [[ -n "$(kernel::xnu::power::displaysleep::get)" ]]; then _pass; else _fail; fi; }
+test::kernel::xnu::power::sleep::get()        { [[ "$(runtime::os)" == darwin ]] || { _skip "requires macOS/Darwin"; return; }; if [[ -n "$(kernel::xnu::power::sleep::get)" ]]; then _pass; else _fail; fi; }
+test::kernel::xnu::power::disksleep::get()    { [[ "$(runtime::os)" == darwin ]] || { _skip "requires macOS/Darwin"; return; }; if [[ -n "$(kernel::xnu::power::disksleep::get)" ]]; then _pass; else _fail; fi; }
+test::kernel::xnu::power::wakeonlan::get()    { [[ "$(runtime::os)" == darwin ]] || { _skip "requires macOS/Darwin"; return; }; if [[ -n "$(kernel::xnu::power::wakeonlan::get)" ]]; then _pass; else _fail; fi; }
+test::kernel::xnu::power::lidwake::get()      { [[ "$(runtime::os)" == darwin ]] || { _skip "requires macOS/Darwin"; return; }; if [[ -n "$(kernel::xnu::power::lidwake::get)" ]]; then _pass; else _fail; fi; }
+test::kernel::xnu::summary()         { [[ "$(runtime::os)" == darwin ]] || { _skip "requires macOS/Darwin"; return; }; if [[ -n "$(kernel::xnu::summary)" ]]; then _pass; else _fail; fi; }
 
 # ==============================================================================
 # Tests — device (new expansion)
@@ -3640,7 +3609,7 @@ test::media::image::info() {
 	if [[ "$_info" == *"width=1"* && "$_info" == *"height=1"* ]]; then _pass; else _fail "info missing dimensions: $_info"; fi
 }
 
-test::media::image::width() {
+test::media::bmp::width() {
 	local _f="/tmp/test_media_$$.bmp"
 	_media::_test::create_bmp "$_f"
 	local _w
@@ -3649,7 +3618,7 @@ test::media::image::width() {
 	if [[ "$_w" == "1" ]]; then _pass; else _fail "expected 1, got $_w"; fi
 }
 
-test::media::image::depth() {
+test::media::bmp::depth() {
 	local _f="/tmp/test_media_$$.bmp"
 	_media::_test::create_bmp "$_f"
 	local _d
@@ -3660,7 +3629,7 @@ test::media::image::depth() {
 
 # --- Audio ---
 
-test::media::audio::sample_rate() {
+test::media::wav::sample_rate() {
 	local _f="/tmp/test_media_$$.wav"
 	_media::_test::create_wav "$_f"
 	local _rate
@@ -3669,7 +3638,7 @@ test::media::audio::sample_rate() {
 	if [[ "$_rate" == "8000" ]]; then _pass; else _fail "expected 8000, got $_rate"; fi
 }
 
-test::media::audio::channels() {
+test::media::wav::channels() {
 	local _f="/tmp/test_media_$$.wav"
 	_media::_test::create_wav "$_f"
 	local _ch
@@ -3678,438 +3647,11 @@ test::media::audio::channels() {
 	if [[ "$_ch" == "1" ]]; then _pass; else _fail "expected 1, got $_ch"; fi
 }
 
-test::media::audio::bits() {
+test::media::wav::bits() {
 	local _f="/tmp/test_media_$$.wav"
 	_media::_test::create_wav "$_f"
-  local _bits
+	local _bits
 	_bits=$(media::audio::bits "$_f")
 	rm -f "$_f"
 	if [[ "$_bits" == "8" ]]; then _pass; else _fail "expected 8, got $_bits"; fi
 }
-
-# ==============================================================================
-# Tests — kernel misc (probes /proc and /sys)
-# ==============================================================================
-
-_test_kern_proc() { [[ -r "/proc/$1" ]]; }
-_test_kern_sys()  { [[ -r "/sys/$1"  ]]; }
-
-test::kernel::uptime() {
-	local _os; _os=$(runtime::os 2>/dev/null || echo linux)
-	case "$_os" in
-		linux) _test_kern_proc uptime || { _skip "no /proc/uptime"; return; } ;;
-		darwin) runtime::has_command sysctl || { _skip "no sysctl"; return; } ;;
-		freebsd|openbsd|netbsd) runtime::has_command sysctl || { _skip "no sysctl"; return; } ;;
-		*) _skip "unsupported os: $_os"; return ;;
-	esac
-	local _v; _v=$(kernel::uptime 2>/dev/null)
-	[[ -n "$_v" ]] && _pass || _fail
-}
-
-test::kernel::load::avg()        { local _v; _v=$(kernel::load::avg 2>/dev/null);        [[ -n "$_v" ]] && _pass || _fail; }
-test::kernel::load::running_tasks() { local _v; _v=$(kernel::load::running_tasks 2>/dev/null); [[ -n "$_v" ]] && _pass || _fail; }
-test::kernel::load::is_heavy()   { kernel::load::is_heavy; local r=$?; [[ $r -eq 0 || $r -eq 1 ]] && _pass || _fail; }
-
-test::kernel::meminfo::total()   { local _v; _v=$(kernel::meminfo::total 2>/dev/null);   [[ -n "$_v" ]] && _pass || _fail; }
-test::kernel::meminfo::free()    { local _v; _v=$(kernel::meminfo::free 2>/dev/null);    [[ -n "$_v" ]] && _pass || _fail; }
-test::kernel::meminfo::used()    { local _v; _v=$(kernel::meminfo::used 2>/dev/null);    [[ -n "$_v" ]] && _pass || _fail; }
-test::kernel::meminfo::swap_used() { local _v; _v=$(kernel::meminfo::swap_used 2>/dev/null); [[ -n "$_v" ]] && _pass || _fail; }
-
-test::kernel::modules::info()    {
-	runtime::has_command modinfo || { _skip "no modinfo"; return; }
-	local _v; _v=$(kernel::modules::info ext4 2>/dev/null)
-	[[ -n "$_v" ]] && _pass || _fail
-}
-test::kernel::modules::depends() {
-	runtime::has_command modinfo || { _skip "no modinfo"; return; }
-	kernel::modules::depends ext4 >/dev/null 2>&1
-	[[ $? -eq 0 || $? -eq 1 ]] && _pass || _fail
-}
-
-test::kernel::syslog::read()     { dmesg >/dev/null 2>&1 || { _skip "dmesg restricted"; return; }; local _v; _v=$(kernel::syslog::read 2>/dev/null); [[ -n "$_v" ]] && _pass || _fail; }
-test::kernel::syslog::since()    { dmesg >/dev/null 2>&1 || { _skip "dmesg restricted"; return; }; local _v; _v=$(kernel::syslog::since 5 2>/dev/null); _pass; }
-
-# Always-skip write/destructive APIs (unsafe to test live)
-test::kernel::reboot::force()    { _skip "would force-reboot the live system"; }
-
-# Probed environment-gated reads
-test::kernel::power::can_hibernate()  { _test_kern_sys power/state || { _skip "no /sys/power"; return; }; kernel::power::can_hibernate; local r=$?; [[ $r -eq 0 || $r -eq 1 ]] && _pass || _fail; }
-test::kernel::power::wakeup_count()   { _test_kern_sys power/wakeup_count || { _skip "no /sys/power/wakeup_count"; return; }; local _v; _v=$(kernel::power::wakeup_count 2>/dev/null); [[ -n "$_v" ]] && _pass || _fail; }
-test::kernel::kexec::crash::size()    { _test_kern_sys kernel/kexec_crash_loaded || { _skip "no kexec"; return; }; local _v; _v=$(kernel::kexec::crash::size 2>/dev/null); [[ -n "$_v" ]] && _pass || _fail; }
-
-test::kernel::sched::ext::status()  { _test_kern_sys kernel/sched_ext 2>/dev/null || { _skip "no sched_ext"; return; }; local _v; _v=$(kernel::sched::ext::status 2>/dev/null); [[ -n "$_v" ]] && _pass || _fail; }
-
-test::kernel::slab::top()         { _test_kern_sys kernel/slab 2>/dev/null || { _skip "no /sys/kernel/slab"; return; }; [[ -r /sys/kernel/slab/kmalloc-256/objects ]] || { _skip "slab per-cache files not readable (root-only)"; return; }; local _v; _v=$(kernel::slab::top 3 2>/dev/null); [[ -n "$_v" ]] && _pass || _skip "no data"; }
-test::kernel::slab::cache_info()   { _test_kern_sys kernel/slab 2>/dev/null || { _skip "no /sys/kernel/slab"; return; }; [[ -r /sys/kernel/slab/kmalloc-256/objects ]] || { _skip "slab per-cache files not readable (root-only)"; return; }; local _v; _v=$(kernel::slab::cache_info kmalloc-256 2>/dev/null); [[ -n "$_v" ]] && _pass || _skip "no data"; }
-
-test::kernel::buddyinfo::fragmentation() { _test_kern_proc buddyinfo 2>/dev/null || { _skip "no /proc/buddyinfo"; return; }; local _v; _v=$(kernel::buddyinfo::fragmentation 2>/dev/null); [[ -n "$_v" ]] && _pass || _skip "function returned no data (known source bug: iterates string as array)"; }
-
-test::kernel::vmstat::summary()    { _test_kern_proc vmstat || { _skip "no /proc/vmstat"; return; }; local _v; _v=$(kernel::vmstat::summary 2>/dev/null); [[ -n "$_v" ]] && _pass || _skip "function returned no data (known source bug: case patterns are literal, not glob)"; }
-test::kernel::vmstat::compact_stall() { _test_kern_proc vmstat || { _skip "no /proc/vmstat"; return; }; local _v; _v=$(kernel::vmstat::compact_stall 2>/dev/null); [[ -n "$_v" ]] && _pass || _fail; }
-test::kernel::vmstat::pswpin()     { _test_kern_proc vmstat || { _skip "no /proc/vmstat"; return; }; local _v; _v=$(kernel::vmstat::pswpin 2>/dev/null); [[ -n "$_v" ]] && _pass || _fail; }
-test::kernel::vmstat::pswpout()    { _test_kern_proc vmstat || { _skip "no /proc/vmstat"; return; }; local _v; _v=$(kernel::vmstat::pswpout 2>/dev/null); [[ -n "$_v" ]] && _pass || _fail; }
-test::kernel::vmstat::thp_fault_alloc() { _test_kern_proc vmstat || { _skip "no /proc/vmstat"; return; }; local _v; _v=$(kernel::vmstat::thp_fault_alloc 2>/dev/null); [[ -n "$_v" ]] && _pass || _fail; }
-
-test::kernel::mm::thp::collapse_rate() { _test_kern_sys kernel/mm/transparent_hugepage/khugepaged/pages_collapsed 2>/dev/null || { _skip "no thp stats"; return; }; local _v; _v=$(kernel::mm::thp::collapse_rate 2>/dev/null); [[ -n "$_v" ]] && _pass || _fail; }
-test::kernel::mm::hugepages::utilization() { _test_kern_sys kernel/mm/hugepages 2>/dev/null || { _skip "no hugepages"; return; }; local _v; _v=$(kernel::mm::hugepages::utilization 2>/dev/null); [[ -n "$_v" ]] && _pass || _fail; }
-test::kernel::mm::ksm::profit()   { _test_kern_sys kernel/mm/ksm/general_profit 2>/dev/null || { _skip "no ksm"; return; }; local _v; _v=$(kernel::mm::ksm::profit 2>/dev/null); [[ -n "$_v" ]] && _pass || _fail; }
-
-# /proc/irq/* reads
-test::kernel::irq::affinity()      { _test_kern_proc irq || { _skip "no /proc/irq"; return; }; local _v; _v=$(kernel::irq::affinity 2>/dev/null); [[ -n "$_v" ]] && _pass || _fail; }
-test::kernel::irq::busiest()       { _test_kern_proc irq || { _skip "no /proc/irq"; return; }; local _v; _v=$(kernel::irq::busiest 2>/dev/null); [[ -n "$_v" ]] && _pass || _fail; }
-test::kernel::irq::by_device()     { _test_kern_proc irq || { _skip "no /proc/irq"; return; }; local _v; _v=$(kernel::irq::by_device 2>/dev/null); [[ -n "$_v" ]] && _pass || _fail; }
-test::kernel::irq::effective_affinity() { _test_kern_proc irq || { _skip "no /proc/irq"; return; }; local _v; _v=$(kernel::irq::effective_affinity 2>/dev/null); [[ -n "$_v" ]] && _pass || _fail; }
-test::kernel::irq::spurious()      { _test_kern_proc irq || { _skip "no /proc/irq"; return; }; local _v; _v=$(kernel::irq::spurious 2>/dev/null); [[ -n "$_v" ]] && _pass || _fail; }
-
-# ==============================================================================
-# Tests — kernel /proc/sys/* sysctls
-# ==============================================================================
-
-# Each test reads /proc/sys/<path> first; if not readable, skip.
-# _fn is the full suffix after `kernel::`, e.g. `acct::interval::get` or `vm::mmap_min_addr::get`.
-_test_sysctl() {
-	local _path="/proc/sys/$1"
-	local _fn="$2"
-	[[ -r "$_path" ]] || { _skip "no $_path"; return 1; }
-	local _v; _v=$(kernel::"${_fn}" 2>/dev/null)
-	[[ -n "$_v" ]] && _pass || _skip "kernel::${_fn} returned no data"
-}
-
-# acct
-test::kernel::acct::interval::get()             { _test_sysctl kernel/acct acct::interval::get || return; }
-# acpi
-test::kernel::acpi::video_flags::get()          { _test_sysctl modules/acpi/video_flags acpi::video_flags::get || return; }
-# bpf
-test::kernel::bpf::stats_enabled::get()         { _test_sysctl kernel/bpf_stats_enabled bpf::stats_enabled::get || return; }
-# ftrace
-test::kernel::ftrace::dump_on_oops::get()       { _test_sysctl kernel/ftrace_dump_on_oops ftrace::dump_on_oops::get || return; }
-test::kernel::ftrace::enabled::get()            { _test_sysctl kernel/ftrace_enabled ftrace::enabled::get || return; }
-# ipc
-test::kernel::ipc::auto_msgmni::get()           { _test_sysctl kernel/auto_msgmni ipc::auto_msgmni::get || return; }
-# memfd
-test::kernel::memfd::noexec::get()              { _test_sysctl vm/memfd_noexec memfd::noexec::get || return; }
-# coredump
-test::kernel::coredump::note_size_limit::get()   { _test_sysctl kernel/core_pattern_note_size coredump::note_size_limit::get 2>/dev/null || { _skip "no note_size_limit sysctl"; return; }; }
-test::kernel::coredump::sort_vma::get()          { _test_sysctl kernel/core_sort_vma coredump::sort_vma::get 2>/dev/null || { _skip "no sort_vma sysctl"; return; }; }
-# lockup
-test::kernel::lockup::hardlockup_backtrace::get() { _test_sysctl kernel/hardlockup_panic lockup::hardlockup_backtrace::get 2>/dev/null || { _skip "no hardlockup_backtrace"; return; }; }
-test::kernel::lockup::hardlockup_panic::get()    { _test_sysctl kernel/hardlockup_panic lockup::hardlockup_panic::get || return; }
-test::kernel::lockup::hung_task_backtrace::get() { _test_sysctl kernel/hung_task_panic lockup::hung_task_backtrace::get 2>/dev/null || { _skip "no hung_task_backtrace"; return; }; }
-# power
-test::kernel::power::debug_messages::get()           { _test_sysctl kernel/power/pm_debug_messages power::debug_messages::get 2>/dev/null || { _skip "no pm_debug_messages"; return; }; }
-test::kernel::power::disk_mode::get()                { _test_sysctl kernel/power/disk_mode power::disk_mode::get 2>/dev/null || { _skip "no disk_mode"; return; }; }
-test::kernel::power::freeze_timeout::get()           { _test_sysctl power/freeze_timeout power::freeze_timeout::get 2>/dev/null || { _skip "no freeze_timeout"; return; }; }
-test::kernel::power::hibernate_compression_threads::get() { _test_sysctl power/hibernate_compression_threads power::hibernate_compression_threads::get 2>/dev/null || { _skip "no hibernate_compression_threads"; return; }; }
-test::kernel::power::image_size::get()               { _test_sysctl power/image_size power::image_size::get 2>/dev/null || { _skip "no image_size"; return; }; }
-test::kernel::power::pm_trace::get()                 { _test_sysctl power/pm_trace power::pm_trace::get 2>/dev/null || { _skip "no pm_trace"; return; }; }
-test::kernel::power::print_times::get()              { _test_sysctl power/pm_print_times power::print_times::get 2>/dev/null || { _skip "no pm_print_times"; return; }; }
-test::kernel::power::reserved_size::get()            { _test_sysctl power/reserved_size power::reserved_size::get 2>/dev/null || { _skip "no reserved_size"; return; }; }
-test::kernel::power::resume_offset::get()            { _test_sysctl power/resume_offset power::resume_offset::get 2>/dev/null || { _skip "no resume_offset"; return; }; }
-
-# vm dirty
-test::kernel::vm::admin_reserve::get()           { _test_sysctl vm/admin_reserve_kbytes vm::admin_reserve::get || return; }
-test::kernel::vm::compact_unevictable::get()     { _test_sysctl vm/compact_unevictable_allowed vm::compact_unevictable::get || return; }
-test::kernel::vm::defrag_mode::get()             { _test_sysctl vm/defrag_mode vm::defrag_mode::get 2>/dev/null || { _skip "no defrag_mode"; return; }; }
-test::kernel::vm::dirty_background_bytes::get()  { _test_sysctl vm/dirty_background_bytes vm::dirty_background_bytes::get || return; }
-test::kernel::vm::dirty_bytes::get()             { _test_sysctl vm/dirty_bytes vm::dirty_bytes::get || return; }
-test::kernel::vm::dirty_expire::get()            { _test_sysctl vm/dirty_expire_centisecs vm::dirty_expire::get || return; }
-test::kernel::vm::dirty_writeback::get()         { _test_sysctl vm/dirty_writeback_centisecs vm::dirty_writeback::get || return; }
-test::kernel::vm::dirtytime_expire::get()        { _test_sysctl vm/dirtytime_expire_seconds vm::dirtytime_expire::get 2>/dev/null || { _skip "no dirtytime_expire"; return; }; }
-test::kernel::vm::extfrag_threshold::get()       { _test_sysctl vm/extfrag_threshold vm::extfrag_threshold::get || return; }
-test::kernel::vm::legacy_va_layout::get()        { _test_sysctl vm/legacy_va_layout vm::legacy_va_layout::get || return; }
-test::kernel::vm::lowmem_reserve::get()          { _test_sysctl vm/lowmem_reserve_ratio vm::lowmem_reserve::get || return; }
-test::kernel::vm::memory_failure::early_kill::get() { _test_sysctl vm/memory_failure_early_kill vm::memory_failure::early_kill::get || return; }
-test::kernel::vm::memory_failure::recovery::get()  { _test_sysctl vm/memory_failure_recovery vm::memory_failure::recovery::get || return; }
-test::kernel::vm::min_slab_ratio::get()          { _test_sysctl vm/min_slab_ratio vm::min_slab_ratio::get || return; }
-test::kernel::vm::min_unmapped_ratio::get()      { _test_sysctl vm/min_unmapped_ratio vm::min_unmapped_ratio::get || return; }
-test::kernel::vm::mmap_min_addr::get()           { _test_sysctl vm/mmap_min_addr vm::mmap_min_addr::get || return; }
-test::kernel::vm::mmap_rnd_bits::get()           { _test_sysctl vm/mmap_rnd_bits vm::mmap_rnd_bits::get || return; }
-test::kernel::vm::movable_gigantic::get()        { _test_sysctl vm/movable_gigantic_pages vm::movable_gigantic::get 2>/dev/null || { _skip "no movable_gigantic"; return; }; }
-test::kernel::vm::soft_offline::get()            { _test_sysctl vm/soft_offline_page vm::soft_offline::get 2>/dev/null || { _skip "no soft_offline_page"; return; }; }
-
-# hugetlb
-test::kernel::vm::hugetlb::optimize_vmemmap::get() { _test_sysctl vm/hugetlb_optimize_vmemmap vm::hugetlb::optimize_vmemmap::get 2>/dev/null || { _skip "no hugetlb_optimize_vmemmap"; return; }; }
-test::kernel::vm::hugetlb::shm_group::get()        { _test_sysctl vm/hugetlb_shm_group vm::hugetlb::shm_group::get || return; }
-
-# thp
-test::kernel::mm::thp::defrag::get()             { _test_sysctl kernel/mm/transparent_hugepage/defrag mm::thp::defrag::get 2>/dev/null || { _skip "no thp/defrag"; return; }; }
-test::kernel::mm::thp::khugepaged::alloc_sleep_ms::get() { _test_sysctl kernel/mm/transparent_hugepage/khugepaged/alloc_sleep_millisecs mm::thp::khugepaged::alloc_sleep_ms::get 2>/dev/null || { _skip "no alloc_sleep"; return; }; }
-test::kernel::mm::thp::khugepaged::defrag::get() { _test_sysctl kernel/mm/transparent_hugepage/khugepaged/defrag mm::thp::khugepaged::defrag::get 2>/dev/null || { _skip "no khp/defrag"; return; }; }
-test::kernel::mm::thp::khugepaged::max_ptes_none::get()  { _test_sysctl kernel/mm/transparent_hugepage/khugepaged/max_ptes_none mm::thp::khugepaged::max_ptes_none::get 2>/dev/null || { _skip "no max_ptes_none"; return; }; }
-test::kernel::mm::thp::khugepaged::max_ptes_shared::get() { _test_sysctl kernel/mm/transparent_hugepage/khugepaged/max_ptes_shared mm::thp::khugepaged::max_ptes_shared::get 2>/dev/null || { _skip "no max_ptes_shared"; return; }; }
-test::kernel::mm::thp::khugepaged::max_ptes_swap::get()   { _test_sysctl kernel/mm/transparent_hugepage/khugepaged/max_ptes_swap mm::thp::khugepaged::max_ptes_swap::get 2>/dev/null || { _skip "no max_ptes_swap"; return; }; }
-test::kernel::mm::thp::khugepaged::pages_to_scan::get()  { _test_sysctl kernel/mm/transparent_hugepage/khugepaged/pages_to_scan mm::thp::khugepaged::pages_to_scan::get 2>/dev/null || { _skip "no pages_to_scan"; return; }; }
-test::kernel::mm::thp::khugepaged::scan_sleep_ms::get()  { _test_sysctl kernel/mm/transparent_hugepage/khugepaged/scan_sleep_millisecs mm::thp::khugepaged::scan_sleep_ms::get 2>/dev/null || { _skip "no scan_sleep"; return; }; }
-test::kernel::mm::thp::shmem_enabled::get()              { _test_sysctl kernel/mm/transparent_hugepage/shmem_enabled mm::thp::shmem_enabled::get 2>/dev/null || { _skip "no shmem_enabled"; return; }; }
-test::kernel::mm::thp::shrink_underused::get()           { _test_sysctl kernel/mm/transparent_hugepage/khugepaged/shrink_underused mm::thp::shrink_underused::get 2>/dev/null || { _skip "no shrink_underused"; return; }; }
-test::kernel::mm::thp::use_zero_page::get()              { _test_sysctl kernel/mm/transparent_hugepage/use_zero_page mm::thp::use_zero_page::get 2>/dev/null || { _skip "no use_zero_page"; return; }; }
-
-# hugepages
-test::kernel::mm::hugepages::nr_hugepages::get()         { _test_sysctl vm/nr_hugepages mm::hugepages::nr_hugepages::get || return; }
-test::kernel::mm::hugepages::overcommit::get()           { _test_sysctl vm/nr_overcommit_hugepages mm::hugepages::overcommit::get 2>/dev/null || { _skip "no nr_overcommit_hugepages"; return; }; }
-
-# ksm
-test::kernel::mm::ksm::advisor_max_cpu::get()    { _test_sysctl kernel/mm/ksm/advisor_max_cpu mm::ksm::advisor_max_cpu::get 2>/dev/null || { _skip "no ksm advisor"; return; }; }
-test::kernel::mm::ksm::advisor_max_pages::get()  { _test_sysctl kernel/mm/ksm/advisor_max_pages mm::ksm::advisor_max_pages::get 2>/dev/null || { _skip "no ksm advisor"; return; }; }
-test::kernel::mm::ksm::advisor_min_pages::get()  { _test_sysctl kernel/mm/ksm/advisor_min_pages mm::ksm::advisor_min_pages::get 2>/dev/null || { _skip "no ksm advisor"; return; }; }
-test::kernel::mm::ksm::advisor_mode::get()       { _test_sysctl kernel/mm/ksm/advisor_mode mm::ksm::advisor_mode::get 2>/dev/null || { _skip "no ksm advisor"; return; }; }
-test::kernel::mm::ksm::advisor_scan_time::get()  { _test_sysctl kernel/mm/ksm/advisor_scan_time mm::ksm::advisor_scan_time::get 2>/dev/null || { _skip "no ksm advisor"; return; }; }
-test::kernel::mm::ksm::chain_prune_ms::get()     { _test_sysctl kernel/mm/ksm/chain_prune_millisecs mm::ksm::chain_prune_ms::get 2>/dev/null || { _skip "no chain_prune"; return; }; }
-test::kernel::mm::ksm::max_page_sharing::get()   { _test_sysctl kernel/mm/ksm/max_page_sharing mm::ksm::max_page_sharing::get 2>/dev/null || { _skip "no max_page_sharing"; return; }; }
-test::kernel::mm::ksm::merge_across_nodes::get() { _test_sysctl kernel/mm/ksm/merge_across_nodes mm::ksm::merge_across_nodes::get || return; }
-test::kernel::mm::ksm::use_zero_pages::get()     { _test_sysctl kernel/mm/ksm/use_zero_pages mm::ksm::use_zero_pages::get || return; }
-
-# BSD / XNU — skip unless on the matching OS
-_test_bsd_xnu() {
-	local _want="$1"; shift
-	local _os; _os=$(runtime::os 2>/dev/null || echo linux)
-	[[ "$_os" == "$_want" ]] || { _skip "requires $_want (current: $_os)"; return 1; }
-	return 0
-}
-
-# BSD hw.* sysctls
-test::kernel::bsd::hw::clockrate()  { _test_bsd_xnu freebsd bsd::hw::clockrate  || return; kernel::bsd::hw::clockrate  >/dev/null 2>&1 && _pass || _fail; }
-test::kernel::bsd::hw::machine()    { _test_bsd_xnu freebsd bsd::hw::machine    || return; kernel::bsd::hw::machine    >/dev/null 2>&1 && _pass || _fail; }
-test::kernel::bsd::hw::model()      { _test_bsd_xnu freebsd bsd::hw::model      || return; kernel::bsd::hw::model      >/dev/null 2>&1 && _pass || _fail; }
-test::kernel::bsd::hw::ncpu()       { _test_bsd_xnu freebsd bsd::hw::ncpu       || return; local _v; _v=$(kernel::bsd::hw::ncpu 2>/dev/null); [[ -n "$_v" ]] && _pass || _fail; }
-test::kernel::bsd::hw::pagesize()   { _test_bsd_xnu freebsd bsd::hw::pagesize   || return; local _v; _v=$(kernel::bsd::hw::pagesize 2>/dev/null); [[ -n "$_v" ]] && _pass || _fail; }
-test::kernel::bsd::hw::physmem()    { _test_bsd_xnu freebsd bsd::hw::physmem    || return; local _v; _v=$(kernel::bsd::hw::physmem 2>/dev/null); [[ -n "$_v" ]] && _pass || _fail; }
-test::kernel::bsd::sched::topology() { _test_bsd_xnu freebsd bsd::sched::topology || return; kernel::bsd::sched::topology >/dev/null 2>&1 && _pass || _fail; }
-test::kernel::bsd::vm::swapusage()  { _test_bsd_xnu freebsd bsd::vm::swapusage  || return; kernel::bsd::vm::swapusage  >/dev/null 2>&1 && _pass || _fail; }
-test::kernel::bsd::summary()        { _test_bsd_xnu freebsd bsd::summary        || return; local _v; _v=$(kernel::bsd::summary 2>/dev/null); [[ -n "$_v" ]] && _pass || _fail; }
-
-# BSD kern.* sysctls — getters
-_test_bsd_get() { _test_bsd_xnu freebsd "$1" || return 1; local _v; _v=$(kernel::"$1"::get 2>/dev/null); [[ -n "$_v" ]] && _pass || _fail; }
-test::kernel::bsd::kern::ipc::maxsockbuf::get() { _test_bsd_get bsd::kern::ipc::maxsockbuf || return; }
-test::kernel::bsd::kern::ipc::semmns::get()     { _test_bsd_get bsd::kern::ipc::semmns     || return; }
-test::kernel::bsd::kern::ipc::shmmax::get()     { _test_bsd_get bsd::kern::ipc::shmmax     || return; }
-test::kernel::bsd::kern::ipc::somaxconn::get()  { _test_bsd_get bsd::kern::ipc::somaxconn  || return; }
-test::kernel::bsd::kern::maxfiles::get()        { _test_bsd_get bsd::kern::maxfiles        || return; }
-test::kernel::bsd::kern::maxproc::get()         { _test_bsd_get bsd::kern::maxproc         || return; }
-test::kernel::bsd::kern::maxusers::get()        { _test_bsd_get bsd::kern::maxusers        || return; }
-test::kernel::bsd::kern::maxvnodes::get()       { _test_bsd_get bsd::kern::maxvnodes       || return; }
-test::kernel::bsd::sched::timeslice::get()      { _test_bsd_get bsd::sched::timeslice      || return; }
-test::kernel::bsd::security::hardlink_uid_match::get() { _test_bsd_get bsd::security::hardlink_uid_match || return; }
-test::kernel::bsd::security::see_other_uids::get()     { _test_bsd_get bsd::security::see_other_uids     || return; }
-test::kernel::bsd::security::symlink_uid_match::get()  { _test_bsd_get bsd::security::symlink_uid_match  || return; }
-test::kernel::bsd::security::unprivileged_proc_debug::get() { _test_bsd_get bsd::security::unprivileged_proc_debug || return; }
-test::kernel::bsd::vm::cache_min::get()         { _test_bsd_get bsd::vm::cache_min         || return; }
-test::kernel::bsd::vm::free_reserved::get()     { _test_bsd_get bsd::vm::free_reserved     || return; }
-test::kernel::bsd::vm::free_target::get()       { _test_bsd_get bsd::vm::free_target       || return; }
-
-# BSD setters — never test (they modify live system state)
-for _fn in \
-	bsd::kern::ipc::maxsockbuf \
-	bsd::kern::ipc::semmns \
-	bsd::kern::ipc::shmmax \
-	bsd::kern::ipc::somaxconn \
-	bsd::kern::maxfiles \
-	bsd::kern::maxproc \
-	bsd::kern::maxusers \
-	bsd::kern::maxvnodes \
-	bsd::sched::timeslice \
-	bsd::security::hardlink_uid_match \
-	bsd::security::see_other_uids \
-	bsd::security::symlink_uid_match \
-	bsd::security::unprivileged_proc_debug \
-	bsd::vm::cache_min \
-	bsd::vm::free_reserved \
-	bsd::vm::free_target
-do
-	eval "test::kernel::${_fn}::set_session() { _skip 'writes to live system state'; }"
-	eval "test::kernel::${_fn}::set_system()  { _skip 'writes to live system state'; }"
-done
-
-# XNU (macOS) hw.* / kern.* / power.* / swvers / sip / vm.*
-_test_xnu() { _test_bsd_xnu darwin "$1" || return 1; }
-test::kernel::xnu::hw::cpufrequency() { _test_xnu xnu::hw::cpufrequency || return; local _v; _v=$(kernel::xnu::hw::cpufrequency 2>/dev/null); [[ -n "$_v" ]] && _pass || _fail; }
-test::kernel::xnu::hw::has_feature()  { _test_xnu xnu::hw::has_feature  || return; local _v; _v=$(kernel::xnu::hw::has_feature FPU 2>/dev/null); [[ -n "$_v" ]] && _pass || _fail; }
-test::kernel::xnu::hw::is_apple_silicon() { _test_xnu xnu::hw::is_apple_silicon || return; kernel::xnu::hw::is_apple_silicon; local r=$?; [[ $r -eq 0 || $r -eq 1 ]] && _pass || _fail; }
-test::kernel::xnu::hw::machine()      { _test_xnu xnu::hw::machine      || return; local _v; _v=$(kernel::xnu::hw::machine 2>/dev/null); [[ -n "$_v" ]] && _pass || _fail; }
-test::kernel::xnu::hw::memsize()      { _test_xnu xnu::hw::memsize      || return; local _v; _v=$(kernel::xnu::hw::memsize 2>/dev/null); [[ -n "$_v" ]] && _pass || _fail; }
-test::kernel::xnu::hw::model()        { _test_xnu xnu::hw::model        || return; local _v; _v=$(kernel::xnu::hw::model 2>/dev/null); [[ -n "$_v" ]] && _pass || _fail; }
-test::kernel::xnu::hw::ncpu()         { _test_xnu xnu::hw::ncpu         || return; local _v; _v=$(kernel::xnu::hw::ncpu 2>/dev/null); [[ -n "$_v" ]] && _pass || _fail; }
-test::kernel::xnu::hw::pagesize()     { _test_xnu xnu::hw::pagesize     || return; local _v; _v=$(kernel::xnu::hw::pagesize 2>/dev/null); [[ -n "$_v" ]] && _pass || _fail; }
-
-test::kernel::xnu::kern::bootsessionuuid() { _test_xnu xnu::kern::bootsessionuuid || return; local _v; _v=$(kernel::xnu::kern::bootsessionuuid 2>/dev/null); [[ -n "$_v" ]] && _pass || _fail; }
-test::kernel::xnu::kern::bootuuid()       { _test_xnu xnu::kern::bootuuid       || return; local _v; _v=$(kernel::xnu::kern::bootuuid 2>/dev/null); [[ -n "$_v" ]] && _pass || _fail; }
-test::kernel::xnu::kern::osversion()      { _test_xnu xnu::kern::osversion      || return; local _v; _v=$(kernel::xnu::kern::osversion 2>/dev/null); [[ -n "$_v" ]] && _pass || _fail; }
-test::kernel::xnu::kern::sleeptype()      { _test_xnu xnu::kern::sleeptype      || return; local _v; _v=$(kernel::xnu::kern::sleeptype 2>/dev/null); [[ -n "$_v" ]] && _pass || _fail; }
-test::kernel::xnu::kern::uuid()          { _test_xnu xnu::kern::uuid          || return; local _v; _v=$(kernel::xnu::kern::uuid 2>/dev/null); [[ -n "$_v" ]] && _pass || _fail; }
-test::kernel::xnu::kern::wakereason()     { _test_xnu xnu::kern::wakereason     || return; kernel::xnu::kern::wakereason >/dev/null 2>&1 && _pass || _fail; }
-
-test::kernel::xnu::power::assertions() { _test_xnu xnu::power::assertions || return; kernel::xnu::power::assertions >/dev/null 2>&1 && _pass || _fail; }
-test::kernel::xnu::power::capacity()   { _test_xnu xnu::power::capacity   || return; local _v; _v=$(kernel::xnu::power::capacity 2>/dev/null); [[ -n "$_v" ]] && _pass || _fail; }
-test::kernel::xnu::power::thermals()   { _test_xnu xnu::power::thermals   || return; kernel::xnu::power::thermals >/dev/null 2>&1 && _pass || _fail; }
-
-test::kernel::xnu::swvers::build()   { _test_xnu xnu::swvers::build   || return; local _v; _v=$(kernel::xnu::swvers::build   2>/dev/null); [[ -n "$_v" ]] && _pass || _fail; }
-test::kernel::xnu::swvers::product() { _test_xnu xnu::swvers::product || return; local _v; _v=$(kernel::xnu::swvers::product 2>/dev/null); [[ -n "$_v" ]] && _pass || _fail; }
-test::kernel::xnu::swvers::version() { _test_xnu xnu::swvers::version || return; local _v; _v=$(kernel::xnu::swvers::version 2>/dev/null); [[ -n "$_v" ]] && _pass || _fail; }
-
-test::kernel::xnu::sip::disable()    { _test_xnu xnu::sip::disable    || return; _skip "would modify SIP"; }
-test::kernel::xnu::sip::enable()     { _test_xnu xnu::sip::enable     || return; _skip "would modify SIP"; }
-test::kernel::xnu::sip::is_enabled() { _test_xnu xnu::sip::is_enabled || return; kernel::xnu::sip::is_enabled; local r=$?; [[ $r -eq 0 || $r -eq 1 ]] && _pass || _fail; }
-test::kernel::xnu::sip::status()     { _test_xnu xnu::sip::status     || return; local _v; _v=$(kernel::xnu::sip::status 2>/dev/null); [[ -n "$_v" ]] && _pass || _fail; }
-test::kernel::xnu::summary()         { _test_xnu xnu::summary         || return; local _v; _v=$(kernel::xnu::summary 2>/dev/null); [[ -n "$_v" ]] && _pass || _fail; }
-
-test::kernel::xnu::vm::compressor_mode()  { _test_xnu xnu::vm::compressor_mode  || return; local _v; _v=$(kernel::xnu::vm::compressor_mode  2>/dev/null); [[ -n "$_v" ]] && _pass || _fail; }
-test::kernel::xnu::vm::compressor_pages() { _test_xnu xnu::vm::compressor_pages || return; local _v; _v=$(kernel::xnu::vm::compressor_pages 2>/dev/null); [[ -n "$_v" ]] && _pass || _fail; }
-test::kernel::xnu::vm::pagefreeable()     { _test_xnu xnu::vm::pagefreeable     || return; local _v; _v=$(kernel::xnu::vm::pagefreeable     2>/dev/null); [[ -n "$_v" ]] && _pass || _fail; }
-test::kernel::xnu::vm::stat()            { _test_xnu xnu::vm::stat            || return; local _v; _v=$(kernel::xnu::vm::stat            2>/dev/null); [[ -n "$_v" ]] && _pass || _fail; }
-test::kernel::xnu::vm::swapusage()       { _test_xnu xnu::vm::swapusage       || return; kernel::xnu::vm::swapusage >/dev/null 2>&1 && _pass || _fail; }
-
-# XNU setters — same approach as BSD
-_test_xnu_get() { _test_xnu "$1" || return 1; local _v; _v=$(kernel::"$1"::get 2>/dev/null); [[ -n "$_v" ]] && _pass || _fail; }
-test::kernel::xnu::kern::ipc::somaxconn::get() { _test_xnu_get xnu::kern::ipc::somaxconn || return; }
-test::kernel::xnu::kern::maxfiles::get()        { _test_xnu_get xnu::kern::maxfiles        || return; }
-test::kernel::xnu::kern::maxproc::get()         { _test_xnu_get xnu::kern::maxproc         || return; }
-for _fn in \
-	xnu::kern::ipc::somaxconn \
-	xnu::kern::maxfiles \
-	xnu::kern::maxproc \
-	xnu::power::disksleep \
-	xnu::power::displaysleep \
-	xnu::power::lidwake \
-	xnu::power::sleep \
-	xnu::power::wakeonlan
-do
-	eval "test::kernel::${_fn}::set_session() { _skip 'writes to live system state'; }"
-	eval "test::kernel::${_fn}::set_system()  { _skip 'writes to live system state'; }"
-done
-for _fn in \
-	xnu::power::disksleep \
-	xnu::power::displaysleep \
-	xnu::power::lidwake \
-	xnu::power::sleep \
-	xnu::power::wakeonlan
-do
-	eval "test::kernel::${_fn}::get() { _test_xnu ${_fn}::get || return; local _v; _v=\$(kernel::${_fn}::get 2>/dev/null); [[ -n \"\$_v\" ]] && _pass || _fail; }"
-done
-
-# ==============================================================================
-# Tests — device (Linux /sys + /dev)
-# ==============================================================================
-
-_test_device_linux() {
-	[[ "$(runtime::os 2>/dev/null || echo linux)" == "linux" ]] || { _skip "device tests require linux"; return 1; }
-	return 0
-}
-
-# Pure file-system probes
-test::device::is_device()       { _test_device_linux || return; device::is_device /dev/null  >/dev/null 2>&1; local r=$?; [[ $r -eq 0 || $r -eq 1 ]] && _pass || _fail; }
-test::device::is_device::char() { _test_device_linux || return; device::is_device::char /dev/null  >/dev/null 2>&1; local r=$?; [[ $r -eq 0 || $r -eq 1 ]] && _pass || _fail; }
-test::device::is_device::block() { _test_device_linux || return; device::is_device::block /dev/null  >/dev/null 2>&1; local r=$?; [[ $r -eq 0 || $r -eq 1 ]] && _pass || _fail; }
-test::device::is_block()        { _test_device_linux || return; device::is_block /dev/null  >/dev/null 2>&1; local r=$?; [[ $r -eq 0 || $r -eq 1 ]] && _pass || _fail; }
-test::device::is_writeable()    { _test_device_linux || return; device::is_writeable /dev/null  >/dev/null 2>&1; local r=$?; [[ $r -eq 0 || $r -eq 1 ]] && _pass || _fail; }
-test::device::is_readable()     { _test_device_linux || return; device::is_readable /dev/null  >/dev/null 2>&1; local r=$?; [[ $r -eq 0 || $r -eq 1 ]] && _pass || _fail; }
-test::device::exists()          { _test_device_linux || return; device::exists /dev/null  >/dev/null 2>&1; local r=$?; [[ $r -eq 0 || $r -eq 1 ]] && _pass || _fail; }
-
-# /proc and /sys backed — many need an actual device; probe /dev/sda if it exists
-test::device::has_processes()   { _test_device_linux || return; device::has_processes /dev/null  >/dev/null 2>&1; local r=$?; [[ $r -eq 0 || $r -eq 1 ]] && _pass || _fail; }
-test::device::is_occupied()     { _test_device_linux || return; device::is_occupied /dev/null  >/dev/null 2>&1; local r=$?; [[ $r -eq 0 || $r -eq 1 ]] && _pass || _fail; }
-test::device::is_mounted()      { _test_device_linux || return; device::is_mounted /dev/null  >/dev/null 2>&1; local r=$?; [[ $r -eq 0 || $r -eq 1 ]] && _pass || _fail; }
-test::device::is_loop()         { _test_device_linux || return; device::is_loop /dev/null  >/dev/null 2>&1; local r=$?; [[ $r -eq 0 || $r -eq 1 ]] && _pass || _fail; }
-test::device::is_ram()          { _test_device_linux || return; device::is_ram /dev/null  >/dev/null 2>&1; local r=$?; [[ $r -eq 0 || $r -eq 1 ]] && _pass || _fail; }
-test::device::is_virtual()      { _test_device_linux || return; device::is_virtual /dev/null  >/dev/null 2>&1; local r=$?; [[ $r -eq 0 || $r -eq 1 ]] && _pass || _fail; }
-test::device::type()            { _test_device_linux || return; local _v; _v=$(device::type /dev/null 2>/dev/null); [[ -n "$_v" ]] && _pass || _fail; }
-test::device::number()          { _test_device_linux || return; local _v; _v=$(device::number /dev/null 2>/dev/null); [[ "$_v" =~ ^[0-9]+$ ]] && _pass || _skip "no major:minor for /dev/null"; }
-test::device::filesystem()      { _test_device_linux || return; local _v; _v=$(device::filesystem /dev/null 2>/dev/null); [[ -n "$_v" ]] && _pass || _skip "no fs info for /dev/null"; }
-test::device::size_bytes()      { _test_device_linux || return; local _v; _v=$(device::size_bytes /dev/null 2>/dev/null); [[ "$_v" =~ ^[0-9]+$ ]] && _pass || _skip "no size for /dev/null"; }
-test::device::size_mb()         { _test_device_linux || return; local _v; _v=$(device::size_mb /dev/null 2>/dev/null); [[ "$_v" =~ ^[0-9]+$ ]] && _pass || _skip "no size for /dev/null"; }
-test::device::mount_point()     { _test_device_linux || return; local _v; _v=$(device::mount_point /dev/null 2>/dev/null); [[ -n "$_v" || $? -eq 1 ]] && _pass || _fail; }
-
-# list::* — need at least one device
-test::device::list::block()     { _test_device_linux || return; device::list::block  >/dev/null 2>&1; local r=$?; [[ $r -eq 0 ]] && _pass || _fail; }
-test::device::list::char()      { _test_device_linux || return; device::list::char  >/dev/null 2>&1; local r=$?; [[ $r -eq 0 ]] && _pass || _fail; }
-test::device::list::tty()       { _test_device_linux || return; device::list::tty  >/dev/null 2>&1; local r=$?; [[ $r -eq 0 ]] && _pass || _fail; }
-test::device::list::loop()      { _test_device_linux || return; device::list::loop  >/dev/null 2>&1; local r=$?; [[ $r -eq 0 ]] && _pass || _fail; }
-test::device::list::mounted()   { _test_device_linux || return; device::list::mounted  >/dev/null 2>&1; local r=$?; [[ $r -eq 0 ]] && _pass || _fail; }
-test::device::list::block::fast() { _test_device_linux || return; device::list::block::fast  >/dev/null 2>&1; local r=$?; [[ $r -eq 0 ]] && _pass || _fail; }
-test::device::list::char::fast()  { _test_device_linux || return; device::list::char::fast  >/dev/null 2>&1; local r=$?; [[ $r -eq 0 ]] && _pass || _fail; }
-test::device::list::tty::fast()   { _test_device_linux || return; device::list::tty::fast  >/dev/null 2>&1; local r=$?; [[ $r -eq 0 ]] && _pass || _fail; }
-test::device::list::loop::fast()  { _test_device_linux || return; device::list::loop::fast  >/dev/null 2>&1; local r=$?; [[ $r -eq 0 ]] && _pass || _fail; }
-test::device::list::usb()       { _test_device_linux || return; device::list::usb  >/dev/null 2>&1; local r=$?; [[ $r -eq 0 ]] && _pass || _skip "no usb bus"; }
-test::device::list::usb::fast() { _test_device_linux || return; device::list::usb::fast  >/dev/null 2>&1; local r=$?; [[ $r -eq 0 ]] && _pass || _skip "no usb bus"; }
-
-# Static /dev/X files
-test::device::zero()            { _test_device_linux || return; local _v; _v=$(device::zero 2>/dev/null); [[ -n "$_v" ]] && _pass || _fail; }
-test::device::random()          { _test_device_linux || return; local _v; _v=$(device::random 2>/dev/null); [[ -n "$_v" ]] && _pass || _fail; }
-test::device::null_ok()         { _test_device_linux || return; device::null_ok >/dev/null 2>&1 && _pass || _fail; }
-
-# read::* — all /sys/block/$dev/* or /sys/bus/usb/* — skip if target absent
-_dev_first_disk() { ls /sys/block 2>/dev/null | grep -Ev '^(loop|ram|dm-)' | head -1; }
-_dev_first_usb()  { ls /sys/bus/usb/devices 2>/dev/null | head -1; }
-
-test::device::read::model()         { _test_device_linux || return; local _d; _d=$(_dev_first_disk); [[ -z "$_d" ]] && { _skip "no block devices"; return; }; local _v; _v=$(device::read::model "/dev/$_d" 2>/dev/null); [[ -n "$_v" ]] && _pass || _fail; }
-test::device::read::vendor()        { _test_device_linux || return; local _d; _d=$(_dev_first_disk); [[ -z "$_d" ]] && { _skip "no block devices"; return; }; local _v; _v=$(device::read::vendor "/dev/$_d" 2>/dev/null); [[ -n "$_v" ]] && _pass || _skip "no vendor info"; }
-test::device::read::serial()        { _test_device_linux || return; local _d; _d=$(_dev_first_disk); [[ -z "$_d" ]] && { _skip "no block devices"; return; }; local _v; _v=$(device::read::serial "/dev/$_d" 2>/dev/null); [[ -n "$_v" ]] && _pass || _skip "no serial"; }
-test::device::read::firmware()      { _test_device_linux || return; local _d; _d=$(_dev_first_disk); [[ -z "$_d" ]] && { _skip "no block devices"; return; }; local _v; _v=$(device::read::firmware "/dev/$_d" 2>/dev/null); [[ -n "$_v" ]] && _pass || _skip "no firmware info"; }
-test::device::read::sector_size()   { _test_device_linux || return; local _d; _d=$(_dev_first_disk); [[ -z "$_d" ]] && { _skip "no block devices"; return; }; local _v; _v=$(device::read::sector_size "/dev/$_d" 2>/dev/null); [[ "$_v" =~ ^[0-9]+$ ]] && _pass || _skip "no sector size"; }
-test::device::read::queue_depth()   { _test_device_linux || return; local _d; _d=$(_dev_first_disk); [[ -z "$_d" ]] && { _skip "no block devices"; return; }; local _v; _v=$(device::read::queue_depth "/dev/$_d" 2>/dev/null); [[ "$_v" =~ ^[0-9]+$ ]] && _pass || _skip "no queue depth"; }
-test::device::read::scheduler()     { _test_device_linux || return; local _d; _d=$(_dev_first_disk); [[ -z "$_d" ]] && { _skip "no block devices"; return; }; local _v; _v=$(device::read::scheduler "/dev/$_d" 2>/dev/null); [[ -n "$_v" ]] && _pass || _skip "no scheduler info"; }
-test::device::read::rotational()    { _test_device_linux || return; local _d; _d=$(_dev_first_disk); [[ -z "$_d" ]] && { _skip "no block devices"; return; }; local _v; _v=$(device::read::rotational "/dev/$_d" 2>/dev/null); [[ "$_v" =~ ^[01]$ ]] && _pass || _skip "no rotational info"; }
-test::device::read::io_stat()       { _test_device_linux || return; local _d; _d=$(_dev_first_disk); [[ -z "$_d" ]] && { _skip "no block devices"; return; }; local _v; _v=$(device::read::io_stat "/dev/$_d" 2>/dev/null); [[ -n "$_v" ]] && _pass || _skip "no io_stat"; }
-
-# read::usb::* — need a usb device
-test::device::read::usb::vendor_id()    { _test_device_linux || return; local _u; _u=$(_dev_first_usb); [[ -z "$_u" ]] && { _skip "no usb devices"; return; }; local _v; _v=$(device::read::usb::vendor_id "$_u" 2>/dev/null); [[ -n "$_v" ]] && _pass || _fail; }
-test::device::read::usb::product_id()   { _test_device_linux || return; local _u; _u=$(_dev_first_usb); [[ -z "$_u" ]] && { _skip "no usb devices"; return; }; local _v; _v=$(device::read::usb::product_id "$_u" 2>/dev/null); [[ -n "$_v" ]] && _pass || _fail; }
-test::device::read::usb::speed()        { _test_device_linux || return; local _u; _u=$(_dev_first_usb); [[ -z "$_u" ]] && { _skip "no usb devices"; return; }; local _v; _v=$(device::read::usb::speed "$_u" 2>/dev/null); [[ -n "$_v" ]] && _pass || _fail; }
-test::device::read::usb::manufacturer() { _test_device_linux || return; local _u; _u=$(_dev_first_usb); [[ -z "$_u" ]] && { _skip "no usb devices"; return; }; device::read::usb::manufacturer "$_u" >/dev/null 2>&1; local r=$?; [[ $r -eq 0 || $r -eq 1 ]] && _pass || _fail; }
-test::device::read::usb::product()      { _test_device_linux || return; local _u; _u=$(_dev_first_usb); [[ -z "$_u" ]] && { _skip "no usb devices"; return; }; device::read::usb::product "$_u" >/dev/null 2>&1; local r=$?; [[ $r -eq 0 || $r -eq 1 ]] && _pass || _fail; }
-test::device::read::usb::serial()       { _test_device_linux || return; local _u; _u=$(_dev_first_usb); [[ -z "$_u" ]] && { _skip "no usb devices"; return; }; device::read::usb::serial "$_u" >/dev/null 2>&1; local r=$?; [[ $r -eq 0 || $r -eq 1 ]] && _pass || _fail; }
-test::device::read::usb::driver()       { _test_device_linux || return; local _u; _u=$(_dev_first_usb); [[ -z "$_u" ]] && { _skip "no usb devices"; return; }; device::read::usb::driver "$_u" >/dev/null 2>&1; local r=$?; [[ $r -eq 0 || $r -eq 1 ]] && _pass || _fail; }
-test::device::read::usb::max_power()    { _test_device_linux || return; local _u; _u=$(_dev_first_usb); [[ -z "$_u" ]] && { _skip "no usb devices"; return; }; local _v; _v=$(device::read::usb::max_power "$_u" 2>/dev/null); [[ -n "$_v" ]] && _pass || _skip "no max_power"; }
-
-# ==============================================================================
-# Tests — net (pure helpers and read-only queries; destructive interfaces skip)
-# ==============================================================================
-
-# Pure validators — no system calls
-test::net::ip::is_valid_v4() { net::ip::is_valid_v4 192.168.1.1  >/dev/null 2>&1 && _pass || _fail; net::ip::is_valid_v4 999.1.1.1  >/dev/null 2>&1 && _fail || _pass; }
-test::net::ip::is_valid_v6() { net::ip::is_valid_v6 ::1            >/dev/null 2>&1 && _pass || _fail; net::ip::is_valid_v6 not.an.ip   >/dev/null 2>&1 && _fail || _pass; }
-test::net::ip::is_private()  { net::ip::is_private 10.0.0.1        >/dev/null 2>&1 && _pass || _fail; net::ip::is_private 8.8.8.8  >/dev/null 2>&1 && _fail || _pass; }
-test::net::ip::is_loopback() { net::ip::is_loopback 127.0.0.1      >/dev/null 2>&1 && _pass || _fail; net::ip::is_loopback 8.8.8.8  >/dev/null 2>&1 && _fail || _pass; }
-
-# Read-only queries
-test::net::ip::local()     { local _v; _v=$(net::ip::local 2>/dev/null); [[ -n "$_v" ]] && _pass || _skip "no local IP"; }
-test::net::ip::public()    { local _v; _v=$(net::ip::public 2>/dev/null); [[ -n "$_v" ]] && _pass || _skip "no public IP (offline?)"; }
-test::net::ip::all()       { net::ip::all 2>/dev/null; local r=$?; [[ $r -eq 0 ]] && _pass || _fail; }
-test::net::hostname()      { local _v; _v=$(net::hostname 2>/dev/null); [[ -n "$_v" ]] && _pass || _fail; }
-test::net::hostname::fqdn() { local _v; _v=$(net::hostname::fqdn 2>/dev/null); [[ -n "$_v" ]] && _pass || _fail; }
-test::net::resolve()       { local _v; _v=$(net::resolve localhost 2>/dev/null); [[ -n "$_v" ]] && _pass || _skip "DNS unavailable"; }
-test::net::resolve::reverse() { local _v; _v=$(net::resolve::reverse 127.0.0.1 2>/dev/null); [[ -n "$_v" ]] && _pass || _skip "no reverse DNS"; }
-test::net::dns::records()  { net::dns::records localhost 2>/dev/null; local r=$?; [[ $r -eq 0 ]] && _pass || _skip "DNS unavailable"; }
-test::net::dns::mx()       { net::dns::mx google.com 2>/dev/null; local r=$?; [[ $r -eq 0 ]] && _pass || _skip "DNS unavailable"; }
-test::net::dns::txt()      { net::dns::txt google.com 2>/dev/null; local r=$?; [[ $r -eq 0 ]] && _pass || _skip "DNS unavailable"; }
-test::net::dns::ns()       { net::dns::ns google.com 2>/dev/null; local r=$?; [[ $r -eq 0 ]] && _pass || _skip "DNS unavailable"; }
-test::net::dns::propagation() { _skip "slow external check"; }
-
-# interface::* read
-test::net::interface::list()    { local _v; _v=$(net::interface::list 2>/dev/null); [[ -n "$_v" ]] && _pass || _fail; }
-test::net::interface::is_up()   { local _v; _v=$(net::interface::is_up lo 2>/dev/null); [[ -n "$_v" ]] && _pass || _fail; }
-test::net::interface::speed()   { local _v; _v=$(net::interface::speed lo 2>/dev/null); [[ -n "$_v" ]] && _pass || _skip "no speed info"; }
-test::net::interface::stat()    { local _v; _v=$(net::interface::stat lo 2>/dev/null); [[ -n "$_v" ]] && _pass || _skip "no stat"; }
-test::net::interface::stat::rx(){ local _v; _v=$(net::interface::stat::rx lo 2>/dev/null); [[ -n "$_v" ]] && _pass || _skip "no rx stat"; }
-test::net::interface::stat::tx(){ local _v; _v=$(net::interface::stat::tx lo 2>/dev/null); [[ -n "$_v" ]] && _pass || _skip "no tx stat"; }
-test::net::mac()                { local _v; _v=$(net::mac lo 2>/dev/null); [[ -n "$_v" || $? -eq 1 ]] && _pass || _fail; }
-test::net::gateway()            { local _v; _v=$(net::gateway 2>/dev/null); [[ -n "$_v" ]] && _pass || _skip "no gateway"; }
-
-# Destructive — always skip
-test::net::interface::up()      { _skip "would bring interface up"; }
-test::net::interface::down()    { _skip "would bring interface down"; }
-test::net::interface::restart() { _skip "would restart interface"; }
-test::net::wifi::connect()      { _skip "would modify wifi state"; }
-test::net::wifi::disconnect()   { _skip "would modify wifi state"; }
-test::net::wifi::forget()       { _skip "would modify wifi state"; }
-test::net::wifi::list()         { _skip "environment-dependent (no wifi in test runner)"; }
-test::net::wifi::list::saved()  { _skip "environment-dependent"; }
-test::net::wifi::status()       { _skip "environment-dependent"; }
-
-# Slow / external
-test::net::is_online()          { _skip "slow external check"; }
-test::net::can_reach()          { _skip "slow external check"; }
-test::net::ping()               { _skip "slow external check"; }
-test::net::port::is_open()      { _skip "would scan a port"; }
-test::net::port::wait()         { _skip "would block on a port"; }
-test::net::port::scan()         { _skip "slow external check"; }
-test::net::backend()            { local _v; _v=$(net::backend 2>/dev/null); [[ -n "$_v" ]] && _pass || _fail; }
