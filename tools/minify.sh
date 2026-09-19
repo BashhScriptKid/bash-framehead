@@ -250,7 +250,9 @@ _needs_space() {
 
     (( brace_expand )) && return 1
 
-    [[ "$prev_type" == WORD && "$prev_val" == *'[' && "$prev_val" != *'[[' ]] && return 1
+    # Array subscript: prev WORD ends with a single `[` attached to a name
+    # (e.g. arr[). A standalone `[` (the test builtin) must keep its space.
+    [[ "$prev_type" == WORD && "$prev_val" == *'[' && "$prev_val" != '[' && "$prev_val" != *'[[' ]] && return 1
     [[ "$curr_type" == WORD && "$curr_val" =~ ^\](\+?=) && "$prev_type" != OP ]] && return 1
 
     if (( in_cond )); then
@@ -262,7 +264,7 @@ _needs_space() {
 
     local _assign_lhs=''
     (( in_cond == 0 )) && [[ "$prev_type" == WORD ]] && \
-        [[ "$prev_val" =~ ([a-zA-Z0-9_]|\]|\+)=$ ]] && \
+        [[ "$prev_val" =~ ^[a-zA-Z_][a-zA-Z0-9_]*(\[[^]]*\])?\+?=$ ]] && \
         _assign_lhs=1
 
     if [[ -n "$_assign_lhs" ]]; then
@@ -504,6 +506,18 @@ minify() {
         if [[ "$type" == "OP" && "$val" == $'\n' ]]; then
             # Backslash continuation
             if [[ "$prev_type" == "OP" && "$prev_val" == '\' ]]; then
+                parts[-1]="${parts[-1]%\\}"
+                parts+=(" "); _last_was_space=1
+                prev_type=""
+                prev_val=""
+                _update_depth "$type" "$val"
+                continue
+            fi
+            # Fallback: the line-continuation pre-scan can miss a joining when
+            # its quote state desyncs (e.g. awk inside $( )). The word scanner
+            # then folds the trailing `\` into the last token, so strip a
+            # trailing continuation backslash here rather than emit `\;`.
+            if (( ${#parts[@]} )) && [[ "${parts[-1]: -1}" == '\' ]]; then
                 parts[-1]="${parts[-1]%\\}"
                 parts+=(" "); _last_was_space=1
                 prev_type=""
