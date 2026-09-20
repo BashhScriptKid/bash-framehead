@@ -238,6 +238,7 @@ tokenise() {
     local _cmd_pos=1    # 1=command position ({ is block delimiter); 0=word position ({ may be brace expansion)
     local _brace_depth=0  # depth of brace blocks ({ cmd; }); 0 means } is a word char
     local _array_depth=0 _array_start_off=0 _array_saved_tc=0 _array_name=""  # array-assignment name=(...) folding
+    local _lit_out=""   # scratch output for _lit (avoids a per-token $() fork)
 
     # --------------------------------------------------------------------------
     # _emit — append one token
@@ -284,14 +285,15 @@ tokenise() {
     }
 
     # --------------------------------------------------------------------------
-    # _lit — replace control characters with escape sequences for storage
+    # _lit — replace control characters with escape sequences for storage.
+    # Writes into _lit_out (NOT stdout) so callers avoid a $() fork per token.
     # --------------------------------------------------------------------------
     _lit() {
         local s="$1"
         s="${s//\\/\\\\}"
         s="${s//$'\n'/\\n}"
         s="${s//$'\t'/\\t}"
-        printf '%s' "$s"
+        printf -v _lit_out '%s' "$s"
     }
 
     # --------------------------------------------------------------------------
@@ -384,7 +386,8 @@ tokenise() {
                 # Stack empty — closed the root "
                 if (( ${#_dq_stack[@]} == 0 )); then
                     _pos=$(( i + 1 ))
-                    _emit STRING_DQ "$(_lit "${_src:$((_dq_s+1)):$(( i - _dq_s - 1 ))}")"
+                    _lit "${_src:$((_dq_s+1)):$(( i - _dq_s - 1 ))}"
+                    _emit STRING_DQ "$_lit_out"
                     return 0
                 fi
                 (( i++ ))
@@ -400,7 +403,8 @@ tokenise() {
         done
         # EOL without closing " — emit partial, signal continuation
         _pos=${#_src}
-        _emit STRING_DQ "$(_lit "${_src:$((_dq_s+1))}")"
+        _lit "${_src:$((_dq_s+1))}"
+        _emit STRING_DQ "$_lit_out"
         return 94
     }
 
@@ -487,8 +491,8 @@ tokenise() {
             _as_abs_end=$(( _src_offset + _close_pos + 1 ))
             _pos=$(( _close_pos + 1 ))
         fi
-        _emit "$_as_type" \
-            "$(_lit "${_full_src:_as_abs_start:_as_abs_end - _as_abs_start}")"
+        _lit "${_full_src:_as_abs_start:_as_abs_end - _as_abs_start}"
+        _emit "$_as_type" "$_lit_out"
     }
 
     _arith() { _arith_scan 3 ARITH; }
@@ -793,7 +797,8 @@ tokenise() {
                             _src_offset=$(( ${#_full_src} - ${#_src} - 1 ))
                         fi
                         unset _src_offset_set
-                        _emit "$_emit_type" "${_val_prefix}$(_lit "$body")"
+                        _lit "$body"
+                        _emit "$_emit_type" "${_val_prefix}${_lit_out}"
                         return 0
                     fi
                     # Pop frame — restore parent dq_stack and case depth
@@ -841,7 +846,8 @@ tokenise() {
         (( ${#_pending_hd_marker[@]} > 0 )) && _drain_subshell_hd
         _pos=${#_src}
         _src_offset=$(( ${#_full_src} - ${#_src} - 1 ))
-        _emit "$_emit_type" "${_val_prefix}$(_lit "$body")"
+        _lit "$body"
+        _emit "$_emit_type" "${_val_prefix}${_lit_out}"
         return 94
     }
 
@@ -1202,7 +1208,8 @@ tokenise() {
         local body="$_hd_collected"
         # Empty body with one empty line emits "\n"; no lines emits "".
         [[ "$_hd_had_line" == true && -z "$body" ]] && body=$'\n'
-        _emit HEREDOC_BODY "$(_lit "$body")"
+        _lit "$body"
+        _emit HEREDOC_BODY "$_lit_out"
         $_hd_found && _emit HEREDOC_TAIL "$_hd_tail"
     }
 
@@ -1878,6 +1885,9 @@ tokenise() {
                 fi
                 (( _hbl_i++ )); continue
             fi
+            # A heredoc needs a `<<`; skip the per-char scan for lines without
+            # one (the vast majority), which is where this pass spent its time.
+            [[ "$_hbl_line" == *"<<"* ]] || { (( _hbl_i++ )); continue; }
             # Scan the line for << or <<- (outside quotes)
             local _hbl_j=0 _hbl_len=${#_hbl_line}
             _hbl_sq=0; _hbl_dq=0; _hbl_sub=0
@@ -2005,54 +2015,70 @@ tokenise() {
                     elif [[ "$_lc_c" == '`' ]]; then unset '_lc_stack[-1]'; (( _lc_j++ ))
                     else (( _lc_j++ )); fi ;;
                 dq)
-                    if [[ "$_lc_c" == '\' ]]; then (( _lc_j += 2 ))
-                    elif [[ "$_lc_c" == '"' ]]; then unset '_lc_stack[-1]'; (( _lc_j++ ))
-                    elif [[ "$_lc_c" == '$' && "${_lc_line:_lc_j+1:1}" == '(' ]]; then
-                        if [[ "${_lc_line:_lc_j+2:1}" == '(' ]]; then _lc_stack+=(sub sub); (( _lc_j += 3 ))
-                        else _lc_stack+=(sub); (( _lc_j += 2 )); fi
-                    elif [[ "$_lc_c" == '$' && "${_lc_line:_lc_j+1:1}" == '{' ]]; then
-                        _lc_stack+=(param); (( _lc_j += 2 ))
-                    elif [[ "$_lc_c" == '`' ]]; then _lc_stack+=(bq); (( _lc_j++ ))
-                    else (( _lc_j++ )); fi ;;
+                    case "$_lc_c" in
+                        '\') (( _lc_j += 2 )) ;;
+                        '"') unset '_lc_stack[-1]'; (( _lc_j++ )) ;;
+                        '`') _lc_stack+=(bq); (( _lc_j++ )) ;;
+                        '$')
+                            case "${_lc_line:_lc_j+1:1}" in
+                                '(') if [[ "${_lc_line:_lc_j+2:1}" == '(' ]]; then _lc_stack+=(sub sub); (( _lc_j += 3 ))
+                                     else _lc_stack+=(sub); (( _lc_j += 2 )); fi ;;
+                                '{') _lc_stack+=(param); (( _lc_j += 2 )) ;;
+                                *) (( _lc_j++ )) ;;
+                            esac ;;
+                        *) (( _lc_j++ )) ;;
+                    esac ;;
                 param)
-                    if [[ "$_lc_c" == '\' ]]; then (( _lc_j += 2 ))
-                    elif [[ "$_lc_c" == '}' ]]; then unset '_lc_stack[-1]'; (( _lc_j++ ))
-                    elif [[ "$_lc_c" == '{' ]]; then _lc_stack+=(param); (( _lc_j++ ))
-                    elif [[ "$_lc_c" == "'" ]]; then _lc_stack+=(sq); (( _lc_j++ ))
-                    elif [[ "$_lc_c" == '"' ]]; then _lc_stack+=(dq); (( _lc_j++ ))
-                    elif [[ "$_lc_c" == '$' && "${_lc_line:_lc_j+1:1}" == '(' ]]; then
-                        if [[ "${_lc_line:_lc_j+2:1}" == '(' ]]; then _lc_stack+=(sub sub); (( _lc_j += 3 ))
-                        else _lc_stack+=(sub); (( _lc_j += 2 )); fi
-                    else (( _lc_j++ )); fi ;;
+                    case "$_lc_c" in
+                        '\') (( _lc_j += 2 )) ;;
+                        '}') unset '_lc_stack[-1]'; (( _lc_j++ )) ;;
+                        '{') _lc_stack+=(param); (( _lc_j++ )) ;;
+                        "'") _lc_stack+=(sq); (( _lc_j++ )) ;;
+                        '"') _lc_stack+=(dq); (( _lc_j++ )) ;;
+                        '$')
+                            case "${_lc_line:_lc_j+1:1}" in
+                                '(') if [[ "${_lc_line:_lc_j+2:1}" == '(' ]]; then _lc_stack+=(sub sub); (( _lc_j += 3 ))
+                                     else _lc_stack+=(sub); (( _lc_j += 2 )); fi ;;
+                                *) (( _lc_j++ )) ;;
+                            esac ;;
+                        *) (( _lc_j++ )) ;;
+                    esac ;;
                 sub)
-                    if [[ "$_lc_c" == '\' ]]; then (( _lc_j += 2 ))
-                    elif [[ "$_lc_c" == "'" ]]; then _lc_stack+=(sq); (( _lc_j++ ))
-                    elif [[ "$_lc_c" == '"' ]]; then _lc_stack+=(dq); (( _lc_j++ ))
-                    elif [[ "$_lc_c" == '$' && "${_lc_line:_lc_j+1:1}" == '(' ]]; then
-                        if [[ "${_lc_line:_lc_j+2:1}" == '(' ]]; then _lc_stack+=(sub sub); (( _lc_j += 3 ))
-                        else _lc_stack+=(sub); (( _lc_j += 2 )); fi
-                    elif [[ "$_lc_c" == '$' && "${_lc_line:_lc_j+1:1}" == '{' ]]; then
-                        _lc_stack+=(param); (( _lc_j += 2 ))
-                    elif [[ "$_lc_c" == '`' ]]; then _lc_stack+=(bq); (( _lc_j++ ))
-                    elif [[ "$_lc_c" == '(' ]]; then _lc_stack+=(sub); (( _lc_j++ ))
-                    elif [[ "$_lc_c" == ')' ]]; then unset '_lc_stack[-1]'; (( _lc_j++ ))
-                    elif [[ "$_lc_c" == '#' ]]; then _lc_comment=1; break
-                    else (( _lc_j++ )); fi ;;
+                    case "$_lc_c" in
+                        '\') (( _lc_j += 2 )) ;;
+                        "'") _lc_stack+=(sq); (( _lc_j++ )) ;;
+                        '"') _lc_stack+=(dq); (( _lc_j++ )) ;;
+                        '`') _lc_stack+=(bq); (( _lc_j++ )) ;;
+                        '(') _lc_stack+=(sub); (( _lc_j++ )) ;;
+                        ')') unset '_lc_stack[-1]'; (( _lc_j++ )) ;;
+                        '#') _lc_comment=1; break ;;
+                        '$')
+                            case "${_lc_line:_lc_j+1:1}" in
+                                '(') if [[ "${_lc_line:_lc_j+2:1}" == '(' ]]; then _lc_stack+=(sub sub); (( _lc_j += 3 ))
+                                     else _lc_stack+=(sub); (( _lc_j += 2 )); fi ;;
+                                '{') _lc_stack+=(param); (( _lc_j += 2 )) ;;
+                                *) (( _lc_j++ )) ;;
+                            esac ;;
+                        *) (( _lc_j++ )) ;;
+                    esac ;;
                 *)  # top
-                    if [[ "$_lc_c" == '\' ]]; then (( _lc_j += 2 ))
-                    elif [[ "$_lc_c" == "'" ]]; then _lc_stack+=(sq); (( _lc_j++ ))
-                    elif [[ "$_lc_c" == '"' ]]; then _lc_stack+=(dq); (( _lc_j++ ))
-                    elif [[ "$_lc_c" == '$' && "${_lc_line:_lc_j+1:1}" == "'" ]]; then
-                        _lc_stack+=(ansi); (( _lc_j += 2 ))
-                    elif [[ "$_lc_c" == '$' && "${_lc_line:_lc_j+1:1}" == '(' ]]; then
-                        if [[ "${_lc_line:_lc_j+2:1}" == '(' ]]; then _lc_stack+=(sub sub); (( _lc_j += 3 ))
-                        else _lc_stack+=(sub); (( _lc_j += 2 )); fi
-                    elif [[ "$_lc_c" == '$' && "${_lc_line:_lc_j+1:1}" == '{' ]]; then
-                        _lc_stack+=(param); (( _lc_j += 2 ))
-                    elif [[ "$_lc_c" == '`' ]]; then _lc_stack+=(bq); (( _lc_j++ ))
-                    elif [[ "$_lc_c" == '(' ]]; then _lc_stack+=(sub); (( _lc_j++ ))
-                    elif [[ "$_lc_c" == '#' ]]; then _lc_comment=1; break
-                    else (( _lc_j++ )); fi ;;
+                    case "$_lc_c" in
+                        '\') (( _lc_j += 2 )) ;;
+                        "'") _lc_stack+=(sq); (( _lc_j++ )) ;;
+                        '"') _lc_stack+=(dq); (( _lc_j++ )) ;;
+                        '`') _lc_stack+=(bq); (( _lc_j++ )) ;;
+                        '(') _lc_stack+=(sub); (( _lc_j++ )) ;;
+                        '#') _lc_comment=1; break ;;
+                        '$')
+                            case "${_lc_line:_lc_j+1:1}" in
+                                "'") _lc_stack+=(ansi); (( _lc_j += 2 )) ;;
+                                '(') if [[ "${_lc_line:_lc_j+2:1}" == '(' ]]; then _lc_stack+=(sub sub); (( _lc_j += 3 ))
+                                     else _lc_stack+=(sub); (( _lc_j += 2 )); fi ;;
+                                '{') _lc_stack+=(param); (( _lc_j += 2 )) ;;
+                                *) (( _lc_j++ )) ;;
+                            esac ;;
+                        *) (( _lc_j++ )) ;;
+                    esac ;;
             esac
         done
         # \<NL> joins lines everywhere except inside '...', $'...' and comments.
