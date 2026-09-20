@@ -564,10 +564,11 @@ minify() {
             elif [[ -n "$prev_type" ]] && (( !_last_was_space )); then
                 if (( i < _mf_count )); then
                     local _nt="${_mf_type[i]}" _nv="${_mf_val[i]}"
-                    # Preserve newline for else\nif → elif
+                    # `else` cannot be followed by `;`, so join to `else if`
+                    # with a space (a newline here would needlessly add a line).
                     if [[ "$prev_val" == "else" && "$_nt" == "WORD" && "$_nv" == "if" ]]; then
-                        parts+=($'\n'); _last_was_space=1
-                        prev_type="OP"; prev_val=$'\n'
+                        parts+=(" "); _last_was_space=1
+                        prev_type="OP"; prev_val=" "
                     elif (( ! _prev_case_pat_close )) && \
                          ! _skip_semi "$prev_type" "$prev_val" "$_nt" "$_nv"; then
                         parts+=("; "); _last_was_space=1
