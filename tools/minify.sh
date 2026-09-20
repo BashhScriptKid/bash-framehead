@@ -209,23 +209,26 @@ _skip_semi() {
     local prev_type="$1" prev_val="$2" curr_type="$3" curr_val="$4"
 
     [[ "$curr_type" == "COMMENT" ]] && return 0
-    [[ "$prev_type" == "OP" && "$prev_val" == ';' ]] && return 0
-    [[ "$curr_type" == "REGEX_PATTERN" ]] && return 0
-    [[ "$prev_type" == "REGEX_PATTERN" ]] && return 0
-    [[ "$curr_type" =~ ^HEREDOC ]] && return 0
-    [[ "$prev_type" =~ ^(HEREDOC_TAG|HEREDOC_HEAD)$ ]] && return 0
-    [[ "$prev_type" == "OP" && "$prev_val" == "&" ]] && return 0
-    [[ "$curr_type" == "OP" && "$curr_val" == ")" ]] && return 0
-    [[ "$curr_type" == "WORD" && "$curr_val" =~ ^(then|do|in)$ ]] && return 0
-    [[ "$prev_type" == "OP" && "$prev_val" == "(" ]] && return 0
-    [[ "$prev_type" == "OP" && "$prev_val" == "{" ]] && return 0
-    [[ "$prev_type" == "WORD" && "$prev_val" =~ ^(then|do|in|else|elif)$ ]] && return 0
-    [[ "$prev_type" == "OP" && "$prev_val" =~ ^(;;|;;&|;&)$ ]] && return 0
-    [[ "$curr_type" == "OP" && "$curr_val" =~ ^(;;|;;&|;&)$ ]] && return 0
-    [[ "$prev_type" == "HEREDOC_TAIL" ]] && return 0
-    [[ "$prev_type" == "OP" && "$prev_val" == "&&" ]] && return 0
-    [[ "$prev_type" == "OP" && "$prev_val" == "||" ]] && return 0
-    [[ "$prev_type" == "OP" && "$prev_val" == "|"  ]] && return 0
+    [[ "$curr_type" == "REGEX_PATTERN" || "$prev_type" == "REGEX_PATTERN" ]] && return 0
+    case "$curr_type" in HEREDOC_HEAD|HEREDOC_TAG|HEREDOC_BODY|HEREDOC_TAIL) return 0 ;; esac
+    case "$prev_type" in HEREDOC_TAG|HEREDOC_HEAD|HEREDOC_TAIL) return 0 ;; esac
+
+    if [[ "$prev_type" == "OP" ]]; then
+        case "$prev_val" in
+            ';'|'&'|'('|'{'|'&&'|'||'|'|'|';;'|';;&'|';&') return 0 ;;
+        esac
+    fi
+    if [[ "$curr_type" == "OP" ]]; then
+        case "$curr_val" in
+            ')'|';;'|';;&'|';&') return 0 ;;
+        esac
+    fi
+    if [[ "$curr_type" == "WORD" ]]; then
+        case "$curr_val" in then|do|in) return 0 ;; esac
+    fi
+    if [[ "$prev_type" == "WORD" ]]; then
+        case "$prev_val" in then|do|in|else|elif) return 0 ;; esac
+    fi
 
     return 1
 }
@@ -268,8 +271,10 @@ _needs_space() {
         _assign_lhs=1
 
     if [[ -n "$_assign_lhs" ]]; then
-        [[ "$curr_type" =~ ^(PARAM_EXP|VAR_LITERAL|ARITH|ARITH_STMT|CMD_SUB|RICH_STRING)$ ]] && return 1
-        [[ "$curr_type" =~ ^STRING ]] && return 1
+        case "$curr_type" in
+            PARAM_EXP|VAR_LITERAL|ARITH|ARITH_STMT|CMD_SUB|RICH_STRING) return 1 ;;
+            STRING*) return 1 ;;
+        esac
         [[ "$curr_type" == OP && "$curr_val" == '(' ]] && return 1
     fi
 
@@ -288,11 +293,12 @@ _needs_space() {
         ';;'|';;&'|';&') return 0 ;;
     esac
 
-    [[ "$prev_type" == ARITH     && "$curr_type" != OP ]] && return 0
-    [[ "$prev_type" == ARITH_STMT && "$curr_type" != OP ]] && return 0
-    [[ "$prev_type" == CMD_SUB   && "$curr_type" != OP ]] && return 0
-    [[ "$prev_type" == PROC_SUB  && "$curr_type" != OP ]] && return 0
-    [[ "$prev_type" == PARAM_EXP && "$curr_type" == WORD ]] && return 0
+    if [[ "$curr_type" != OP ]]; then
+        case "$prev_type" in
+            ARITH|ARITH_STMT|CMD_SUB|PROC_SUB) return 0 ;;
+        esac
+    fi
+    [[ "$prev_type" == PARAM_EXP   && "$curr_type" == WORD ]] && return 0
     [[ "$prev_type" == VAR_LITERAL && "$curr_type" == WORD ]] && return 0
 
     [[ "$prev_type" == OP && "$prev_val" == ')' ]] && {
@@ -302,10 +308,13 @@ _needs_space() {
 
     [[ "$prev_type" == REGEX_PATTERN ]] && return 0
 
-    [[ "$prev_type" =~ ^(STRING_SQ|STRING_DQ|RICH_STRING|LOCALE_STRING)$ ]] && {
-        [[ "$curr_type" == WORD && "$curr_val" != '*' ]] && return 0
-        [[ "$curr_type" =~ ^(STRING_SQ|STRING_DQ|RICH_STRING|LOCALE_STRING)$ ]] && return 0
-    }
+    case "$prev_type" in
+        STRING_SQ|STRING_DQ|RICH_STRING|LOCALE_STRING)
+            [[ "$curr_type" == WORD && "$curr_val" != '*' ]] && return 0
+            case "$curr_type" in
+                STRING_SQ|STRING_DQ|RICH_STRING|LOCALE_STRING) return 0 ;;
+            esac ;;
+    esac
 
     [[ "$prev_type" == REDIRECT && "$curr_type" == WORD ]] && return 1
 
@@ -344,10 +353,11 @@ _needs_space() {
             [[ "$prev_type" == WORD && -z "$_assign_lhs" ]] && return 0
             # After a string/expansion token a `{` is only a brace expansion
             # when directly attached; otherwise it opens a block and needs a space.
-            if [[ "$prev_type" =~ ^(STRING_SQ|STRING_DQ|RICH_STRING|LOCALE_STRING|PARAM_EXP|VAR_LITERAL|CMD_SUB|ARITH|BACKTICK|PROC_SUB)$ ]]; then
-                (( adj )) && return 1
-                return 0
-            fi ;;
+            case "$prev_type" in
+                STRING_SQ|STRING_DQ|RICH_STRING|LOCALE_STRING|PARAM_EXP|VAR_LITERAL|CMD_SUB|ARITH|BACKTICK|PROC_SUB)
+                    (( adj )) && return 1
+                    return 0 ;;
+            esac ;;
         '}')
             [[ "$prev_type" == OP && "$prev_val" == ';' ]] && return 0
             [[ "$prev_type" != OP ]] && return 0 ;;
@@ -360,12 +370,13 @@ _needs_space() {
     [[ "$curr_type" == PROC_SUB ]] && return 0
     [[ "$curr_type" == REGEX_PATTERN ]] && return 0
 
-    [[ "$prev_type" == WORD && -z "$_assign_lhs" && "$prev_val" != '*' ]] && {
-        [[ "$curr_type" =~ ^(STRING_SQ|STRING_DQ|RICH_STRING|LOCALE_STRING)$ ]] && return 0
-        [[ "$curr_type" =~ ^(PARAM_EXP|VAR_LITERAL|CMD_SUB)$ ]] && return 0
-        [[ "$curr_type" == REDIRECT ]] && return 0
-        [[ "$curr_type" == HEREDOC_HEAD ]] && return 0
-    }
+    if [[ "$prev_type" == WORD && -z "$_assign_lhs" && "$prev_val" != '*' ]]; then
+        case "$curr_type" in
+            STRING_SQ|STRING_DQ|RICH_STRING|LOCALE_STRING) return 0 ;;
+            PARAM_EXP|VAR_LITERAL|CMD_SUB)                 return 0 ;;
+            REDIRECT|HEREDOC_HEAD)                         return 0 ;;
+        esac
+    fi
 
     [[ "$prev_type" == WORD && "$curr_type" == WORD ]] && return 0
 
@@ -481,6 +492,10 @@ minify() {
     local _last_was_space=0
     local prev_type="" prev_val=""
     local i=0
+    # Precompute whether the per-token progress call can do anything, so the
+    # inner loop can skip the function call and its argument expansion.
+    local _do_progress=0
+    [[ "$_minify_log_mode" != quiet && -t 2 ]] && _do_progress=1
     local -a _paren_stack=()
     local array_depth=0
     local bracket_depth=0
@@ -586,7 +601,7 @@ minify() {
         local _tok_str
         _token_to_string "$type" "$val" _tok_str
         parts+=("$_tok_str"); _last_was_space=0
-        _progress_render "Minifying..." "$i" "$_mf_count"
+        (( _do_progress )) && _progress_render "Minifying..." "$i" "$_mf_count"
 
         # Stats tracking
         if (( _minify_stats )); then
