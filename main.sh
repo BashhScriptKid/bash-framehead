@@ -249,7 +249,10 @@ compile_extended() {
     # -- Step 1: compile core to a temp file ----------------------------------
     local core_temp
     core_temp=$(mktemp)
-    _COMPILE_SKIP_VERSION=1 compile_files "$core_temp" <<< ""
+    # Compile the core unminified here; the combined core+ext buffer is minified
+    # once in Step 5. Minifying here too would make Step 5 re-tokenise the whole
+    # core as a single enormous line.
+    ( MINIFY=0 _COMPILE_SKIP_VERSION=1 compile_files "$core_temp" <<< "" )
 
     # -- Step 2: source core so declare -f works for dep checking -------------
     source "$core_temp"
