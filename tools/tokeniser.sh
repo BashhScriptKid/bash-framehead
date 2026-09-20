@@ -1962,7 +1962,9 @@ tokenise() {
     # and we skip ' inside $(...) subshells (where it would open/close SQ inside cmdsub).
     # NOTE: line continuation is NOT applied inside heredoc bodies.
     local -a _joined=()
-    local _lc_sq=0 _lc_dq=0 _lc_ansi=0 _lc_sub=0 _lc_pending=""
+    local -a _lc_stack=("top")   # lexical context stack; persists across lines
+    local -a _lc_save=("top")    # stack snapshot before the current logical line
+    local _lc_pending=""
     local _lc_idx=0
     for _lc_line in "${_lines[@]}"; do
         # Heredoc body lines: no line-continuation processing; emit as-is
@@ -1975,79 +1977,89 @@ tokenise() {
             _joined+=("$_lc_line")
             (( _lc_idx++ )); continue
         fi
-        _lc_line="$_lc_pending${_lc_line}"
+        if [[ -n "$_lc_pending" ]]; then
+            # Rescanning the whole logical line: restore the pre-line context so
+            # quote state is not applied twice, then prepend the pending text.
+            _lc_stack=("${_lc_save[@]}")
+            _lc_line="$_lc_pending${_lc_line}"
+        else
+            _lc_save=("${_lc_stack[@]}")
+        fi
         _lc_pending=""
-        # Walk each character to track quote/subshell state
+        # Walk each character maintaining a lexical context stack. This honours
+        # single quotes inside $( ) (they can span lines and hide `)`), so the
+        # `\`<NL> continuation decision below is made in the right context.
         local _lc_j=0 _lc_len=${#_lc_line} _lc_comment=0
-        local _lc_c
         while (( _lc_j < _lc_len )); do
-            _lc_c="${_lc_line:_lc_j:1}"
-            if (( _lc_sq )); then
-                # Inside '...' — only ' closes it; nothing else matters
-                [[ "$_lc_c" == "'" ]] && _lc_sq=0
-                (( _lc_j++ )); continue
-            fi
-            if (( _lc_ansi )); then
-                # Inside $'...' — backslash escapes next char, ' closes it
-                if [[ "$_lc_c" == '\' ]]; then
-                    (( _lc_j += 2 )); continue
-                fi
-                [[ "$_lc_c" == "'" ]] && _lc_ansi=0
-                (( _lc_j++ )); continue
-            fi
-            if (( _lc_dq )); then
-                # Inside "..." — backslash escapes next char, " closes it, $( opens subshell
-                if [[ "$_lc_c" == '\' ]]; then
-                    (( _lc_j += 2 )); continue
-                fi
-                if [[ "$_lc_c" == '$' && "${_lc_line:_lc_j+1:1}" == '(' ]]; then
-                    (( _lc_sub++ )); (( _lc_j += 2 )); continue
-                fi
-                [[ "$_lc_c" == '"' ]] && _lc_dq=0
-                (( _lc_j++ )); continue
-            fi
-            if (( _lc_sub > 0 )); then
-                # Inside $(...) — track nesting, skip ' (it opens SQ inside cmdsub,
-                # which the main tokeniser handles; we just need correct ) matching)
-                if [[ "$_lc_c" == '\' ]]; then
-                    (( _lc_j += 2 )); continue
-                fi
-                if [[ "$_lc_c" == '$' && "${_lc_line:_lc_j+1:1}" == '(' ]]; then
-                    (( _lc_sub++ )); (( _lc_j += 2 )); continue
-                fi
-                [[ "$_lc_c" == '(' ]] && (( _lc_sub++ ))
-                [[ "$_lc_c" == ')' ]] && (( _lc_sub-- ))
-                (( _lc_j++ )); continue
-            fi
-            # Unquoted context
-            case "$_lc_c" in
-                "'")  _lc_sq=1 ;;
-                '"')  _lc_dq=1 ;;
-                '\')
-                    # Backslash: if next char exists, skip it (escaped char)
-                    # End-of-line case is handled below by the *'\' check
-                    if (( _lc_j + 1 < _lc_len )); then
-                        (( _lc_j += 2 )); continue
-                    fi ;;
-                '$')
-                    local _lc_next="${_lc_line:_lc_j+1:1}"
-                    if [[ "$_lc_next" == '(' ]]; then
-                        (( _lc_sub++ )); (( _lc_j += 2 )); continue
-                    elif [[ "$_lc_next" == "'" ]]; then
-                        _lc_ansi=1; (( _lc_j += 2 )); continue
-                    fi ;;
-                '#')
-                    # Comment — rest of line is a comment, stop tracking
-                    _lc_comment=1; break ;;
+            local _lc_c="${_lc_line:_lc_j:1}"
+            case "${_lc_stack[-1]}" in
+                sq)
+                    [[ "$_lc_c" == "'" ]] && unset '_lc_stack[-1]'
+                    (( _lc_j++ )) ;;
+                ansi)
+                    if [[ "$_lc_c" == '\' ]]; then (( _lc_j += 2 ))
+                    elif [[ "$_lc_c" == "'" ]]; then unset '_lc_stack[-1]'; (( _lc_j++ ))
+                    else (( _lc_j++ )); fi ;;
+                bq)
+                    if [[ "$_lc_c" == '\' ]]; then (( _lc_j += 2 ))
+                    elif [[ "$_lc_c" == '`' ]]; then unset '_lc_stack[-1]'; (( _lc_j++ ))
+                    else (( _lc_j++ )); fi ;;
+                dq)
+                    if [[ "$_lc_c" == '\' ]]; then (( _lc_j += 2 ))
+                    elif [[ "$_lc_c" == '"' ]]; then unset '_lc_stack[-1]'; (( _lc_j++ ))
+                    elif [[ "$_lc_c" == '$' && "${_lc_line:_lc_j+1:1}" == '(' ]]; then
+                        if [[ "${_lc_line:_lc_j+2:1}" == '(' ]]; then _lc_stack+=(sub sub); (( _lc_j += 3 ))
+                        else _lc_stack+=(sub); (( _lc_j += 2 )); fi
+                    elif [[ "$_lc_c" == '$' && "${_lc_line:_lc_j+1:1}" == '{' ]]; then
+                        _lc_stack+=(param); (( _lc_j += 2 ))
+                    elif [[ "$_lc_c" == '`' ]]; then _lc_stack+=(bq); (( _lc_j++ ))
+                    else (( _lc_j++ )); fi ;;
+                param)
+                    if [[ "$_lc_c" == '\' ]]; then (( _lc_j += 2 ))
+                    elif [[ "$_lc_c" == '}' ]]; then unset '_lc_stack[-1]'; (( _lc_j++ ))
+                    elif [[ "$_lc_c" == '{' ]]; then _lc_stack+=(param); (( _lc_j++ ))
+                    elif [[ "$_lc_c" == "'" ]]; then _lc_stack+=(sq); (( _lc_j++ ))
+                    elif [[ "$_lc_c" == '"' ]]; then _lc_stack+=(dq); (( _lc_j++ ))
+                    elif [[ "$_lc_c" == '$' && "${_lc_line:_lc_j+1:1}" == '(' ]]; then
+                        if [[ "${_lc_line:_lc_j+2:1}" == '(' ]]; then _lc_stack+=(sub sub); (( _lc_j += 3 ))
+                        else _lc_stack+=(sub); (( _lc_j += 2 )); fi
+                    else (( _lc_j++ )); fi ;;
+                sub)
+                    if [[ "$_lc_c" == '\' ]]; then (( _lc_j += 2 ))
+                    elif [[ "$_lc_c" == "'" ]]; then _lc_stack+=(sq); (( _lc_j++ ))
+                    elif [[ "$_lc_c" == '"' ]]; then _lc_stack+=(dq); (( _lc_j++ ))
+                    elif [[ "$_lc_c" == '$' && "${_lc_line:_lc_j+1:1}" == '(' ]]; then
+                        if [[ "${_lc_line:_lc_j+2:1}" == '(' ]]; then _lc_stack+=(sub sub); (( _lc_j += 3 ))
+                        else _lc_stack+=(sub); (( _lc_j += 2 )); fi
+                    elif [[ "$_lc_c" == '$' && "${_lc_line:_lc_j+1:1}" == '{' ]]; then
+                        _lc_stack+=(param); (( _lc_j += 2 ))
+                    elif [[ "$_lc_c" == '`' ]]; then _lc_stack+=(bq); (( _lc_j++ ))
+                    elif [[ "$_lc_c" == '(' ]]; then _lc_stack+=(sub); (( _lc_j++ ))
+                    elif [[ "$_lc_c" == ')' ]]; then unset '_lc_stack[-1]'; (( _lc_j++ ))
+                    elif [[ "$_lc_c" == '#' ]]; then _lc_comment=1; break
+                    else (( _lc_j++ )); fi ;;
+                *)  # top
+                    if [[ "$_lc_c" == '\' ]]; then (( _lc_j += 2 ))
+                    elif [[ "$_lc_c" == "'" ]]; then _lc_stack+=(sq); (( _lc_j++ ))
+                    elif [[ "$_lc_c" == '"' ]]; then _lc_stack+=(dq); (( _lc_j++ ))
+                    elif [[ "$_lc_c" == '$' && "${_lc_line:_lc_j+1:1}" == "'" ]]; then
+                        _lc_stack+=(ansi); (( _lc_j += 2 ))
+                    elif [[ "$_lc_c" == '$' && "${_lc_line:_lc_j+1:1}" == '(' ]]; then
+                        if [[ "${_lc_line:_lc_j+2:1}" == '(' ]]; then _lc_stack+=(sub sub); (( _lc_j += 3 ))
+                        else _lc_stack+=(sub); (( _lc_j += 2 )); fi
+                    elif [[ "$_lc_c" == '$' && "${_lc_line:_lc_j+1:1}" == '{' ]]; then
+                        _lc_stack+=(param); (( _lc_j += 2 ))
+                    elif [[ "$_lc_c" == '`' ]]; then _lc_stack+=(bq); (( _lc_j++ ))
+                    elif [[ "$_lc_c" == '(' ]]; then _lc_stack+=(sub); (( _lc_j++ ))
+                    elif [[ "$_lc_c" == '#' ]]; then _lc_comment=1; break
+                    else (( _lc_j++ )); fi ;;
             esac
-            (( _lc_j++ ))
         done
-        # If not inside single quotes and line ends with an odd run of \,
-        # it's a real continuation; join with next. An even run means the
-        # trailing backslashes are escaped-literal, not a continuation.
+        # \<NL> joins lines everywhere except inside '...', $'...' and comments.
         local _bs_run="${_lc_line##*[^\\]}"
         [[ "$_lc_line" != *'\' ]] && _bs_run=""
-        if (( _lc_sq == 0 && _lc_comment == 0 && ${#_bs_run} % 2 == 1 )); then
+        local _lc_top="${_lc_stack[-1]}"
+        if [[ "$_lc_top" != "sq" && "$_lc_top" != "ansi" && $_lc_comment -eq 0 ]] && (( ${#_bs_run} % 2 == 1 )); then
             _lc_line="${_lc_line%\\}"
             _lc_pending="$_lc_line"
             (( _lc_idx++ )); continue
