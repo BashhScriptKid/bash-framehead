@@ -152,6 +152,7 @@ fold_constants() {
             local const_val="${constants[$const_var]}"
             local safe=true usage_count=0
             for line in "${lines[@]}"; do
+                [[ "$line" == *"$const_var"* ]] || continue
                 [[ "$line" =~ ^[[:space:]]*(local|readonly)[[:space:]]+${const_var}= ]] && continue
                 [[ "$line" =~ ${const_var}= ]] && { safe=false; break; }
                 # Any arithmetic mutation (= += -= *= /= %= <<= >>= &= |= ^= ++ --)
@@ -270,6 +271,7 @@ eliminate_dead_code() {
             declared["${BASH_REMATCH[1]}"]="${BASH_REMATCH[1]}"
         fi
         for var in "${!declared[@]}"; do
+            [[ "$line" == *"$var"* ]] || continue
             [[ "$line" =~ \$${var}([^a-zA-Z0-9_]|$) ]] && used["$var"]=1
             [[ "$line" =~ \$\{${var} ]] && used["$var"]=1
         done
@@ -280,6 +282,7 @@ eliminate_dead_code() {
         local skip=false
         for var in "${!declared[@]}"; do
             [[ -z "${used[$var]:-}" ]] || continue
+            [[ "$line" == *"$var"* ]] || continue
             # Only drop a pure declaration line. A line like
             # `local x; cmd x "$@"` declares x AND passes it by nameref, so
             # deleting it would remove the call too.
@@ -448,15 +451,13 @@ optimize_function_body() {
         local -A array_candidates=() array_to_inline=()
         local has_shift=false has_at=false remove_shift=false
 
-        # Check for eval — bail entire function
-        for line in "${lines[@]}"; do
-            [[ "$line" =~ eval[[:space:]] ]] && { printf '%s' "$current"; return; }
-        done
-
-        # Check shift + $@ coexistence
-        for line in "${lines[@]}"; do
-            [[ "$line" =~ (^|[^a-zA-Z0-9_])shift([^a-zA-Z0-9_]|$) ]] && has_shift=true
-            [[ "$line" =~ \$@ || "$line" =~ \$\{@\} || "$line" =~ \$\{@: ]] && has_at=true
+        # Single scan for whole-function bail-outs and the shift/nameref flags
+        local has_nameref=false _ln
+        for _ln in "${lines[@]}"; do
+            [[ "$_ln" =~ eval[[:space:]] ]] && { printf '%s' "$current"; return; }
+            [[ "$_ln" =~ (^|[^a-zA-Z0-9_])shift([^a-zA-Z0-9_]|$) ]] && has_shift=true
+            [[ "$_ln" == *'$@'* || "$_ln" == *'${@}'* || "$_ln" == *'${@:'* ]] && has_at=true
+            [[ "$_ln" =~ local[[:space:]]+-n ]] && has_nameref=true
         done
         $has_shift && $has_at && remove_shift=true
 
@@ -474,11 +475,18 @@ optimize_function_body() {
             fi
         done
 
-        # PASS 2: legality check
+        # PASS 2: legality check. Any `local -n` in the body disables scalar
+        # inlining entirely, so it is handled once rather than per candidate.
+        if $has_nameref; then
+            to_inline=()
+        else
         for vname in "${!candidates[@]}"; do
             local vval="${candidates[$vname]}"
             local safe=true
             for line in "${lines[@]}"; do
+                # Cheap prune: none of the checks below can fire on a line
+                # that does not even mention the candidate name.
+                [[ "$line" == *"$vname"* ]] || continue
                 [[ "$line" =~ ^[[:space:]]*local[[:space:]].*${vname}= ]] && continue
                 [[ "$line" =~ ${vname}= ]] && { safe=false; break; }
                 [[ "$line" =~ \(\([[:space:]]*${vname}[[:space:]]*(\+\+|--|\+=|-=) ]] && { safe=false; break; }
@@ -489,10 +497,10 @@ optimize_function_body() {
                 # Bare usage (e.g. in `(( i<end ))`) cannot be inlined because
                 # only `$name`/`${name}` are rewritten; must remain a local.
                 [[ "$line" =~ (^|[^a-zA-Z0-9_{$])${vname}([^a-zA-Z0-9_]|$) ]] && { safe=false; break; }
-                [[ "$line" =~ local[[:space:]]+-n ]] && { safe=false; break; }
             done
             $safe && to_inline["$vname"]="$vval"
         done
+        fi
 
         # PASS 1b: collect array candidates
         for line in "${lines[@]}"; do
@@ -507,6 +515,7 @@ optimize_function_body() {
         for arr_var in "${!array_candidates[@]}"; do
             local safe=true usage_count=0
             for line in "${lines[@]}"; do
+                [[ "$line" == *"$arr_var"* ]] || continue
                 [[ "$line" =~ ^[[:space:]]*local[[:space:]]+-a[[:space:]]+${arr_var}= ]] && continue
 
                 # Tally supported usages, stripping each so any residual
@@ -549,37 +558,56 @@ optimize_function_body() {
             $remove_shift && [[ "$line" =~ ^[[:space:]]*shift([[:space:]]|;|$) ]] && { skip_line=true; }
 
             for arr_var in "${!array_to_inline[@]}"; do
+                [[ "$line" == *"$arr_var"* ]] || continue
                 [[ "$line" =~ ^[[:space:]]*local[[:space:]]+-a[[:space:]]+${arr_var}= ]] && { skip_line=true; break; }
             done
 
             if ! $skip_line; then
                 for vname in "${!to_inline[@]}"; do
+                    [[ "$line" == *"$vname"* ]] || continue
                     local vval="${to_inline[$vname]}"
                     [[ "$line" =~ \'[^\']*\$${vname}[^\']*\' ]] && continue
                     line="${line//\$\{${vname}\}/${vval}}"
-                    # Replace $name only at a word boundary so that $topic does
-                    # not clobber $topic_dir. sed is needed because parameter
-                    # expansion cannot express the trailing-boundary guard.
+                    # Replace bare $name only at a word boundary so that
+                    # $topic does not clobber $topic_dir. Done in pure bash
+                    # (no sed fork) by walking each $name occurrence.
                     if [[ "$line" =~ \$${vname}([^a-zA-Z0-9_]|$) ]]; then
-                        local _repl="${vval//\\/\\\\}"
-                        _repl="${_repl//\//\\/}"
-                        _repl="${_repl//&/\\&}"
-                        line=$(printf '%s' "$line" | sed -E "s/\\\$${vname}([^a-zA-Z0-9_]|$)/${_repl}\1/g")
+                        local _pat='$'"$vname" _s="$line" _out="" _pre _nxt
+                        while [[ "$_s" == *"$_pat"* ]]; do
+                            _pre="${_s%%"$_pat"*}"
+                            _out+="$_pre"
+                            _s="${_s#"$_pre"}"
+                            _s="${_s:${#_pat}}"
+                            _nxt="${_s:0:1}"
+                            if [[ "$_nxt" =~ [a-zA-Z0-9_] ]]; then _out+="$_pat"
+                            else _out+="$vval"; fi
+                        done
+                        line="$_out$_s"
                     fi
                 done
 
                 if $is_local; then
                     for vname in "${!to_inline[@]}"; do
-                        line=$(printf '%s' "$line" | sed -E "s/${vname}=\"[^\"]*\" *//")
-                        line=$(printf '%s' "$line" | sed 's/local  */local /')
-                        line=$(printf '%s' "$line" | sed 's/local ;/;/')
+                        [[ "$line" == *"${vname}="* ]] || continue
+                        # Drop the now-inlined declaration `name="..."`.
+                        if [[ "$line" =~ ${vname}=\"[^\"]*\" ]]; then
+                            line="${line/"${BASH_REMATCH[0]}"/}"
+                        fi
                     done
-                    line=$(printf '%s' "$line" | sed 's/^[[:space:]]*;[[:space:]]*//')
+                    # Collapse whitespace/`;` left behind (no sed fork).
+                    while [[ "$line" == *"local  "* ]]; do line="${line//local  /local }"; done
+                    line="${line//local ;/;}"
+                    # Strip a leading `;` and its surrounding whitespace only
+                    # (matching the original 's/^[[:space:]]*;[[:space:]]*//').
+                    if [[ "$line" =~ ^[[:space:]]*\;[[:space:]]* ]]; then
+                        line="${line#"${BASH_REMATCH[0]}"}"
+                    fi
                     [[ "$line" =~ ^[[:space:]]*local[[:space:]]*$ ]] && skip_line=true
                     [[ -z "${line// /}" ]] && skip_line=true
                 fi
 
                 for arr_var in "${!array_to_inline[@]}"; do
+                    [[ "$line" == *"$arr_var"* ]] || continue
                     local atype="${array_to_inline[$arr_var]}"
                     local replacement
                     if [[ "$atype" == AT_SIGN_ARRAY ]]; then replacement='"$@"'
