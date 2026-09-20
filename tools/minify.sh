@@ -119,6 +119,88 @@ _dump_tokens() {
 }
 
 # ==============================================================================
+# _collapse_cmdsub_sq — rewrite newlines inside single-quoted spans in a
+# command-substitution / process-substitution body as $'...' escapes, so the
+# body stays on one line. Newlines inside '...' are literal bytes; unlike a
+# top-level STRING_SQ token (handled in _token_to_string) a whole $( ... ) is
+# one token, so its interior is scanned here with a lexical context stack.
+# Writes into the variable named by $2.
+# ==============================================================================
+_collapse_cmdsub_sq() {
+    local _s="$1" _out="" _i=0 _n=${#1} _sqs=0 _c _top _content _enc _nx
+    local -a _st=("top")
+    while (( _i < _n )); do
+        _c="${_s:_i:1}"
+        _top="${_st[-1]}"
+        if [[ "$_top" == "sq" ]]; then
+            if [[ "$_c" == "'" ]]; then
+                _content="${_s:_sqs+1:_i-_sqs-1}"
+                if [[ "$_content" == *$'\n'* ]]; then
+                    _enc="${_content//\\/\\\\}"
+                    _enc="${_enc//'/\\'}"
+                    _enc="${_enc//$'\n'/\\n}"
+                    _out+="\$'${_enc}'"
+                else
+                    _out+="'${_content}'"
+                fi
+                unset '_st[-1]'
+                (( _i++ ))
+            else
+                (( _i++ ))
+            fi
+            continue
+        fi
+        case "$_top" in
+            ansi)
+                if [[ "$_c" == '\' ]]; then _out+="${_s:_i:2}"; (( _i += 2 ))
+                elif [[ "$_c" == "'" ]]; then _out+="'"; unset '_st[-1]'; (( _i++ ))
+                else _out+="$_c"; (( _i++ )); fi ;;
+            bq)
+                if [[ "$_c" == '\' ]]; then _out+="${_s:_i:2}"; (( _i += 2 ))
+                elif [[ "$_c" == '`' ]]; then _out+='`'; unset '_st[-1]'; (( _i++ ))
+                elif [[ "$_c" == "'" ]]; then _sqs=$_i; _st+=("sq"); (( _i++ ))
+                elif [[ "$_c" == '"' ]]; then _st+=("dq"); _out+='"'; (( _i++ ))
+                else _out+="$_c"; (( _i++ )); fi ;;
+            dq)
+                if [[ "$_c" == '\' ]]; then _out+="${_s:_i:2}"; (( _i += 2 )); continue; fi
+                if [[ "$_c" == '"' ]]; then _out+='"'; unset '_st[-1]'; (( _i++ )); continue; fi
+                case "$_c" in
+                    '$')
+                        _nx="${_s:_i+1:1}"
+                        if [[ "$_nx" == "'" ]]; then _st+=("ansi"); _out+="\$'"; (( _i += 2 ))
+                        elif [[ "$_nx" == '(' ]]; then
+                            if [[ "${_s:_i+2:1}" == '(' ]]; then _st+=("sub" "sub"); _out+='$(('; (( _i += 3 ))
+                            else _st+=("sub"); _out+='$('; (( _i += 2 )); fi
+                        elif [[ "$_nx" == '{' ]]; then _st+=("param"); _out+='${'; (( _i += 2 ))
+                        else _out+='$'; (( _i++ )); fi ;;
+                    '`') _st+=("bq"); _out+='`'; (( _i++ )) ;;
+                    *) _out+="$_c"; (( _i++ )) ;;
+                esac ;;
+            *)
+                case "$_c" in
+                    '\') _out+="${_s:_i:2}"; (( _i += 2 )) ;;
+                    "'") _sqs=$_i; _st+=("sq"); (( _i++ )) ;;
+                    '"') _st+=("dq"); _out+='"'; (( _i++ )) ;;
+                    '`') _st+=("bq"); _out+='`'; (( _i++ )) ;;
+                    '$')
+                        _nx="${_s:_i+1:1}"
+                        if [[ "$_nx" == "'" ]]; then _st+=("ansi"); _out+="\$'"; (( _i += 2 ))
+                        elif [[ "$_nx" == '(' ]]; then
+                            if [[ "${_s:_i+2:1}" == '(' ]]; then _st+=("sub" "sub"); _out+='$(('; (( _i += 3 ))
+                            else _st+=("sub"); _out+='$('; (( _i += 2 )); fi
+                        elif [[ "$_nx" == '{' ]]; then _st+=("param"); _out+='${'; (( _i += 2 ))
+                        else _out+='$'; (( _i++ )); fi ;;
+                    '(') _st+=("sub"); _out+='('; (( _i++ )) ;;
+                    ')') [[ "$_top" == "sub" ]] && unset '_st[-1]'; _out+=')'; (( _i++ )) ;;
+                    '}') [[ "$_top" == "param" ]] && unset '_st[-1]'; _out+='}'; (( _i++ )) ;;
+                    *) _out+="$_c"; (( _i++ )) ;;
+                esac ;;
+        esac
+    done
+    printf -v "$2" '%s' "$_out"
+}
+
+# ==============================================================================
 # _token_to_string — reconstruct source text for one token
 # Writes into the variable named by $3 (NOT stdout) to avoid a per-token
 # command-substitution fork, which dominated minify() runtime.
@@ -128,6 +210,12 @@ _token_to_string() {
     local _d
     case "$type" in
         WORD)
+            # A merged WORD can carry a multi-line single-quoted span from
+            # source reconstruction; collapse it to one line too.
+            if [[ "$val" == *$'\n'* ]]; then
+                _collapse_cmdsub_sq "$val" _d
+                val="$_d"
+            fi
             if (( _minify_backtick_to_dollar )) && [[ "$val" == *'`'* ]]; then
                 _word_btick "$val" "$_out"
             else
@@ -169,11 +257,13 @@ _token_to_string() {
             printf -v "$_out" '%s' "$val" ;;
         CMD_SUB)
             _unescape "$val" _d
+            _collapse_cmdsub_sq "$_d" _d
             printf -v "$_out" '$(%s)' "$_d" ;;
         PROC_SUB)
             local _dir="${val%%|*}"
             local _content="${val#*|}"
             _unescape "$_content" _d
+            _collapse_cmdsub_sq "$_d" _d
             printf -v "$_out" '%s(%s)' "$_dir" "$_d" ;;
         PARAM_EXP)
             printf -v "$_out" '${%s}' "$val" ;;
