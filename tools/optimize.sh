@@ -140,6 +140,7 @@ fold_constants() {
 
         declare -A constants=()
         for line in "${lines[@]}"; do
+            [[ "$line" == *"local"* || "$line" == *"readonly"* ]] || continue
             if [[ "$line" =~ ^[[:space:]]*(local|readonly)[[:space:]]+([a-zA-Z_][a-zA-Z0-9_]*)=(-?[0-9]+)[[:space:]]*$ ]]; then
                 constants["${BASH_REMATCH[2]}"]="${BASH_REMATCH[3]}"
             elif [[ "$line" =~ ^[[:space:]]*(local|readonly)[[:space:]]+([a-zA-Z_][a-zA-Z0-9_]*)=\"(-?[0-9]+)\"[[:space:]]*$ ]]; then
@@ -267,7 +268,7 @@ eliminate_dead_code() {
     local -a lines2=("${output[@]}")
     local -A declared=() used=()
     for line in "${lines2[@]}"; do
-        if [[ "$line" =~ ^[[:space:]]*local[[:space:]]+([a-zA-Z_][a-zA-Z0-9_]*)([^=]|$) ]]; then
+        if [[ "$line" == *"local"* ]] && [[ "$line" =~ ^[[:space:]]*local[[:space:]]+([a-zA-Z_][a-zA-Z0-9_]*)([^=]|$) ]]; then
             declared["${BASH_REMATCH[1]}"]="${BASH_REMATCH[1]}"
         fi
         for var in "${!declared[@]}"; do
@@ -468,6 +469,7 @@ optimize_function_body() {
 
         # PASS 1: collect scalar candidates
         for line in "${lines[@]}"; do
+            [[ "$line" == *"local"* ]] || continue
             if [[ "$line" =~ ^[[:space:]]*local[[:space:]]+([a-zA-Z_][a-zA-Z0-9_]*)=\"(\$\{?[0-9]+[^\"]*)\"|^[[:space:]]*local[[:space:]]+([a-zA-Z_][a-zA-Z0-9_]*)=(\$\{?[0-9]+[^[:space:]]*) ]]; then
                 local vname="${BASH_REMATCH[1]:-${BASH_REMATCH[3]}}"
                 local vval="${BASH_REMATCH[2]:-${BASH_REMATCH[4]}}"
@@ -504,6 +506,7 @@ optimize_function_body() {
 
         # PASS 1b: collect array candidates
         for line in "${lines[@]}"; do
+            [[ "$line" == *"local"* ]] || continue
             if [[ "$line" =~ ^[[:space:]]*local[[:space:]]+-a[[:space:]]+([a-zA-Z_][a-zA-Z0-9_]*)=\(\"\$@\"\) ]]; then
                 array_candidates["${BASH_REMATCH[1]}"]="AT_SIGN_ARRAY"
             elif [[ "$line" =~ ^[[:space:]]*local[[:space:]]+-a[[:space:]]+([a-zA-Z_][a-zA-Z0-9_]*)=\(\"\$\{([a-zA-Z_][a-zA-Z0-9_]*)\[@\]\}\"\) ]]; then
