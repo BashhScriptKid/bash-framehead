@@ -189,19 +189,27 @@ fold_constants() {
                         fi
                         line=$(printf '%s' "$line" | sed "s/\([^a-zA-Z0-9_]\)${const_var}\([^a-zA-Z0-9_]\)/\1${const_val}\2/g")
                     done
-                    # Fold arithmetic literals: $(( N op M ))
+                    # Fold arithmetic literals: $(( N op M )). Replace the exact
+                    # matched text (regex allows arbitrary spacing, so rebuilding
+                    # a spaced literal would not match and would loop forever).
+                    local _m _r
                     while [[ "$line" =~ \$\(\([[:space:]]*(-?[0-9]+)[[:space:]]*\+[[:space:]]*(-?[0-9]+)[[:space:]]*\)\) ]]; do
-                        line="${line//\$(( ${BASH_REMATCH[1]} + ${BASH_REMATCH[2]} ))/$(( BASH_REMATCH[1] + BASH_REMATCH[2] ))}"
+                        _m="${BASH_REMATCH[0]}"; _r=$(( BASH_REMATCH[1] + BASH_REMATCH[2] ))
+                        line="${line/"$_m"/$_r}"
                     done
                     while [[ "$line" =~ \$\(\([[:space:]]*(-?[0-9]+)[[:space:]]*-[[:space:]]*(-?[0-9]+)[[:space:]]*\)\) ]]; do
-                        line="${line//\$(( ${BASH_REMATCH[1]} - ${BASH_REMATCH[2]} ))/$(( BASH_REMATCH[1] - BASH_REMATCH[2] ))}"
+                        _m="${BASH_REMATCH[0]}"; _r=$(( BASH_REMATCH[1] - BASH_REMATCH[2] ))
+                        line="${line/"$_m"/$_r}"
                     done
                     while [[ "$line" =~ \$\(\([[:space:]]*(-?[0-9]+)[[:space:]]*\*[[:space:]]*(-?[0-9]+)[[:space:]]*\)\) ]]; do
-                        line="${line//\$(( ${BASH_REMATCH[1]} * ${BASH_REMATCH[2]} ))/$(( BASH_REMATCH[1] * BASH_REMATCH[2] ))}"
+                        _m="${BASH_REMATCH[0]}"; _r=$(( BASH_REMATCH[1] * BASH_REMATCH[2] ))
+                        line="${line/"$_m"/$_r}"
                     done
                     while [[ "$line" =~ \$\(\([[:space:]]*(-?[0-9]+)[[:space:]]*/[[:space:]]*(-?[0-9]+)[[:space:]]*\)\) ]]; do
-                        local _b="${BASH_REMATCH[2]}"
-                        (( _b != 0 )) && line="${line//\$(( ${BASH_REMATCH[1]} / ${BASH_REMATCH[2]} ))/$(( BASH_REMATCH[1] / BASH_REMATCH[2] ))}"
+                        _m="${BASH_REMATCH[0]}"
+                        (( BASH_REMATCH[2] == 0 )) && break
+                        _r=$(( BASH_REMATCH[1] / BASH_REMATCH[2] ))
+                        line="${line/"$_m"/$_r}"
                     done
                     # Identity folding: $(( x + 0 )) $(( x * 1 )) $(( x - 0 ))
                     line=$(printf '%s' "$line" | sed -E \
@@ -264,37 +272,39 @@ eliminate_dead_code() {
         (( i++ ))
     done
 
-    # Pass 2: remove unused locals
+    # Pass 2: drop genuinely-unused single-name `local NAME` declarations.
+    # Deliberately conservative: only a bare declaration line with exactly one
+    # name is considered, and a name counts as used if it appears as $name,
+    # ${name} or as a bare word (arithmetic), so a multi-name line like
+    # `local _rc _first=1` is never removed just because its first name is idle.
     local -a lines2=("${output[@]}")
     local -A declared=() used=()
     for line in "${lines2[@]}"; do
-        if [[ "$line" == *"local"* ]] && [[ "$line" =~ ^[[:space:]]*local[[:space:]]+([a-zA-Z_][a-zA-Z0-9_]*)([^=]|$) ]]; then
-            declared["${BASH_REMATCH[1]}"]="${BASH_REMATCH[1]}"
+        if [[ "$line" =~ ^[[:space:]]*local[[:space:]]+([a-zA-Z_][a-zA-Z0-9_]*)[[:space:]]*$ ]]; then
+            declared["${BASH_REMATCH[1]}"]=1
         fi
-        for var in "${!declared[@]}"; do
-            [[ "$line" == *"$var"* ]] || continue
-            [[ "$line" =~ \$${var}([^a-zA-Z0-9_]|$) ]] && used["$var"]=1
-            [[ "$line" =~ \$\{${var} ]] && used["$var"]=1
-        done
     done
+    if (( ${#declared[@]} > 0 )); then
+        for line in "${lines2[@]}"; do
+            for var in "${!declared[@]}"; do
+                [[ "$line" == *"$var"* ]] || continue
+                [[ "$line" =~ ^[[:space:]]*local[[:space:]]+${var}[[:space:]]*$ ]] && continue
+                if [[ "$line" =~ \$${var}([^a-zA-Z0-9_]|$) ]] || \
+                   [[ "$line" =~ \$\{${var} ]] || \
+                   [[ "$line" =~ (^|[^a-zA-Z0-9_])${var}([^a-zA-Z0-9_]|$) ]]; then
+                    used["$var"]=1
+                fi
+            done
+        done
+    fi
 
     local -a output2=()
     for line in "${lines2[@]}"; do
-        local skip=false
-        for var in "${!declared[@]}"; do
-            [[ -z "${used[$var]:-}" ]] || continue
-            [[ "$line" == *"$var"* ]] || continue
-            # Only drop a pure declaration line. A line like
-            # `local x; cmd x "$@"` declares x AND passes it by nameref, so
-            # deleting it would remove the call too.
-            if [[ "$line" =~ ^[[:space:]]*local[[:space:]]+${var}([^a-zA-Z0-9_=]|=|$) ]] && \
-               [[ ! "$line" =~ [\;\|\&] ]] && \
-               [[ ! "$line" =~ \$\( ]] && \
-               [[ ! "$line" =~ \` ]]; then
-                skip=true; break
-            fi
-        done
-        $skip || output2+=("$line")
+        if [[ "$line" =~ ^[[:space:]]*local[[:space:]]+([a-zA-Z_][a-zA-Z0-9_]*)[[:space:]]*$ ]] && \
+           [[ -z "${used[${BASH_REMATCH[1]}]:-}" ]]; then
+            continue
+        fi
+        output2+=("$line")
     done
 
     printf '%s\n' "${output2[@]}"
@@ -489,13 +499,20 @@ optimize_function_body() {
                 # Cheap prune: none of the checks below can fire on a line
                 # that does not even mention the candidate name.
                 [[ "$line" == *"$vname"* ]] || continue
-                [[ "$line" =~ ^[[:space:]]*local[[:space:]].*${vname}= ]] && continue
+                # Declaration of the candidate (word-boundary before the name so
+                # `_abs_row=` is not mistaken for a declaration of `_row`).
+                [[ "$line" =~ ^[[:space:]]*local[[:space:]].*[^a-zA-Z0-9_]${vname}= ]] && continue
                 [[ "$line" =~ ${vname}= ]] && { safe=false; break; }
                 [[ "$line" =~ \(\([[:space:]]*${vname}[[:space:]]*(\+\+|--|\+=|-=) ]] && { safe=false; break; }
                 # Operator expansions like ${name##*/}, ${name%.*}, ${name:-x}
                 # are not rewritten by the inliner, so removing the local would
                 # leave them referencing an undefined variable.
                 [[ "$line" =~ \$\{${vname}[^}] ]] && { safe=false; break; }
+                # A `$name`/`${name}` that may sit inside a single-quoted span is
+                # not rewritten by PASS 3 (it skips such lines), so refusing the
+                # candidate keeps the declaration from being dropped while a
+                # usage remains.
+                [[ "$line" =~ \'[^\']*\$${vname}[^\']*\' ]] && { safe=false; break; }
                 # Bare usage (e.g. in `(( i<end ))`) cannot be inlined because
                 # only `$name`/`${name}` are rewritten; must remain a local.
                 [[ "$line" =~ (^|[^a-zA-Z0-9_{$])${vname}([^a-zA-Z0-9_]|$) ]] && { safe=false; break; }
@@ -1310,6 +1327,78 @@ _strip_source_boundaries() {
 }
 
 # ==============================================================================
+# _opt_brace_delta — net brace count for a line, ignoring braces inside quotes,
+# command substitutions and comments. Maintains a lexical context stack (passed
+# by name) across lines so multi-line strings/awk programs don't break function
+# splitting. Writes the delta into the variable named by $3.
+# ==============================================================================
+_opt_brace_delta() {
+    local line="$1"
+    local -n _obd_st="$2" _obd_out="$3"
+    _obd_out=0
+    local i=0 n=${#line} c top nx prev
+    while (( i < n )); do
+        c="${line:i:1}"
+        top="${_obd_st[-1]}"
+        case "$top" in
+            sq)  [[ "$c" == "'" ]] && unset '_obd_st[-1]'; (( i++ )) ;;
+            ansi)
+                if [[ "$c" == '\' ]]; then (( i += 2 ))
+                elif [[ "$c" == "'" ]]; then unset '_obd_st[-1]'; (( i++ ))
+                else (( i++ )); fi ;;
+            bq)
+                if [[ "$c" == '\' ]]; then (( i += 2 ))
+                elif [[ "$c" == '`' ]]; then unset '_obd_st[-1]'; (( i++ ))
+                elif [[ "$c" == "'" ]]; then _obd_st+=("sq"); (( i++ ))
+                elif [[ "$c" == '"' ]]; then _obd_st+=("dq"); (( i++ ))
+                else (( i++ )); fi ;;
+            dq)
+                if [[ "$c" == '\' ]]; then (( i += 2 )); continue; fi
+                if [[ "$c" == '"' ]]; then unset '_obd_st[-1]'; (( i++ )); continue; fi
+                case "$c" in
+                    '$')
+                        nx="${line:i+1:1}"
+                        if [[ "$nx" == "'" ]]; then _obd_st+=("ansi"); (( i += 2 ))
+                        elif [[ "$nx" == '(' ]]; then
+                            if [[ "${line:i+2:1}" == '(' ]]; then _obd_st+=("sub" "sub"); (( i += 3 ))
+                            else _obd_st+=("sub"); (( i += 2 )); fi
+                        elif [[ "$nx" == '{' ]]; then _obd_st+=("param"); (( i += 2 ))
+                        else (( i++ )); fi ;;
+                    '`') _obd_st+=("bq"); (( i++ )) ;;
+                    *) (( i++ )) ;;
+                esac ;;
+            *)
+                case "$c" in
+                    '\') (( i += 2 )) ;;
+                    "'") _obd_st+=("sq"); (( i++ )) ;;
+                    '"') _obd_st+=("dq"); (( i++ )) ;;
+                    '`') _obd_st+=("bq"); (( i++ )) ;;
+                    '$')
+                        nx="${line:i+1:1}"
+                        if [[ "$nx" == "'" ]]; then _obd_st+=("ansi"); (( i += 2 ))
+                        elif [[ "$nx" == '(' ]]; then
+                            if [[ "${line:i+2:1}" == '(' ]]; then _obd_st+=("sub" "sub"); (( i += 3 ))
+                            else _obd_st+=("sub"); (( i += 2 )); fi
+                        elif [[ "$nx" == '{' ]]; then _obd_st+=("param"); (( i += 2 ))
+                        else (( i++ )); fi ;;
+                    '{') (( _obd_out++ )); (( i++ )) ;;
+                    '}')
+                        if [[ "$top" == "param" ]]; then unset '_obd_st[-1]'
+                        else (( _obd_out-- )); fi
+                        (( i++ )) ;;
+                    '#')
+                        prev=" "; (( i > 0 )) && prev="${line:i-1:1}"
+                        [[ "$prev" =~ [[:space:]\;\|\&\(\)] ]] && break
+                        (( i++ )) ;;
+                    '(') [[ "$top" == "param" ]] || _obd_st+=("sub"); (( i++ )) ;;
+                    ')') [[ "$top" == "sub" ]] && unset '_obd_st[-1]'; (( i++ )) ;;
+                    *) (( i++ )) ;;
+                esac ;;
+        esac
+    done
+}
+
+# ==============================================================================
 # MAIN OPTIMISER ENTRY POINT
 # ==============================================================================
 
@@ -1371,6 +1460,7 @@ optimize() {
         while IFS= read -r line; do lines+=("$line"); done <<< "$current"
         local n=${#lines[@]} i
         local output="" in_fn=false depth=0 fn_body_acc="" fn_header="" cur_fn=""
+        local -a _ost=("top")
 
         for (( i=0; i<n; i++ )); do
             local line="${lines[$i]}"
@@ -1382,14 +1472,23 @@ optimize() {
                     continue
                 fi
                 in_fn=true depth=1 fn_body_acc="" fn_header="$line"
+                _ost=("top")
                 continue
             fi
             if $in_fn; then
-                # Count actual brace occurrences, not just presence: a single
-                # line may open and close several braces (e.g. awk one-liners),
-                # and a +1/-1-per-line tally drifts so functions never close.
-                local _opens="${line//[^\{]/}" _closes="${line//[^\}]/}"
-                (( depth += ${#_opens} - ${#_closes} ))
+                # Count braces ignoring quoted/comment/expansion content, so a
+                # brace inside a string or multi-line awk program never hides
+                # the function's real closing brace. State persists across lines.
+                local _delta=0
+                if [[ "${_ost[-1]}" == "top" ]] && \
+                   [[ "$line" != *"'"* && "$line" != *'"'* && "$line" != *'`'* && \
+                      "$line" != *'$'* && "$line" != *'#'* ]]; then
+                    local _o="${line//[^\{]/}" _c="${line//[^\}]/}"
+                    _delta=$(( ${#_o} - ${#_c} ))
+                else
+                    _opt_brace_delta "$line" _ost _delta
+                fi
+                (( depth += _delta ))
                 if (( depth == 0 )); then
                     # closing } — apply passes to accumulated body
                     local fn_body="$fn_body_acc"
