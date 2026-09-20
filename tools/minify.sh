@@ -245,7 +245,9 @@ _token_to_string() {
             fi ;;
         STRING_DQ)
             local _ds
-            _unescape_str "$val" _ds
+            # _lit stores real newlines/tabs as \n/\t, so use the full
+            # unescape (a double-quoted string keeps real newlines as content).
+            _unescape "$val" _ds
             printf -v "$_out" '"%s"' "$_ds" ;;
         ARITH)
             # Tokeniser emits full construct with delimiters — emit verbatim
@@ -468,7 +470,18 @@ _needs_space() {
         esac
     fi
 
-    [[ "$prev_type" == WORD && "$curr_type" == WORD ]] && return 0
+    # Two separate word-constituent tokens were whitespace-separated in the
+    # source (adjacent ones are fused by the tokeniser's merge pass), so a space
+    # is required — omitting it would concatenate them into one word.
+    case "$prev_type" in
+        WORD|VAR_LITERAL|PARAM_EXP|CMD_SUB|ARITH|ARITH_STMT|BACKTICK|PROC_SUB|\
+        STRING_SQ|STRING_DQ|RICH_STRING|LOCALE_STRING)
+            case "$curr_type" in
+                WORD|VAR_LITERAL|PARAM_EXP|CMD_SUB|ARITH|ARITH_STMT|BACKTICK|PROC_SUB|\
+                STRING_SQ|STRING_DQ|RICH_STRING|LOCALE_STRING)
+                    return 0 ;;
+            esac ;;
+    esac
 
     return 1
 }
@@ -647,8 +660,12 @@ minify() {
                 break
             done
 
-            # Inside brackets/parens — use space instead of semicolon
-            if (( ${#_paren_stack[@]} > 0 || array_depth > 0 || bracket_depth > 0 )); then
+            # Inside [[ ]] / array subscript / an array literal assignment a
+            # newline separates elements or whitespace-equivalent operands, so
+            # emit a space. Inside a ( ... ) subshell it separates *commands*
+            # and must become `;` — fall through to the semicolon logic for that.
+            if (( array_depth > 0 || bracket_depth > 0 )) || \
+               { (( ${#_paren_stack[@]} > 0 )) && [[ "${_paren_stack[-1]}" != "subshell" ]]; }; then
                 parts+=(" "); _last_was_space=1
                 prev_type="OP"; prev_val=" "
             elif [[ -n "$prev_type" ]] && (( !_last_was_space )); then

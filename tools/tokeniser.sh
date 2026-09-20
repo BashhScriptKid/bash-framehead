@@ -1680,8 +1680,14 @@ tokenise() {
                 (( _pos++ ))
             done
             local _rx="${_src:_rx_start:_pos-_rx_start}"
-            # Trim trailing whitespace
-            while [[ "${_rx: -1}" == ' ' || "${_rx: -1}" == $'\t' ]]; do _rx="${_rx%?}"; done
+            # Trim trailing whitespace, but not if it is escaped with an odd
+            # number of backslashes (e.g. `^-\ ` is a literal space).
+            while [[ "${_rx: -1}" == ' ' || "${_rx: -1}" == $'\t' ]]; do
+                local _tt="${_rx%?}" _nbs=0
+                while [[ "${_tt: -1}" == '\' ]]; do (( _nbs++ )); _tt="${_tt%?}"; done
+                (( _nbs % 2 == 1 )) && break
+                _rx="${_rx%?}"
+            done
             if [[ -n "$_rx" ]]; then
                 _token_start=$_rx_start
                 _emit REGEX_PATTERN "$_rx"
