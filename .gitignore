@@ -5,8 +5,13 @@
 # Compiled artifacts
 /bash-framehead-extended.sh
 /bytebeat.wav
+
+# Release builds — bfh.[o][f][m][e].sh (attached to releases, not tracked)
+/bfh.sh
+/bfh.*.sh
 /fb0.bmp
 /SELECT*
 
 # Stray test artifacts
 *"SELECT"*
+/tools/parable-verify.sh
