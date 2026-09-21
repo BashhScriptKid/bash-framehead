@@ -109,5 +109,5 @@ Extensions are self-contained units that depend on core modules (documented via 
 
 ### Important Notes
 - **Runtime requirement**: `runtime.sh` is a shared dependency for all modules
-- **Bash version**: Requires Bash 4.3+ (associative arrays, namerefs); some functions need 5.0+
+- **Bash version**: Requires Bash 4.4+ (namerefs, `${var@Q}` parameter transforms); some functions need 5.0+
 - **Minifier performance**: The minifier can be slow/hang; use `MINIFY=0` for development
