@@ -1376,13 +1376,6 @@ compile_bare() {
                 echo "${_cb_fn_body[$_cb_fn]}"
             done
         done
-
-        # Run the feature-register init hook last, now that its function is
-        # defined. Without this, a bare artifact lazy-scans inside every
-        # command-substitution subshell instead of once in the parent.
-        if [[ -n "${_cb_fn_body[_runtime::feature_scan]:-}" ]]; then
-            echo "_runtime::feature_scan"
-        fi
     } > "$_output"
 
     echo "Wrote $_output (${#_cb_candidates[@]} total: functions + globals)" >&2

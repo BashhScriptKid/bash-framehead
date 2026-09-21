@@ -20,7 +20,7 @@
 #
 # --- FEATURE DETECTION ---
 # Functions that need optional shell features probe them at call time via
-# runtime::features and fail cleanly (return 1) on shells without them.
+# runtime::features::has and fail cleanly (return 1) on shells without them.
 
 # --- CONSTRUCTION ---
 
@@ -630,7 +630,7 @@ array::union() {
 array::union::fast() {
 		local -n _array_union_result="$1"
 		local -a a=($2) b=($3)
-		if runtime::features assoc_array; then
+		if runtime::features::has assoc_array; then
 				_array_union_result=()
 				local -A _seen=()
 				for el in "${a[@]}" "${b[@]}"; do
@@ -814,7 +814,7 @@ array::unique::fast() {
 # Usage: array::clear arrname
 array::clear() {
 		[[ -v "$1" ]] || { echo "array::clear: '$1' is not set" >&2; return 1; }
-		if runtime::features unset_array_all; then
+		if runtime::features::has unset_array_all; then
 				unset "$1[@]"
 		else
 				local -n _array_clear_ref="$1" 2>/dev/null || return 1

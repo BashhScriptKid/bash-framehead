@@ -358,37 +358,33 @@ runtime::is_minimum_bash() {
 	((BASH_VERSINFO[0] >= ${1:-3}))
 }
 
-# --- FEATURE REGISTRY (CPUID-style) ---
+# --- FEATURE DETECTION ---
 #
-# Ids are append-only: never renumber, or a feature mask minted by one
-# version of framehead won't decode under another.
+# Optional shell features are recorded once in the bitmask _RUNTIME_FEATURES
+# and read cheaply afterwards, so a tight loop pays the scan on its first
+# iteration only. The scan is fork-free: the '@' probes fail with a fatal
+# bad substitution that no eval/if can catch, so features are derived from
+# BASH_VERSINFO thresholds. `runtime::features::probe` audits those
+# thresholds by executing each feature in an isolated subshell.
 #
-#   id  name              minver  feature
-#   0   param_transform   404     ${v@Q} ${v@E} ${v@P} ${v@A} ${v@a}  (4.4)
-#   1   case_modify       400     ${v^^} ${v,,}                      (4.0)
-#   2   nameref           403     declare -n                          (4.3)
-#   3   assoc_array       400     declare -A                          (4.0)
-#   4   assoc_dump        501     ${arr[@]@K}                         (5.1)
-#   5   assoc_kv          502     ${arr[@]@k}                         (5.2)
-#   6   epoch_realtime    500     $EPOCHREALTIME                      (5.0)
-#   7   bash_monoseconds  503     $BASH_MONOSECONDS                   (5.3)
-#   8   globsort          503     GLOBSORT                            (5.3)
-#   9   unset_array_all   502     unset arr[@] clears the array       (5.2)
-#   10  wait_n_p          501     wait -n -p                          (5.1)
-_RUNTIME_FEATURE_IDS=(
-	param_transform case_modify nameref assoc_array
-	assoc_dump assoc_kv epoch_realtime bash_monoseconds
-	globsort unset_array_all wait_n_p
-)
-_RUNTIME_FEATURE_MASK=0
-_RUNTIME_FEATURE_SCANNED=0
+#   bit  feature            min BASH_VERSINFO
+#   0    param_transform    4.4   ${v@Q} ${v@E} ${v@P} ${v@A} ${v@a}
+#   1    case_modify        4.0   ${v^^} ${v,,}
+#   2    nameref            4.3   declare -n
+#   3    assoc_array        4.0   declare -A
+#   4    assoc_dump         5.1   ${arr[@]@K}
+#   5    assoc_kv           5.2   ${arr[@]@k}
+#   6    epoch_realtime     5.0   $EPOCHREALTIME
+#   7    bash_monoseconds   5.3   $BASH_MONOSECONDS
+#   8    globsort           5.3   GLOBSORT
+#   9    unset_array_all    5.2   unset arr[@] clears the array
+#   10   wait_n_p           5.1   wait -n -p
+_RUNTIME_FEATURES=0
+_RUNTIME_FEATURES_READY=0
 
-# Hardcoded thresholds, one expression: no loop, no forks. Term N is the
-# BASH_VERSINFO (major*100+minor) that feature id N needs. Version-bound in
-# Bash (no backports); `runtime::features --probe` audits the assumption.
-_runtime::feature_scan() {
+_runtime::features_scan() {
 	local _ver=$(( BASH_VERSINFO[0] * 100 + BASH_VERSINFO[1] ))
-	_RUNTIME_FEATURE_MASK=$(( \
+	_RUNTIME_FEATURES=$(( \
 		(_ver >= 404)        | \
 		((_ver >= 400) << 1) | \
 		((_ver >= 403) << 2) | \
@@ -400,14 +396,11 @@ _runtime::feature_scan() {
 		((_ver >= 503) << 8) | \
 		((_ver >= 502) << 9) | \
 		((_ver >= 501) << 10) ))
-	_RUNTIME_FEATURE_SCANNED=1
+	_RUNTIME_FEATURES_READY=1
 }
-# Eager: compute at source, in the main shell, so forks inherit the register.
-# compile_bare appends an equivalent call after its function definitions.
-_runtime::feature_scan
 
 # Slow audit path: execute one feature in an isolated subshell. Reached only
-# via `runtime::features --probe`; the register comes from feature_scan.
+# via `runtime::features::probe`.
 _runtime::feature_probe() {
 	local _probe
 	case $1 in
@@ -427,63 +420,62 @@ _runtime::feature_probe() {
 	( eval "$_probe" ) >/dev/null 2>&1
 }
 
-# Resolve a feature name to its register bit (scanning the register on first use).
-_runtime::feature_get() {
-	local _name=$1 _id
-	(( _RUNTIME_FEATURE_SCANNED )) || _runtime::feature_scan
-	for ((_id = 0; _id < ${#_RUNTIME_FEATURE_IDS[@]}; _id++)); do
-		if [[ ${_RUNTIME_FEATURE_IDS[_id]} == "$_name" ]]; then
-			(( _RUNTIME_FEATURE_MASK & (1 << _id) ))
-			return
-		fi
-	done
-	return 1
-}
-
-# CPUID-style feature query.
-#   runtime::features            leaf 0: shell identity + highest feature id
-#   runtime::features <name>     0 if supported, 1 otherwise
-#   runtime::features <bank>     hex bitmask for a feature bank (0 = ids 0-63)
-#   runtime::features --decode   human-readable list (the `cpuid -1` analogue)
-#   runtime::features --probe    slow audit: execute each feature instead of
-#                                deriving it from BASH_VERSINFO
+# Feature introspection as plain API functions (no CLI-style flags). The
+# register is scanned once, on first use, and cached in _RUNTIME_FEATURES.
+#   runtime::features            list every known feature (id, name, yes/no)
+#   runtime::features::has <f>   0 if supported, 1 otherwise
+#   runtime::features::mask      cached register as a hex bitmask
+#   runtime::features::probe     slow audit: execute each feature
 runtime::features() {
-	if (( $# == 0 )); then
-		printf 'bash %s max=%d\n' \
-			"${BASH_VERSION:-unknown}" \
-			"$(( ${#_RUNTIME_FEATURE_IDS[@]} - 1 ))"
-		return 0
-	fi
-	local _arg=$1 _name
-	if [[ $_arg == --decode ]]; then
-		local _id _state
-		for ((_id = 0; _id < ${#_RUNTIME_FEATURE_IDS[@]}; _id++)); do
-			_name=${_RUNTIME_FEATURE_IDS[_id]}
-			if _runtime::feature_get "$_name"; then _state=yes; else _state=no; fi
-			printf '%2d  %-18s %s\n' "$_id" "$_name" "$_state"
-		done
-		return 0
-	fi
-	if [[ $_arg == --probe ]]; then
-		local _id _state
-		for ((_id = 0; _id < ${#_RUNTIME_FEATURE_IDS[@]}; _id++)); do
-			_name=${_RUNTIME_FEATURE_IDS[_id]}
-			if _runtime::feature_probe "$_name"; then _state=yes; else _state=no; fi
-			printf '%2d  %-18s %s\n' "$_id" "$_name" "$_state"
-		done
-		return 0
-	fi
-	case $_arg in
-		''|*[!0-9]*) _runtime::feature_get "$_arg" ;;
-		*)  _runtime::feature_scan; printf '0x%x\n' "$_RUNTIME_FEATURE_MASK" ;;
-	esac
+	(( _RUNTIME_FEATURES_READY )) || _runtime::features_scan
+	local -a _names=(param_transform case_modify nameref assoc_array assoc_dump assoc_kv epoch_realtime bash_monoseconds globsort unset_array_all wait_n_p)
+	local _id _state
+	printf 'bash %s\n' "${BASH_VERSION:-unknown}"
+	for ((_id = 0; _id < ${#_names[@]}; _id++)); do
+		(( _RUNTIME_FEATURES & (1 << _id) )) && _state=yes || _state=no
+		printf '%2d  %-18s %s\n' "$_id" "${_names[_id]}" "$_state"
+	done
 }
 
-# Convenience alias. Hot paths read the register bit inline instead of
-# calling this (bit 0 = param_transform):
-#   (( _RUNTIME_FEATURE_MASK & 1 )) || runtime::has_param_transform
+runtime::features::has() {
+	(( _RUNTIME_FEATURES_READY )) || _runtime::features_scan
+	local _bit
+	case $1 in
+		param_transform)  _bit=0 ;;
+		case_modify)      _bit=1 ;;
+		nameref)          _bit=2 ;;
+		assoc_array)      _bit=3 ;;
+		assoc_dump)       _bit=4 ;;
+		assoc_kv)         _bit=5 ;;
+		epoch_realtime)   _bit=6 ;;
+		bash_monoseconds) _bit=7 ;;
+		globsort)         _bit=8 ;;
+		unset_array_all)  _bit=9 ;;
+		wait_n_p)         _bit=10 ;;
+		*)                return 1 ;;
+	esac
+	(( _RUNTIME_FEATURES & (1 << _bit) ))
+}
+
+runtime::features::mask() {
+	(( _RUNTIME_FEATURES_READY )) || _runtime::features_scan
+	printf '0x%x\n' "$_RUNTIME_FEATURES"
+}
+
+runtime::features::probe() {
+	local -a _names=(param_transform case_modify nameref assoc_array assoc_dump assoc_kv epoch_realtime bash_monoseconds globsort unset_array_all wait_n_p)
+	local _id _state
+	for ((_id = 0; _id < ${#_names[@]}; _id++)); do
+		_runtime::feature_probe "${_names[_id]}" && _state=yes || _state=no
+		printf '%2d  %-18s %s\n' "$_id" "${_names[_id]}" "$_state"
+	done
+}
+
+# Predicate: reads bit 0 of the cached register directly (no nested call,
+# no repeated thresholds). The first call triggers the one-time scan.
 runtime::has_param_transform() {
-	runtime::features param_transform
+	(( _RUNTIME_FEATURES_READY )) || _runtime::features_scan
+	(( _RUNTIME_FEATURES & 1 ))
 }
 
 runtime::is_container() {
@@ -697,7 +689,7 @@ runtime::wait::next() {
 # Usage: runtime::wait::next::pid
 runtime::wait::next::pid() {
 		local _pid
-		if runtime::features wait_n_p; then
+		if runtime::features::has wait_n_p; then
 				wait -n -p _pid "$@"
 		else
 				wait -n "$@"
@@ -719,7 +711,7 @@ runtime::wait::any() {
 # Usage: runtime::wait::any::pid jobspec...
 runtime::wait::any::pid() {
 		local _pid
-		if runtime::features wait_n_p; then
+		if runtime::features::has wait_n_p; then
 				wait -n -p _pid "$@"
 		else
 				wait -n "$@"
@@ -775,7 +767,7 @@ runtime::fd::with() {
 # Requires: Bash 5.3+
 # Usage: t0=$(runtime::clocks::mono)
 runtime::clocks::mono() {
-		runtime::features bash_monoseconds || return 1
+		runtime::features::has bash_monoseconds || return 1
 		echo "${BASH_MONOSECONDS:-0}"
 }
 
@@ -783,7 +775,7 @@ runtime::clocks::mono() {
 # Requires: Bash 5.0+
 # Usage: ts=$(runtime::clocks::wall)
 runtime::clocks::wall() {
-		runtime::features epoch_realtime || return 1
+		runtime::features::has epoch_realtime || return 1
 		echo "${EPOCHREALTIME:-0}"
 }
 

@@ -1200,24 +1200,26 @@ test::runtime::has_param_transform() {
 	fi
 }
 test::runtime::features() {
-	local _out _mask
-	_out=$(runtime::features)
-	_assert "leaf0 identity"    "bash" "${_out%% *}"
-	_assert "leaf0 reports max" "1"    "$([[ $_out == *" max="* ]] && echo 1 || echo 0)"
-	_mask=$(runtime::features 0)
-	_assert "bank0 is hex"      "1"    "$([[ $_mask == 0x* ]] && echo 1 || echo 0)"
-	if runtime::features no_such_feature; then
-		_assert "unknown rejected" "0" "1"
-	else
-		_assert "unknown rejected" "0" "0"
-	fi
-	if runtime::features param_transform; then
-		_assert "param_transform matches bash" "1" \
-			"$(( BASH_VERSINFO[0] > 4 || (BASH_VERSINFO[0] == 4 && BASH_VERSINFO[1] >= 4) ))"
-	else
-		_assert "param_transform matches bash" "0" \
-			"$(( BASH_VERSINFO[0] > 4 || (BASH_VERSINFO[0] == 4 && BASH_VERSINFO[1] >= 4) ))"
-	fi
+	local _out; _out=$(runtime::features)
+	_assert "lists shell"    "1" "$([[ $_out == bash\ * ]] && echo 1 || echo 0)"
+	_assert "lists features" "1" "$([[ $_out == *param_transform* ]] && echo 1 || echo 0)"
+	_sub_done
+}
+test::runtime::features::has() {
+	local _exp=0
+	(( BASH_VERSINFO[0] > 4 || (BASH_VERSINFO[0] == 4 && BASH_VERSINFO[1] >= 4) )) && _exp=1
+	_assert "param_transform" "$_exp" "$(runtime::features::has param_transform && echo 1 || echo 0)"
+	_assert "unknown rejected" "0"    "$(runtime::features::has no_such_feature && echo 1 || echo 0)"
+	_sub_done
+}
+test::runtime::features::mask() {
+	local _mask; _mask=$(runtime::features::mask)
+	_assert "hex mask" "1" "$([[ $_mask == 0x* ]] && echo 1 || echo 0)"
+	_sub_done
+}
+test::runtime::features::probe() {
+	local _out; _out=$(runtime::features::probe)
+	_assert "probe lists features" "1" "$([[ $_out == *param_transform* ]] && echo 1 || echo 0)"
 	_sub_done
 }
 test::runtime::braceexpand_enabled() { if runtime::braceexpand_enabled; then _pass; else _fail; fi; }

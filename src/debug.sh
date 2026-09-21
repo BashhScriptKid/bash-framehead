@@ -73,7 +73,7 @@ debug::vardump() {
 
 		# Verify the variable exists
 		if ! declare -p "$_name" &>/dev/null; then
-				if (( _RUNTIME_FEATURE_MASK & 1 )) || runtime::has_param_transform; then
+				if runtime::has_param_transform; then
 						echo "debug::vardump: variable ${_name@Q} not defined" >&2
 				else
 						printf 'debug::vardump: variable %q not defined\n' "$_name" >&2
@@ -83,7 +83,7 @@ debug::vardump() {
 
 		# Parse attributes (fall back to parsing `declare -p` before Bash 4.4)
 		local _attrs _decl
-		if (( _RUNTIME_FEATURE_MASK & 1 )) || runtime::has_param_transform; then
+		if runtime::has_param_transform; then
 				IFS='' read -ra _attrs <<< "${!_name@a}"
 		else
 				_decl=$(declare -p "$_name" 2>/dev/null) || _decl=''
@@ -135,7 +135,7 @@ debug::vardump() {
 				local _key _value
 				for _key in "${!__debug_vardump_name[@]}"; do
 						_value=${__debug_vardump_name[$_key]}
-						if (( _RUNTIME_FEATURE_MASK & 1 )) || runtime::has_param_transform; then
+						if runtime::has_param_transform; then
 								[[ "$_typ" == 'A' ]] && _key=${_key@Q}
 								_value=${_value@Q}
 						else
@@ -148,7 +148,7 @@ debug::vardump() {
 				done
 				echo ')'
 		else
-				if (( _RUNTIME_FEATURE_MASK & 1 )) || runtime::has_param_transform; then
+				if runtime::has_param_transform; then
 						echo "${_dc_green}${__debug_vardump_name@Q}${_dc_rst}"
 				else
 						printf '%s%q%s\n' "$_dc_green" "$__debug_vardump_name" "$_dc_rst"
