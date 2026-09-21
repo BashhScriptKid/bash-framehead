@@ -358,18 +358,108 @@ runtime::is_minimum_bash() {
 	((BASH_VERSINFO[0] >= ${1:-3}))
 }
 
-# Internal: compare against Bash major.minor version (handles 5.1, 5.2, etc.)
-_runtime::min_bash() {
-		local _major=${1%.*} _minor=${1#*.}
-		(( BASH_VERSINFO[0] > _major || (BASH_VERSINFO[0] == _major && BASH_VERSINFO[1] >= _minor) ))
+# --- FEATURE REGISTRY (CPUID-style) ---
+#
+# Ids are append-only: never renumber, or a feature mask minted by one
+# version of framehead won't decode under another.
+#
+#   id  name              kind      feature
+#   0   param_transform   behavior  ${v@Q} ${v@E} ${v@P} ${v@A} ${v@a}  (4.4)
+#   1   case_modify       behavior  ${v^^} ${v,,}                      (4.0)
+#   2   nameref           behavior  declare -n                          (4.3)
+#   3   assoc_array       behavior  declare -A                          (4.0)
+#   4   assoc_dump        behavior  ${arr[@]@K}                         (5.1)
+#   5   assoc_kv          behavior  ${arr[@]@k}                         (5.1)
+#   6   epoch_realtime    behavior  $EPOCHREALTIME                      (5.0)
+#   7   bash_monoseconds  behavior  $BASH_MONOSECONDS                   (5.3)
+#   8   globsort          behavior  shopt -s globsort                   (5.3)
+#   9   unset_array_all   behavior  unset arr[@] clears the array       (5.2)
+#   10  wait_n_p          version   wait -n -p (unprobeable: it blocks)  (5.1)
+_RUNTIME_FEATURE_IDS=(
+	param_transform case_modify nameref assoc_array
+	assoc_dump assoc_kv epoch_realtime bash_monoseconds
+	globsort unset_array_all wait_n_p
+)
+_RUNTIME_FEATURE_MASK=0
+_RUNTIME_FEATURE_KNOWN=0
+
+# Probe one feature in an isolated subshell: a parse- or expansion-level
+# failure can only kill the subshell. Features that cannot be probed safely
+# fall back to a version gate.
+_runtime::feature_probe() {
+	local _probe
+	case $1 in
+		param_transform)  _probe='__x=1; : "${__x@Q}"' ;;
+		case_modify)      _probe='__x=ab; : "${__x^^}"' ;;
+		nameref)          _probe='__x=1; declare -n __r=__x' ;;
+		assoc_array)      _probe='declare -A __a=([k]=v)' ;;
+		assoc_dump)       _probe='declare -A __a=([k]=v); : "${__a[@]@K}"' ;;
+		assoc_kv)         _probe='declare -A __a=([k]=v); : "${__a[@]@k}"' ;;
+		epoch_realtime)   _probe='[[ -n "${EPOCHREALTIME:-}" ]]' ;;
+		bash_monoseconds) _probe='[[ -n "${BASH_MONOSECONDS:-}" ]]' ;;
+		globsort)         (( BASH_VERSINFO[0] > 5 || (BASH_VERSINFO[0] == 5 && BASH_VERSINFO[1] >= 3) )); return ;;
+		unset_array_all)  _probe='__a=(1 2); unset "__a[@]"; (( ${#__a[@]} == 0 ))' ;;
+		wait_n_p)         (( BASH_VERSINFO[0] > 5 || (BASH_VERSINFO[0] == 5 && BASH_VERSINFO[1] >= 1) )); return ;;
+		*)                return 1 ;;
+	esac
+	( eval "$_probe" ) >/dev/null 2>&1
 }
 
-# True if the shell supports Bash 4.4 ${var@operator} transforms
-# (@Q @E @P @A @a). Feature is version-bound with no backports, so the
-# check is a major.minor compare. Callers fall back to printf %q / %b /
-# declare -p on older shells. Usage: runtime::has_param_transform
+# Resolve and cache a feature, updating the bitmask.
+_runtime::feature_get() {
+	local _name=$1 _id
+	for ((_id = 0; _id < ${#_RUNTIME_FEATURE_IDS[@]}; _id++)); do
+		[[ ${_RUNTIME_FEATURE_IDS[_id]} == "$_name" ]] && break
+	done
+	(( _id < ${#_RUNTIME_FEATURE_IDS[@]} )) || return 1
+	local _bit=$(( 1 << _id ))
+	if (( !(_RUNTIME_FEATURE_KNOWN & _bit) )); then
+		_RUNTIME_FEATURE_KNOWN=$(( _RUNTIME_FEATURE_KNOWN | _bit ))
+		if _runtime::feature_probe "$_name"; then
+			_RUNTIME_FEATURE_MASK=$(( _RUNTIME_FEATURE_MASK | _bit ))
+		fi
+	fi
+	(( _RUNTIME_FEATURE_MASK & _bit ))
+}
+
+# CPUID-style feature query.
+#   runtime::features            leaf 0: shell identity + highest feature id
+#   runtime::features <name>     0 if supported, 1 otherwise
+#   runtime::features <bank>     hex bitmask for a feature bank (0 = ids 0-63)
+#   runtime::features --decode   human-readable list (the `cpuid -1` analogue)
+runtime::features() {
+	if (( $# == 0 )); then
+		printf 'bash %s max=%d\n' \
+			"${BASH_VERSION:-unknown}" \
+			"$(( ${#_RUNTIME_FEATURE_IDS[@]} - 1 ))"
+		return 0
+	fi
+	local _arg=$1 _name
+	if [[ $_arg == --decode ]]; then
+		local _id _state
+		for ((_id = 0; _id < ${#_RUNTIME_FEATURE_IDS[@]}; _id++)); do
+			_name=${_RUNTIME_FEATURE_IDS[_id]}
+			if _runtime::feature_get "$_name"; then _state=yes; else _state=no; fi
+			printf '%2d  %-18s %s\n' "$_id" "$_name" "$_state"
+		done
+		return 0
+	fi
+	case $_arg in
+		''|*[!0-9]*) _runtime::feature_get "$_arg" ;;
+		*)  # numeric bank: populate all probes, then emit the register
+			for _name in "${_RUNTIME_FEATURE_IDS[@]}"; do
+				_runtime::feature_get "$_name" >/dev/null
+			done
+			printf '0x%x\n' "$_RUNTIME_FEATURE_MASK"
+			;;
+	esac
+}
+
+# Convenience alias. Hot paths read the register bit inline instead of
+# calling this (bit 0 = param_transform):
+#   (( _RUNTIME_FEATURE_MASK & 1 )) || runtime::has_param_transform
 runtime::has_param_transform() {
-	_runtime::min_bash 4.4
+	runtime::features param_transform
 }
 
 runtime::is_container() {
@@ -583,7 +673,7 @@ runtime::wait::next() {
 # Usage: runtime::wait::next::pid
 runtime::wait::next::pid() {
 		local _pid
-		if _runtime::min_bash 5.1; then
+		if runtime::features wait_n_p; then
 				wait -n -p _pid "$@"
 		else
 				wait -n "$@"
@@ -605,7 +695,7 @@ runtime::wait::any() {
 # Usage: runtime::wait::any::pid jobspec...
 runtime::wait::any::pid() {
 		local _pid
-		if _runtime::min_bash 5.1; then
+		if runtime::features wait_n_p; then
 				wait -n -p _pid "$@"
 		else
 				wait -n "$@"
@@ -661,7 +751,7 @@ runtime::fd::with() {
 # Requires: Bash 5.3+
 # Usage: t0=$(runtime::clocks::mono)
 runtime::clocks::mono() {
-		_runtime::min_bash 5.3 || return 1
+		runtime::features bash_monoseconds || return 1
 		echo "${BASH_MONOSECONDS:-0}"
 }
 
@@ -669,7 +759,7 @@ runtime::clocks::mono() {
 # Requires: Bash 5.0+
 # Usage: ts=$(runtime::clocks::wall)
 runtime::clocks::wall() {
-		_runtime::min_bash 5.0 || return 1
+		runtime::features epoch_realtime || return 1
 		echo "${EPOCHREALTIME:-0}"
 }
 

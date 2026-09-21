@@ -1199,6 +1199,27 @@ test::runtime::has_param_transform() {
 		(( BASH_VERSINFO[0] < 4 || (BASH_VERSINFO[0] == 4 && BASH_VERSINFO[1] < 4) )) && _pass || _fail
 	fi
 }
+test::runtime::features() {
+	local _out _mask
+	_out=$(runtime::features)
+	_assert "leaf0 identity"    "bash" "${_out%% *}"
+	_assert "leaf0 reports max" "1"    "$([[ $_out == *" max="* ]] && echo 1 || echo 0)"
+	_mask=$(runtime::features 0)
+	_assert "bank0 is hex"      "1"    "$([[ $_mask == 0x* ]] && echo 1 || echo 0)"
+	if runtime::features no_such_feature; then
+		_assert "unknown rejected" "0" "1"
+	else
+		_assert "unknown rejected" "0" "0"
+	fi
+	if runtime::features param_transform; then
+		_assert "param_transform matches bash" "1" \
+			"$(( BASH_VERSINFO[0] > 4 || (BASH_VERSINFO[0] == 4 && BASH_VERSINFO[1] >= 4) ))"
+	else
+		_assert "param_transform matches bash" "0" \
+			"$(( BASH_VERSINFO[0] > 4 || (BASH_VERSINFO[0] == 4 && BASH_VERSINFO[1] >= 4) ))"
+	fi
+	_sub_done
+}
 test::runtime::braceexpand_enabled() { if runtime::braceexpand_enabled; then _pass; else _fail; fi; }
 test::runtime::is_terminal()   { if runtime::is_terminal;   [[ $? -eq 0 || $? -eq 1 ]]; then _pass; else _fail; fi; }
 test::runtime::is_interactive(){ if runtime::is_interactive; [[ $? -eq 0 || $? -eq 1 ]]; then _pass; else _fail; fi; }

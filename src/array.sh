@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # array.sh — bash-frameheader array lib
-# Requires: runtime.sh (runtime::is_minimum_bash)
+# Requires: runtime.sh (runtime::features)
 # shellcheck disable=SC2206
 #
 # --- USAGE PATTERNS ---
@@ -18,10 +18,9 @@
 # The ::fast variants use nameref to write results directly into variables
 # without spawning subshells. This is significantly faster for large arrays.
 #
-# --- BASH 5 FEATURES ---
-# Some functions use associative arrays only available in Bash 5+.
-# These are guarded with runtime::is_minimum_bash 5 and will print an
-# error and return 1 if called on an older version.
+# --- FEATURE DETECTION ---
+# Functions that need optional shell features probe them at call time via
+# runtime::features and fail cleanly (return 1) on shells without them.
 
 # --- CONSTRUCTION ---
 
@@ -631,7 +630,7 @@ array::union() {
 array::union::fast() {
 		local -n _array_union_result="$1"
 		local -a a=($2) b=($3)
-		if runtime::is_minimum_bash 5; then
+		if runtime::features assoc_array; then
 				_array_union_result=()
 				local -A _seen=()
 				for el in "${a[@]}" "${b[@]}"; do
@@ -641,7 +640,7 @@ array::union::fast() {
 						fi
 				done
 		else
-				echo "array::union::fast: requires Bash 5+" >&2
+				echo "array::union::fast: requires associative array support" >&2
 				return 1
 		fi
 }
@@ -815,7 +814,7 @@ array::unique::fast() {
 # Usage: array::clear arrname
 array::clear() {
 		[[ -v "$1" ]] || { echo "array::clear: '$1' is not set" >&2; return 1; }
-		if _runtime::min_bash 5.2; then
+		if runtime::features unset_array_all; then
 				unset "$1[@]"
 		else
 				local -n _array_clear_ref="$1" 2>/dev/null || return 1
