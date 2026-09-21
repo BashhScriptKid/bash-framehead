@@ -186,10 +186,11 @@ bfh.[o][f][m][e].sh
 | `bfh.e.sh` | plain extended bundle |
 | `bfh.oe.sh` | optimized extended bundle |
 | `bfh.ome.sh` | optimized + minified extended bundle — production |
-| `bfh.ofe.sh` | obfuscated + optimized + minified extended — protected product build |
 
-Build the whole matrix yourself with `BFH_VERSION=0.2 tools/release-build.sh`
-(output in `dist/`). Compiled files are not tracked in the repo — they live
+An obfuscated `bfh.ofe.sh` (protected product build) is **not** part of 0.2:
+`tools/obfuscate.sh` is not yet reliable on the full library. Build the six
+shippable artifacts yourself with `BFH_VERSION=0.2 tools/release-build.sh`
+(output in `dist/`); compiled files are not tracked in the repo — they live
 in releases only.
 
 ---

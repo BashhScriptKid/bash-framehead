@@ -29,10 +29,11 @@ extension framework, the compiler toolchain, and the capability system.
   `optimize.sh`, `obfuscate.sh`, `tokeniser.sh`.
 - **Docs**: generated API dictionary (`docs/api/`, 1,824 pages), narrative
   guides and worked examples.
-- **Release artifacts** under the `bfh.[o][f][m][e].sh` naming convention
-  (plain / optimized / minified / extended, plus an obfuscated product
-  build). `tools/release-build.sh` builds the matrix and `BFH_VERSION`
-  stamps the version.
+- **Release artifacts** under the `bfh.[o][f][m][e].sh` naming convention:
+  plain / optimized / minified for both the core and extended bundles.
+  `tools/release-build.sh` builds them and `BFH_VERSION` stamps the version.
+  (The obfuscated `bfh.ofe.sh` build is deferred — `tools/obfuscate.sh` is
+  not yet reliable on the full library.)
 
 ### Changed
 
