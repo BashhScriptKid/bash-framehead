@@ -162,6 +162,38 @@ source ./main.sh
 
 ---
 
+## Prebuilt artifacts
+
+Releases ship the compiled single-file library in several builds. The name
+encodes the transforms applied, in order:
+
+```
+bfh.[o][f][m][e].sh
+```
+
+| Flag | Transform |
+|------|-----------|
+| `o` | optimized — helpers inlined |
+| `f` | obfuscated — implies minified |
+| `m` | minified |
+| `e` | extended — core plus every `ext/` module |
+
+| Artifact | What it is |
+|----------|------------|
+| `bfh.sh` | plain core — readable, auditable, editable |
+| `bfh.o.sh` | optimized core — inlined, still readable |
+| `bfh.om.sh` | optimized + minified core — production |
+| `bfh.e.sh` | plain extended bundle |
+| `bfh.oe.sh` | optimized extended bundle |
+| `bfh.ome.sh` | optimized + minified extended bundle — production |
+| `bfh.ofe.sh` | obfuscated + optimized + minified extended — protected product build |
+
+Build the whole matrix yourself with `BFH_VERSION=0.2 tools/release-build.sh`
+(output in `dist/`). Compiled files are not tracked in the repo — they live
+in releases only.
+
+---
+
 ## Project layout
 
 ```
