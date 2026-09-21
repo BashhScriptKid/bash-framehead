@@ -387,19 +387,9 @@ _RUNTIME_FEATURES_READY=0
 
 _runtime::features_scan() {
 	local _ver=$(( BASH_VERSINFO[0] * 100 + BASH_VERSINFO[1] ))
-	_RUNTIME_FEATURES=$(( \
-		(_ver >= 404)        | \
-		((_ver >= 400) << 1) | \
-		((_ver >= 403) << 2) | \
-		((_ver >= 400) << 3) | \
-		((_ver >= 501) << 4) | \
-		((_ver >= 502) << 5) | \
-		((_ver >= 500) << 6) | \
-		((_ver >= 503) << 7) | \
-		((_ver >= 503) << 8) | \
-		((_ver >= 502) << 9) | \
-		((_ver >= 501) << 10) | \
-		((_ver >= 404) << 11) ))
+	# Keep this on one line: the minifier corrupts many '\'-continuations
+	# inside $(( )) (turns them into literal \n text), which breaks the build.
+	_RUNTIME_FEATURES=$(( (_ver >= 404) | ((_ver >= 400) << 1) | ((_ver >= 403) << 2) | ((_ver >= 400) << 3) | ((_ver >= 501) << 4) | ((_ver >= 502) << 5) | ((_ver >= 500) << 6) | ((_ver >= 503) << 7) | ((_ver >= 503) << 8) | ((_ver >= 502) << 9) | ((_ver >= 501) << 10) | ((_ver >= 404) << 11) ))
 	_RUNTIME_FEATURES_READY=1
 }
 
