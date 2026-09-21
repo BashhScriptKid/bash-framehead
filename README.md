@@ -1,5 +1,7 @@
 # bash::framehead
 
+**Release 0.2** — see [CHANGELOG.md](./CHANGELOG.md).
+
 A framework for Bash — a runtime standard library with a comprehensive (and frankly ridiculous) set of helpers. String manipulation, math, filesystem, networking, git, hardware, colour, terminal, time, process management, and more — all compiled into a single sourceable file. No dependencies beyond what's already on your system. No installation. Just source it and go.
 
 ```bash

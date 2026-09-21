@@ -180,9 +180,13 @@ compile_files() {
 
     # Step 5: Add version and move to final location
     if (( ! ${_COMPILE_SKIP_VERSION:-0} )); then
-        local VERSION
-        read -r -t 0.1 -n 10000 _drain 2>/dev/null || true
-        read -r -p "Input a version for this file: " VERSION
+        # BFH_VERSION stamps a release non-interactively (tagging/CI);
+        # otherwise prompt, then fall back to the date-based dev scheme.
+        local VERSION="${BFH_VERSION:-}"
+        if [[ -z "$VERSION" ]]; then
+            read -r -t 0.1 -n 10000 _drain 2>/dev/null || true
+            read -r -p "Input a version for this file: " VERSION
+        fi
         VERSION=${VERSION:-"$(git describe --tags --abbrev=0 2>/dev/null || echo "0.0.0")-dev+$(date +%d%m%y).$(date +%S)"}
         sed -i "s/## Version:/## Version: ${VERSION}/" "$temp_file"
     fi
@@ -470,9 +474,11 @@ compile_extended() {
     echo " ok"
 
     # Version
-    local VERSION
-    read -r -t 0.1 -n 10000 _drain 2>/dev/null || true
-    read -r -p "Input a version for this file: " VERSION
+    local VERSION="${BFH_VERSION:-}"
+    if [[ -z "$VERSION" ]]; then
+        read -r -t 0.1 -n 10000 _drain 2>/dev/null || true
+        read -r -p "Input a version for this file: " VERSION
+    fi
     VERSION=${VERSION:-"$(git describe --tags --abbrev=0 2>/dev/null || echo "0.0.0")-dev+$(date +%d%m%y).$(date +%S)"}
     sed -i "s/## Version:/## Version: ${VERSION}/" "$temp_file"
 
