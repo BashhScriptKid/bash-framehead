@@ -68,15 +68,19 @@ _progress_render() {
     [[ "$_minify_log_mode" == quiet ]] && return 0
     [[ -t 2 ]] || return 0
     local label="$1" cur="$2" total="$3" unit="${4:-tokens}"
-    local pct=0 filled=0 bar="" empty
+    local pct=0 filled=0 empty bar_filled bar_empty
     local bar_width=40
     (( total > 0 )) && pct=$(( cur * 100 / total ))
     (( total > 0 )) && filled=$(( cur * bar_width / total ))
     (( filled > bar_width )) && filled=$bar_width
     empty=$(( bar_width - filled ))
-    bar="$(printf '%*s' "$filled" '' | tr ' ' '=')"
-    bar+="$(printf '%*s' "$empty" '')"
-    _progress_line="$(printf '%s [%s] %d/%d %s (%d%%)' "$label" "$bar" "$cur" "$total" "$unit" "$pct")"
+    # Build the bar with printf -v (builtin) rather than $(printf | tr) so a
+    # per-token render costs no forks — this runs once per token on large inputs.
+    printf -v bar_filled '%*s' "$filled" ''
+    bar_filled="${bar_filled// /=}"
+    printf -v bar_empty '%*s' "$empty" ''
+    printf -v _progress_line '%s [%s%s] %d/%d %s (%d%%)' \
+        "$label" "$bar_filled" "$bar_empty" "$cur" "$total" "$unit" "$pct"
     # Hide cursor on first render
     if (( !_progress_active )); then
         printf '\033[?25l' >&2
@@ -2217,7 +2221,7 @@ tokenise() {
         (( _li++ ))
         _full_src+="${_src}"$'\n'
 
-        _progress_render "Tokenising..." "$_li" "${#_lines[@]}" "lines"
+        _progress_render "Tokenising (scan)..." "$_li" "${#_lines[@]}" "lines"
         (( _tc > 0 )) && { _token_start=0; _emit OP $'\n'; }
         _scan_line
         # Advance offset past this line (length + 1 for the newline that was emitted)
@@ -2295,6 +2299,7 @@ tokenise() {
     local _raw_count=$_tc
     local _wi=0 _ri=0 _prev_nl=0
     for (( _ri=0; _ri<_raw_count; _ri++ )); do
+        _progress_render "Tokenising (collapse)..." "$_ri" "$_raw_count" "tokens"
         local _rtype="${_tk_type[_ri]}" _rval="${_tk_val[_ri]}"
         [[ "$_rtype" == "__DEL__" ]] && continue
         if [[ "$_rtype" == "OP" && "$_rval" == $'\n' ]]; then
@@ -2321,6 +2326,7 @@ tokenise() {
     local -a _tk_adj=()
     _tk_adj[0]=0
     for (( i=1; i<_tc; i++ )); do
+        _progress_render "Tokenising (adjacency)..." "$i" "$_tc" "tokens"
         local _prev_end=$(( _tk_end_arr[i-1] ))
         local _cur_start=$(( _tk_pos_arr[i] ))
         local _has_ws=0
@@ -2373,6 +2379,7 @@ tokenise() {
     local -a _wa_type=() _wa_val=() _wa_pos=() _wa_end=() _wa_adj=()
 
     while (( _wa_in < _wa_tc )); do
+        _progress_render "Tokenising (merge)..." "$_wa_in" "$_wa_tc" "tokens"
         local _wa_t="${_tk_type[_wa_in]}"
 
         # Non-mergeable: pass through unchanged
