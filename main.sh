@@ -1204,6 +1204,7 @@ compile_bare() {
     while IFS= read -r -d '' _cb_f; do
         _cb_files+=("$_cb_f")
         local _cb_in_fn=false _cb_fn_name="" _cb_fn_body=""
+        local _cb_pending_name="" _cb_pending_text=""
         local _cb_line
         while IFS= read -r _cb_line; do
             # Detect function start: module::name() {
@@ -1219,30 +1220,52 @@ compile_bare() {
                     _cb_in_fn=false
                 fi
             else
-                # Top-level: capture global variable declarations
-                # declare, readonly, or bare VAR=value assignments
-                if [[ "$_cb_line" =~ ^(declare\s|readonly\s|export\s) ]] || \
-                   [[ "$_cb_line" =~ ^([a-zA-Z_][a-zA-Z0-9_]*)= ]] || \
-                   [[ "$_cb_line" =~ ^([a-zA-Z_][a-zA-Z0-9_]*)\[\".*\"\] ]]; then
-                    local _cb_global_name="${BASH_REMATCH[1]}"
-                    _cb_global_name="${_cb_global_name%%=*}"
-                    _cb_global_name="${_cb_global_name%%[*}"
-                    _cb_global_name="${_cb_global_name#[[:space:]]}"
-                    # Strip leading keyword
-                    _cb_global_name="${_cb_global_name#declare }"
-                    _cb_global_name="${_cb_global_name#readonly }"
-                    _cb_global_name="${_cb_global_name#export }"
-                    _cb_global_name="${_cb_global_name#-a }"
-                    _cb_global_name="${_cb_global_name#-A }"
-                    _cb_global_name="${_cb_global_name#-i }"
-                    _cb_global_name="${_cb_global_name## }"
-                    if [[ -n "$_cb_global_name" ]] && [[ -z "${_cb_global_var[$_cb_global_name]:-}" ]]; then
-                        # Convert readonly → plain assignment for standalone reuse
+                if [[ -n "$_cb_pending_name" ]]; then
+                    # continue a multi-line literal started on a previous line
+                    _cb_pending_text+=$'\n'"$_cb_line"
+                    local _cb_o="${_cb_pending_text//[^\(]}" \
+                          _cb_c="${_cb_pending_text//[^\)]}" \
+                          _cb_pt="${_cb_line%"${_cb_line##*[![:space:]]}"}"
+                    if (( ${#_cb_o} <= ${#_cb_c} )) && [[ "$_cb_pt" != *'\' ]]; then
+                        _cb_global_var["$_cb_pending_name"]="$_cb_pending_text"
+                        _cb_pending_name="" _cb_pending_text=""
+                    fi
+                else
+                    # Top-level: capture global variable declarations.
+                    # Handles flags (declare -A NAME=...), arrays (NAME=(...)),
+                    # bare VAR=value, and multi-line literals.
+                    local _cb_decl="$_cb_line" _cb_global_name="" _cb_keyword=false
+                    _cb_decl="${_cb_decl#"${_cb_decl%%[![:space:]]*}"}"        # ltrim
+                    case "${_cb_decl%%[[:space:]]*}" in
+                        declare|readonly|export|typeset)
+                            _cb_keyword=true
+                            _cb_decl="${_cb_decl#"${_cb_decl%%[[:space:]]*}"}"   # drop keyword
+                            _cb_decl="${_cb_decl#"${_cb_decl%%[![:space:]]*}"}"  # ltrim
+                            while [[ "$_cb_decl" == -* ]]; do
+                                _cb_decl="${_cb_decl#"${_cb_decl%%[[:space:]]*}"}"   # drop flag
+                                _cb_decl="${_cb_decl#"${_cb_decl%%[![:space:]]*}"}"  # ltrim
+                            done
+                            ;;
+                    esac
+                    if $_cb_keyword; then
+                        [[ "$_cb_decl" =~ ^([a-zA-Z_][a-zA-Z0-9_]*) ]] && \
+                            _cb_global_name="${BASH_REMATCH[1]}"
+                    elif [[ "$_cb_decl" =~ ^([a-zA-Z_][a-zA-Z0-9_]*)= ]]; then
+                        _cb_global_name="${BASH_REMATCH[1]}"
+                    fi
+                    if [[ -n "$_cb_global_name" ]] && \
+                       [[ -z "${_cb_global_var[$_cb_global_name]:-}" ]]; then
+                        # Convert readonly/export → plain assignment for reuse
                         local _cb_gv_line="$_cb_line"
                         _cb_gv_line="${_cb_gv_line#readonly }"
                         _cb_gv_line="${_cb_gv_line#export }"
-                        # Only keep if it's an assignment (not just "declare name")
-                        if [[ "$_cb_gv_line" =~ = ]]; then
+                        local _cb_trim="${_cb_gv_line%"${_cb_gv_line##*[![:space:]]}"}"
+                        local _cb_o="${_cb_gv_line//[^\(]}" \
+                              _cb_c="${_cb_gv_line//[^\)]}"
+                        if [[ "$_cb_trim" == *'\' ]] || (( ${#_cb_o} > ${#_cb_c} )); then
+                            _cb_pending_name="$_cb_global_name"
+                            _cb_pending_text="$_cb_gv_line"
+                        elif [[ "$_cb_gv_line" == *=* ]] || $_cb_keyword; then
                             _cb_global_var["$_cb_global_name"]="$_cb_gv_line"
                         fi
                     fi
