@@ -218,14 +218,22 @@ string::title::fast() {
 #        echo "str" | string::quote
 string::quote() {
 	local input; _string::read_input input "$@"
-	printf '%s\n' "${input@Q}"
+	if runtime::has_param_transform; then
+		printf '%s\n' "${input@Q}"
+	else
+		printf '%q\n' "$input"
+	fi
 }
 
 # Fast variant using nameref
 # Usage: string::quote::fast result_var str
 string::quote::fast() {
 	local -n _string_quote_result="$1"
-	printf -v _string_quote_result '%s' "${2@Q}"
+	if runtime::has_param_transform; then
+		printf -v _string_quote_result '%s' "${2@Q}"
+	else
+		printf -v _string_quote_result '%q' "$2"
+	fi
 }
 
 # Expand escape sequences: \n → newline, \t → tab, \\ → \, etc.
@@ -233,20 +241,32 @@ string::quote::fast() {
 #        echo "str" | string::expand_escapes
 string::expand_escapes() {
 	local input; _string::read_input input "$@"
-	printf '%s\n' "${input@E}"
+	if runtime::has_param_transform; then
+		printf '%s\n' "${input@E}"
+	else
+		printf '%b\n' "$input"
+	fi
 }
 
 # Fast variant using nameref
 # Usage: string::expand_escapes::fast result_var str
 string::expand_escapes::fast() {
 	local -n _string_expand_escapes_result="$1"
-	printf -v _string_expand_escapes_result '%s' "${2@E}"
+	if runtime::has_param_transform; then
+		printf -v _string_expand_escapes_result '%s' "${2@E}"
+	else
+		printf -v _string_expand_escapes_result '%b' "$2"
+	fi
 }
 
 # Expand prompt sequences: \u → user, \h → host, \w → cwd (like PS1).
 # Usage: string::expand_prompt str
 #        echo "str" | string::expand_prompt
 string::expand_prompt() {
+	runtime::has_param_transform || {
+		echo "string::expand_prompt: requires Bash 4.4+ (\${var@P})" >&2
+		return 1
+	}
 	local input; _string::read_input input "$@"
 	printf '%s\n' "${input@P}"
 }
@@ -255,6 +275,10 @@ string::expand_prompt() {
 # Usage: string::expand_prompt::fast result_var str
 string::expand_prompt::fast() {
 	local -n _string_expand_prompt_result="$1"
+	runtime::has_param_transform || {
+		echo "string::expand_prompt::fast: requires Bash 4.4+ (\${var@P})" >&2
+		return 1
+	}
 	printf -v _string_expand_prompt_result '%s' "${2@P}"
 }
 
@@ -264,14 +288,25 @@ string::expand_prompt::fast() {
 # Usage: string::var_attrs varname
 string::var_attrs() {
 	[[ -v "$1" ]] || { echo "unset"; return 1; }
-	echo "${!1@a}"
+	if runtime::has_param_transform; then
+		echo "${!1@a}"
+		return
+	fi
+	local _decl; _decl=$(declare -p "$1" 2>/dev/null) || return 1
+	_decl=${_decl#declare -}
+	_decl=${_decl%% *}
+	echo "${_decl//-/}"
 }
 
 # Print a variable's definition in re-eval'able declare form.
 # Usage: string::var_def varname
 string::var_def() {
 	[[ -v "$1" ]] || return 1
-	echo "${!1@A}"
+	if runtime::has_param_transform; then
+		echo "${!1@A}"
+	else
+		declare -p "$1" 2>/dev/null
+	fi
 }
 
 # Serialize an associative array to reconstructable key=value form.

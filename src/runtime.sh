@@ -364,6 +364,14 @@ _runtime::min_bash() {
 		(( BASH_VERSINFO[0] > _major || (BASH_VERSINFO[0] == _major && BASH_VERSINFO[1] >= _minor) ))
 }
 
+# True if the shell supports Bash 4.4 ${var@operator} transforms
+# (@Q @E @P @A @a). Feature is version-bound with no backports, so the
+# check is a major.minor compare. Callers fall back to printf %q / %b /
+# declare -p on older shells. Usage: runtime::has_param_transform
+runtime::has_param_transform() {
+	_runtime::min_bash 4.4
+}
+
 runtime::is_container() {
 	[[ -f /.dockerenv ]] ||
 	[[ -f /run/.containerenv ]] ||

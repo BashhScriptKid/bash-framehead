@@ -215,7 +215,7 @@ Including a pre-compiled file risks it drifting out of sync with the source in `
 
 ## Requirements
 
-- **Bash 4.4+** (namerefs 4.3, `${var@Q}` / `${!ref@a}` parameter transforms 4.4)
+- **Bash 4.3+** (namerefs; Bash 4.4 `${var@Q}` / `${!ref@a}` transforms are feature-detected and fall back to `printf %q` / `declare -p` on older shells)
 - **Bash 5.0+** for a handful of functions (guarded with `runtime::is_minimum_bash 5`)
 - Standard GNU coreutils (`awk`, `sed`, `find`, `sort`)
 - Optional: `bc` for floating point math, `curl`/`wget` for networking, `openssl` for crypto hashes, `git` for git operations

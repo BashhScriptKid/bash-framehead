@@ -1192,6 +1192,13 @@ test::runtime::screen_session(){ if [[ -n "$(runtime::screen_session)" ]]; then 
 test::runtime::is_bash()       { if runtime::is_bash; then _pass; else _fail; fi; }
 test::runtime::is_subshell()   { if runtime::is_subshell; [[ $? -eq 0 || $? -eq 1 ]]; then _pass; else _fail; fi; }
 test::runtime::has_flag()      { if runtime::has_flag B; then _pass; else _fail; fi; }
+test::runtime::has_param_transform() {
+	if runtime::has_param_transform; then
+		(( BASH_VERSINFO[0] > 4 || (BASH_VERSINFO[0] == 4 && BASH_VERSINFO[1] >= 4) )) && _pass || _fail
+	else
+		(( BASH_VERSINFO[0] < 4 || (BASH_VERSINFO[0] == 4 && BASH_VERSINFO[1] < 4) )) && _pass || _fail
+	fi
+}
 test::runtime::braceexpand_enabled() { if runtime::braceexpand_enabled; then _pass; else _fail; fi; }
 test::runtime::is_terminal()   { if runtime::is_terminal;   [[ $? -eq 0 || $? -eq 1 ]]; then _pass; else _fail; fi; }
 test::runtime::is_interactive(){ if runtime::is_interactive; [[ $? -eq 0 || $? -eq 1 ]]; then _pass; else _fail; fi; }

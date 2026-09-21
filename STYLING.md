@@ -2,7 +2,7 @@
 
 ## Philosophy
 
-Practical performance over theoretical purity. We target Bash 4.4+ and optimise
+Practical performance over theoretical purity. We target Bash 4.3+ and optimise
 for speed and clarity. Portability matters only when it does not hurt
 performance.
 
@@ -27,7 +27,7 @@ To support this:
   cross-module coupling.
 - Functions are self-contained; a reader can understand a single function by
   reading it in isolation.
-- The codebase serves as a reference for idiomatic Bash 4.4+ patterns:
+- The codebase serves as a reference for idiomatic Bash 4.3+ patterns:
   parameter expansion, arrays, `printf -v`, namerefs, and `[[ ]]` / `(( ))`.
 
 ### Extensions & `compile_bare` (planned)

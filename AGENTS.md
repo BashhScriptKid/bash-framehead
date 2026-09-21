@@ -17,7 +17,7 @@
 
 ## Coding Style & Naming Conventions
 - The authoritative style guide is [STYLING.md](STYLING.md).  All conventions below are summaries; the full guide takes precedence.
-- Language: Bash 4.4+. Prefer pure Bash; external tools only where already used (e.g., `bc` for floats).
+- Language: Bash 4.3+. Prefer pure Bash; external tools only where already used (e.g., `bc` for floats).
 - **Indentation**: tabs only.
 - **Column limit**: soft 80; break with `\` unless it ruins alignment.
 - **Function names**: `module::function`; private helpers `_module::helper`; fast variants `module::function::fast` (nameref pattern).
