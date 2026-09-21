@@ -29,7 +29,7 @@ string::camel_to_constant::fast() {
 	_str="${_str//-/ }"
 	_str="${_str//./ }"
 	_str="${_str//\// }"
-	_str="${s,,}"
+	_str="${_str,,}"
 	_string_camel_to_constant_result="${_str// /_}"
 	_string_camel_to_constant_result="${_string_camel_to_constant_result^^}"
 }

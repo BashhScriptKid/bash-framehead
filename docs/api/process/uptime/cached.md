@@ -1,6 +1,6 @@
 # `process::uptime::cached`
 
-**Signature:** `process::uptime::cached(<pid>)`
+**Signature:** `process::uptime::cached(<pid>, [cache_var])`
 
 **Module:** [`process`](../../process.md) — [Guide](../../guide/index.md)
 
@@ -15,13 +15,15 @@ Echo seconds since process start (cached).
 | Name | Type | Required | Description |
 |------|------|----------|-------------|
 | `<pid>` | string | Yes | |
+| `cache_var` | variable | No | |
 
 ## Source
 
 ```bash
 process::uptime::cached() {
-		_process::parse_stat "$1" || { echo "0"; return 1; }
-		echo "${_PROCESS_STAT_CACHE[$1:uptime]}"
+		local -n _c="${2:-_PROCESS_STAT_CACHE}"
+		_process::parse_stat "$1" _c || { echo "0"; return 1; }
+		echo "${_c[$1:uptime]}"
 }
 ```
 

@@ -1,6 +1,6 @@
 # `process::rss`
 
-**Signature:** `process::rss(<pid>)`
+**Signature:** `process::rss(<pid>, [cache_var])`
 
 **Module:** [`process`](../process.md) — [Guide](../guide/index.md)
 
@@ -15,13 +15,15 @@ Echo resident memory in KB.
 | Name | Type | Required | Description |
 |------|------|----------|-------------|
 | `<pid>` | string | Yes | |
+| `cache_var` | variable | No | |
 
 ## Source
 
 ```bash
 process::rss() {
-		_process::parse_stat "$1" || { echo "0"; return 1; }
-		echo "${_PROCESS_STAT_CACHE[$1:rss]}"
+		local -n _c="${2:-_PROCESS_STAT_CACHE}"
+		_process::parse_stat "$1" _c || { echo "0"; return 1; }
+		echo "${_c[$1:rss]}"
 }
 ```
 

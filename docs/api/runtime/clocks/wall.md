@@ -20,7 +20,7 @@ Wall clock — seconds since epoch with microsecond precision.
 
 ```bash
 runtime::clocks::wall() {
-		_runtime::min_bash 5.0 || return 1
+		runtime::features::has epoch_realtime || return 1
 		echo "${EPOCHREALTIME:-0}"
 }
 ```

@@ -22,7 +22,11 @@ Fast variant using nameref
 ```bash
 string::expand_escapes::fast() {
 	local -n _string_expand_escapes_result="$1"
-	printf -v _string_expand_escapes_result '%s' "${2@E}"
+	if (( _RUNTIME_FEATURES & 1 )); then
+		printf -v _string_expand_escapes_result '%s' "${2@E}"
+	else
+		printf -v _string_expand_escapes_result '%b' "$2"
+	fi
 }
 ```
 

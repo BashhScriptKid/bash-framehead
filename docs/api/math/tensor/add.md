@@ -26,10 +26,10 @@ math::tensor::add() {
 		local -a _vec_a _vec_b _result
 		read -ra _vec_a <<< "$_data_a"; read -ra _vec_b <<< "$_data_b"
 		local i
-		for ((i = 0; i < ${#va[@]}; i++)); do
-				r+=($(echo "${_vec_a[$i]} + ${_vec_b[$i]}" | bc -l 2>/dev/null || pfloat::fixed::add "${_vec_a[$i]}" "${_vec_b[$i]}"))
+		for ((i = 0; i < ${#_vec_a[@]}; i++)); do
+				_result+=($(echo "${_vec_a[$i]} + ${_vec_b[$i]}" | bc -l 2>/dev/null || pfloat::fixed::add "${_vec_a[$i]}" "${_vec_b[$i]}"))
 		done
-		echo "shape $(_math::tensor_shape_dims "$1"): ${r[*]}"
+		echo "shape $(_math::tensor_shape_dims "$1"): ${_result[*]}"
 }
 ```
 

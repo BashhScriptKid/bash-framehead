@@ -20,7 +20,7 @@ Serialize an associative array to reconstructable key=value form.
 
 ```bash
 string::assoc_dump() {
-	_runtime::min_bash 5.1 || return 1
+	runtime::features::has assoc_dump || return 1
 	local -n _string_assoc_dump_ref="$1" 2>/dev/null || return 1
 	echo "${_string_assoc_dump_ref[@]@K}"
 }

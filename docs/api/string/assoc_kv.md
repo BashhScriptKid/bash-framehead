@@ -20,7 +20,7 @@ Print keys and values of an associative array as alternating words.
 
 ```bash
 string::assoc_kv() {
-	_runtime::min_bash 5.2 || return 1
+	runtime::features::has assoc_kv || return 1
 	local -n _string_assoc_kv_ref="$1" 2>/dev/null || return 1
 	echo "${_string_assoc_kv_ref[@]@k}"
 }

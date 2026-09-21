@@ -21,7 +21,7 @@ GLOBSORT
 ```bash
 terminal::globsort::set() {
 		[[ -n "${1:-}" ]] || { echo "terminal::globsort::set: value required" >&2; return 1; }
-		_runtime::min_bash 5.3 || return 1
+		runtime::features::has globsort || return 1
 		GLOBSORT="$1"
 }
 ```

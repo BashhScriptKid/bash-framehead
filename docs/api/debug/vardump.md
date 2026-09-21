@@ -41,15 +41,28 @@ debug::vardump() {
 		_debug::resolve_colour "$_colour_mode" && local _colour_enabled=1 || local _colour_enabled=0
 		_debug::colour_vars "$_colour_enabled"
 
-		# Verify the variable exists
+		# Verify the variable exists. Below, `(( _RUNTIME_FEATURES & 1 ))`
+		# tests bit 0 of the runtime capability register (@Q needs Bash
+		# 4.4); the version thresholds live in runtime.sh.
 		if ! declare -p "$_name" &>/dev/null; then
-				echo "debug::vardump: variable ${_name@Q} not defined" >&2
+				if (( _RUNTIME_FEATURES & 1 )); then
+						echo "debug::vardump: variable ${_name@Q} not defined" >&2
+				else
+						printf 'debug::vardump: variable %q not defined\n' "$_name" >&2
+				fi
 				return 1
 		fi
 
-		# Parse attributes
-		local _attrs
-		IFS='' read -ra _attrs <<< "${!_name@a}"
+		# Parse attributes (fall back to parsing `declare -p` before Bash 4.4)
+		local _attrs _decl
+		if (( _RUNTIME_FEATURES & 1 )); then
+				IFS='' read -ra _attrs <<< "${!_name@a}"
+		else
+				_decl=$(declare -p "$_name" 2>/dev/null) || _decl=''
+				_decl=${_decl#declare -}
+				_decl=${_decl%% *}
+				IFS='' read -ra _attrs <<< "${_decl//-/}"
+		fi
 
 		local _attr _typ=''
 		local -a _attr_labels=()
@@ -94,15 +107,24 @@ debug::vardump() {
 				local _key _value
 				for _key in "${!__debug_vardump_name[@]}"; do
 						_value=${__debug_vardump_name[$_key]}
-						[[ "$_typ" == 'A' ]] && _key=${_key@Q}
-						_value=${_value@Q}
+						if (( _RUNTIME_FEATURES & 1 )); then
+								[[ "$_typ" == 'A' ]] && _key=${_key@Q}
+								_value=${_value@Q}
+						else
+								[[ "$_typ" == 'A' ]] && printf -v _key '%q' "$_key"
+								printf -v _value '%q' "$_value"
+						fi
 						printf '\t[%s]=%s\n' \
 								"${_dc_magenta}$_key${_dc_rst}" \
 								"${_dc_green}$_value${_dc_rst}"
 				done
 				echo ')'
 		else
-				echo "${_dc_green}${__debug_vardump_name@Q}${_dc_rst}"
+				if (( _RUNTIME_FEATURES & 1 )); then
+						echo "${_dc_green}${__debug_vardump_name@Q}${_dc_rst}"
+				else
+						printf '%s%q%s\n' "$_dc_green" "$__debug_vardump_name" "$_dc_rst"
+				fi
 		fi
 
 		if $_verbose; then

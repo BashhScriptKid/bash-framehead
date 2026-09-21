@@ -17,7 +17,7 @@ CONSTANT_CASE → kebab-case
 string::constant_to_kebab() {
 	local input; _string::read_input input "$@"
 	local _str="${input//_/-}"
-	echo "${s,,}"
+	echo "${_str,,}"
 }
 ```
 

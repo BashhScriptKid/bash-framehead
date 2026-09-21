@@ -25,7 +25,7 @@ Fast variant using nameref
 string::pad_center::fast() {
 	local -n _string_pad_center_result="$1"
 	local _str="$2" width="$3" char="${4:- }"
-	local len="${#s}"
+	local len="${#_str}"
 	if ((len >= width)); then
 		_string_pad_center_result="$_str"
 		return
@@ -36,7 +36,7 @@ string::pad_center::fast() {
 	local lpad="" rpad=""
 	for ((i = 0; i < left; i++)); do lpad+="$char"; done
 	for ((i = 0; i < right; i++)); do rpad+="$char"; done
-	_string_pad_center_result="${lpad}${s}${rpad}"
+	_string_pad_center_result="${lpad}${_str}${rpad}"
 }
 ```
 

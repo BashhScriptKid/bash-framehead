@@ -29,9 +29,9 @@ string::pascal_to_camel::fast() {
 	_str="${_str//-/ }"
 	_str="${_str//./ }"
 	_str="${_str//\// }"
-	_str="${s,,}"
+	_str="${_str,,}"
 	local result="" first=true
-	for word in $s; do
+	for word in $_str; do
 		if $first; then
 			result+="${word,,}"
 			first=false

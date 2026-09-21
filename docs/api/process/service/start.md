@@ -1,6 +1,6 @@
 # `process::service::start`
 
-**Signature:** `process::service::start(arg1)`
+**Signature:** `process::service::start(<service>)`
 
 **Module:** [`process`](../../process.md) — [Guide](../../guide/index.md)
 
@@ -14,14 +14,16 @@ Start a systemd service
 
 | Name | Type | Required | Description |
 |------|------|----------|-------------|
-| `arg1` | string | Yes | |
+| `<service>` | string | Yes | |
 
 ## Source
 
 ```bash
 process::service::start() {
-		if runtime::has_command systemctl; then
-				systemctl start "$1"
+		if declare -f systemd::services::start &>/dev/null; then
+				systemd::services::start "$@"
+		elif runtime::has_command systemctl; then
+				systemctl start "$@"
 		elif runtime::has_command service; then
 				service "$1" start
 		fi

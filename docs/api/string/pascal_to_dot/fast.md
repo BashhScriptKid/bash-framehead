@@ -29,7 +29,7 @@ string::pascal_to_dot::fast() {
 	_str="${_str//-/ }"
 	_str="${_str//./ }"
 	_str="${_str//\// }"
-	_str="${s,,}"
+	_str="${_str,,}"
 	_string_pascal_to_dot_result="${_str// /.}"
 }
 ```

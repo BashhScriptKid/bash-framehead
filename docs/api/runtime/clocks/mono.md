@@ -20,7 +20,7 @@ CLOCKS
 
 ```bash
 runtime::clocks::mono() {
-		_runtime::min_bash 5.3 || return 1
+		runtime::features::has bash_monoseconds || return 1
 		echo "${BASH_MONOSECONDS:-0}"
 }
 ```

@@ -21,7 +21,11 @@ Print a variable's definition in re-eval'able declare form.
 ```bash
 string::var_def() {
 	[[ -v "$1" ]] || return 1
-	echo "${!1@A}"
+	if (( _RUNTIME_FEATURES & 1 )); then
+		echo "${!1@A}"
+	else
+		declare -p "$1" 2>/dev/null
+	fi
 }
 ```
 

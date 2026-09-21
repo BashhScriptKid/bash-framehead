@@ -22,7 +22,11 @@ Fast variant using nameref
 ```bash
 string::quote::fast() {
 	local -n _string_quote_result="$1"
-	printf -v _string_quote_result '%s' "${2@Q}"
+	if (( _RUNTIME_FEATURES & 1 )); then
+		printf -v _string_quote_result '%s' "${2@Q}"
+	else
+		printf -v _string_quote_result '%q' "$2"
+	fi
 }
 ```
 

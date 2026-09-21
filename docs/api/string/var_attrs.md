@@ -21,7 +21,14 @@ Print attribute flags of a variable: r=readonly, a=array, A=assoc,
 ```bash
 string::var_attrs() {
 	[[ -v "$1" ]] || { echo "unset"; return 1; }
-	echo "${!1@a}"
+	if (( _RUNTIME_FEATURES & 1 )); then
+		echo "${!1@a}"
+		return
+	fi
+	local _decl; _decl=$(declare -p "$1" 2>/dev/null) || return 1
+	_decl=${_decl#declare -}
+	_decl=${_decl%% *}
+	echo "${_decl//-/}"
 }
 ```
 

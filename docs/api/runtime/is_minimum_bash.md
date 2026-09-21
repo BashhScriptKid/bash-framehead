@@ -8,7 +8,7 @@
 
 ## Description
 
-Default to 3, assuming that's what's at least needed for this framework (not final)
+Historical: prefer runtime::features::has <feature> for capability checks --
 
 
 ## Source

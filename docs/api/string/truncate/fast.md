@@ -27,7 +27,7 @@ string::truncate::fast() {
 	local _str="$2" max="$3"
 	local suffix
 
-	if ((${#s} <= max)); then
+	if ((${#_str} <= max)); then
 		_string_truncate_result="$_str"
 		return 0
 	fi

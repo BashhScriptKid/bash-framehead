@@ -1,6 +1,6 @@
 # `process::info`
 
-**Signature:** `process::info(<pid>, [field])`
+**Signature:** `process::info(<pid>, [field], [cache_var])`
 
 **Module:** [`process`](../process.md) — [Guide](../guide/index.md)
 
@@ -16,21 +16,23 @@ Parse full /proc/<pid>/stat and output all fields or a specific one.
 |------|------|----------|-------------|
 | `<pid>` | string | Yes | |
 | `field` | string | No | |
+| `cache_var` | variable | No | |
 
 ## Source
 
 ```bash
 process::info() {
-		local pid=$1 field=$2
-		_process::parse_stat "$pid" || return 1
+		local _pid=$1 _field=$2
+		local -n _c="${3:-_PROCESS_STAT_CACHE}"
+		_process::parse_stat "$_pid" _c || return 1
 
-		if [[ -n "$field" ]]; then
-				echo "${_PROCESS_STAT_CACHE[$pid:$field]:-}"
+		if [[ -n "$_field" ]]; then
+				echo "${_c[$_pid:$_field]:-}"
 				return
 		fi
 
-		for field in pid comm state ppid threads rss vsize utime stime uptime; do
-				printf '%s=%s\n' "$field" "${_PROCESS_STAT_CACHE[$pid:$field]:-}"
+		for _field in pid comm state ppid threads rss vsize utime stime uptime; do
+				printf '%s=%s\n' "$_field" "${_c[$_pid:$_field]:-}"
 		done
 }
 ```

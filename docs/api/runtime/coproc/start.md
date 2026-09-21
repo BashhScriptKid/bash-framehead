@@ -1,6 +1,6 @@
 # `runtime::coproc::start`
 
-**Signature:** `runtime::coproc::start(<name>, <command...>)`
+**Signature:** `runtime::coproc::start(<registry>, <name>, <command...>)`
 
 **Module:** [`runtime`](../../runtime.md) — [Guide](../../guide/index.md)
 
@@ -8,12 +8,13 @@
 
 ## Description
 
-Start a named coprocess. Stores name for tracking.
+--- COPROC ---
 
 ## Parameters
 
 | Name | Type | Required | Description |
 |------|------|----------|-------------|
+| `<registry>` | string | Yes | |
 | `<name>` | string | Yes | |
 | `<command...>` | string | — | |
 
@@ -21,17 +22,18 @@ Start a named coprocess. Stores name for tracking.
 
 ```bash
 runtime::coproc::start() {
-		local name=$1; shift
-		if [[ -z "$name" ]]; then
+		local -n _registry="$1"; shift
+		local _name=$1; shift
+		if [[ -z "$_name" ]]; then
 				echo "runtime::coproc::start: name required" >&2
 				return 1
 		fi
-		if [[ " ${_RUNTIME_COPROCS[*]} " == *" $name "* ]]; then
-				echo "runtime::coproc::start: coproc '$name' already exists" >&2
+		if [[ " ${_registry[*]} " == *" $_name "* ]]; then
+				echo "runtime::coproc::start: coproc '$_name' already exists" >&2
 				return 1
 		fi
-		coproc "$name" { "$@" 2>&1; }
-		_RUNTIME_COPROCS+=("$name")
+		coproc "$_name" { "$@" 2>&1; }
+		_registry+=("$_name")
 }
 ```
 

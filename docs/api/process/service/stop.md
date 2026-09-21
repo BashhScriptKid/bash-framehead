@@ -1,6 +1,6 @@
 # `process::service::stop`
 
-**Signature:** `process::service::stop(arg1)`
+**Signature:** `process::service::stop(<service>)`
 
 **Module:** [`process`](../../process.md) — [Guide](../../guide/index.md)
 
@@ -14,14 +14,16 @@ Stop a systemd service
 
 | Name | Type | Required | Description |
 |------|------|----------|-------------|
-| `arg1` | string | Yes | |
+| `<service>` | string | Yes | |
 
 ## Source
 
 ```bash
 process::service::stop() {
-		if runtime::has_command systemctl; then
-				systemctl stop "$1"
+		if declare -f systemd::services::stop &>/dev/null; then
+				systemd::services::stop "$@"
+		elif runtime::has_command systemctl; then
+				systemctl stop "$@"
 		elif runtime::has_command service; then
 				service "$1" stop
 		fi

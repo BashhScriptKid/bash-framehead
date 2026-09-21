@@ -1,6 +1,6 @@
 # `log::fatal`
 
-**Signature:** `log::fatal(message, [exit_code])`
+**Signature:** `log::fatal([ctx], message, [exit_code])`
 
 **Module:** [`log`](../log.md) — [Guide](../guide/index.md)
 
@@ -14,6 +14,7 @@ Log an error and always exit, defaulting to exit code 1
 
 | Name | Type | Required | Description |
 |------|------|----------|-------------|
+| `ctx` | string | No | |
 | `message` | string | Yes | |
 | `exit_code` | integer | No | |
 
@@ -27,7 +28,17 @@ Example:
 
 ```bash
 log::fatal() {
-		log::error "$1" "${2:-1}"
+		local _ctx_name
+		if [[ $# -gt 0 ]] && declare -p "$1" 2>/dev/null | grep -q 'declare.*-A'; then
+				_ctx_name="$1"; shift
+		else
+				_log::ensure_defaults
+				_ctx_name="_LOG_CONFIG"
+		fi
+		local msg="$1"
+		local exit_code="${2:-1}"
+		_log::emit "$_ctx_name" "ERROR" $LOG_ERROR "$msg" "${BASH_LINENO[0]}" "${FUNCNAME[1]}"
+		exit "$exit_code"
 }
 ```
 

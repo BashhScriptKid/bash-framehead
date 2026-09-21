@@ -1,6 +1,6 @@
 # `process::service::is_enabled`
 
-**Signature:** `process::service::is_enabled(arg1)`
+**Signature:** `process::service::is_enabled(<service>)`
 
 **Module:** [`process`](../../process.md) — [Guide](../../guide/index.md)
 
@@ -14,13 +14,15 @@ Check if a service is enabled at boot
 
 | Name | Type | Required | Description |
 |------|------|----------|-------------|
-| `arg1` | string | Yes | |
+| `<service>` | string | Yes | |
 
 ## Source
 
 ```bash
 process::service::is_enabled() {
-		if runtime::has_command systemctl; then
+		if declare -f systemd::services::isenabled &>/dev/null; then
+				systemd::services::isenabled "$1"
+		elif runtime::has_command systemctl; then
 				systemctl is-enabled --quiet "$1" 2>/dev/null
 		fi
 }

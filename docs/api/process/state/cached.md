@@ -1,6 +1,6 @@
 # `process::state::cached`
 
-**Signature:** `process::state::cached(<pid>)`
+**Signature:** `process::state::cached(<pid>, [cache_var])`
 
 **Module:** [`process`](../../process.md) — [Guide](../../guide/index.md)
 
@@ -15,13 +15,15 @@ Echo the process state: R/S/D/Z/T (cached).
 | Name | Type | Required | Description |
 |------|------|----------|-------------|
 | `<pid>` | string | Yes | |
+| `cache_var` | variable | No | |
 
 ## Source
 
 ```bash
 process::state::cached() {
-		_process::parse_stat "$1" || return 1
-		echo "${_PROCESS_STAT_CACHE[$1:state]}"
+		local -n _c="${2:-_PROCESS_STAT_CACHE}"
+		_process::parse_stat "$1" _c || return 1
+		echo "${_c[$1:state]}"
 }
 ```
 

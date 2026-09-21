@@ -26,7 +26,7 @@ Fast variant using nameref
 array::union::fast() {
 		local -n _array_union_result="$1"
 		local -a a=($2) b=($3)
-		if runtime::is_minimum_bash 5; then
+		if runtime::features::has assoc_array; then
 				_array_union_result=()
 				local -A _seen=()
 				for el in "${a[@]}" "${b[@]}"; do
@@ -36,7 +36,7 @@ array::union::fast() {
 						fi
 				done
 		else
-				echo "array::union::fast: requires Bash 5+" >&2
+				echo "array::union::fast: requires associative array support" >&2
 				return 1
 		fi
 }

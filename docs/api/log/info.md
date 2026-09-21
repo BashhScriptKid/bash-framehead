@@ -1,6 +1,6 @@
 # `log::info`
 
-**Signature:** `log::info(message)`
+**Signature:** `log::info([ctx], message)`
 
 **Module:** [`log`](../log.md) — [Guide](../guide/index.md)
 
@@ -14,6 +14,7 @@ Log an informational message
 
 | Name | Type | Required | Description |
 |------|------|----------|-------------|
+| `ctx` | string | No | |
 | `message` | string | Yes | |
 
 ## Example
@@ -26,7 +27,14 @@ Example:
 
 ```bash
 log::info() {
-		_log::emit "INFO" $LOG_INFO "$*" "${BASH_LINENO[0]}" "${FUNCNAME[1]}"
+		local _ctx_name
+		if [[ $# -gt 0 ]] && declare -p "$1" 2>/dev/null | grep -q 'declare.*-A'; then
+				_ctx_name="$1"; shift
+		else
+				_log::ensure_defaults
+				_ctx_name="_LOG_CONFIG"
+		fi
+		_log::emit "$_ctx_name" "INFO" $LOG_INFO "$*" "${BASH_LINENO[0]}" "${FUNCNAME[1]}"
 }
 ```
 

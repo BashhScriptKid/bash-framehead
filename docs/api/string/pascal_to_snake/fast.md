@@ -29,7 +29,7 @@ string::pascal_to_snake::fast() {
 	_str="${_str//-/ }"
 	_str="${_str//./ }"
 	_str="${_str//\// }"
-	_str="${s,,}"
+	_str="${_str,,}"
 	_string_pascal_to_snake_result="${_str// /_}"
 }
 ```

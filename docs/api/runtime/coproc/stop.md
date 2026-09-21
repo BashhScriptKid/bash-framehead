@@ -1,6 +1,6 @@
 # `runtime::coproc::stop`
 
-**Signature:** `runtime::coproc::stop(<name>)`
+**Signature:** `runtime::coproc::stop(<registry>, <name>)`
 
 **Module:** [`runtime`](../../runtime.md) — [Guide](../../guide/index.md)
 
@@ -14,26 +14,28 @@ Stop a named coproc (kill process, close fds).
 
 | Name | Type | Required | Description |
 |------|------|----------|-------------|
+| `<registry>` | string | Yes | |
 | `<name>` | string | Yes | |
 
 ## Source
 
 ```bash
 runtime::coproc::stop() {
-		local name=$1
-		local pid; pid=$(runtime::coproc::pid "$name" 2>/dev/null) || return 1
+		local -n _registry="$1"; shift
+		local _name=$1
+		local pid; pid=$(runtime::coproc::pid "$_name" 2>/dev/null) || return 1
 
-		local -n _cs_fd="${name}[0]" 2>/dev/null && eval "exec ${_cs_fd}<&-" 2>/dev/null
-		local -n _cs_fd1="${name}[1]" 2>/dev/null && eval "exec ${_cs_fd1}>&-" 2>/dev/null
+		local -n _cs_fd="${_name}[0]" 2>/dev/null && eval "exec ${_cs_fd}<&-" 2>/dev/null
+		local -n _cs_fd1="${_name}[1]" 2>/dev/null && eval "exec ${_cs_fd1}>&-" 2>/dev/null
 
 		kill "$pid" 2>/dev/null || true
 		wait "$pid" 2>/dev/null || true
 
 		local i new_arr=()
-		for i in "${_RUNTIME_COPROCS[@]}"; do
-				[[ "$i" != "$name" ]] && new_arr+=("$i")
+		for i in "${_registry[@]}"; do
+				[[ "$i" != "$_name" ]] && new_arr+=("$i")
 		done
-		_RUNTIME_COPROCS=("${new_arr[@]}")
+		_registry=("${new_arr[@]}")
 }
 ```
 

@@ -21,7 +21,11 @@ PARAMETER TRANSFORMATIONS
 ```bash
 string::quote() {
 	local input; _string::read_input input "$@"
-	printf '%s\n' "${input@Q}"
+	if (( _RUNTIME_FEATURES & 1 )); then
+		printf '%s\n' "${input@Q}"
+	else
+		printf '%q\n' "$input"
+	fi
 }
 ```
 

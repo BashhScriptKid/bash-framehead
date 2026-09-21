@@ -20,7 +20,9 @@
 
 ```bash
 process::service::is_running() {
-		if runtime::has_command systemctl; then
+		if declare -f systemd::services::isactive &>/dev/null; then
+				systemd::services::isactive "$1"
+		elif runtime::has_command systemctl; then
 				systemctl is-active --quiet "$1" 2>/dev/null
 		elif runtime::has_command service; then
 				service "$1" status >/dev/null 2>&1

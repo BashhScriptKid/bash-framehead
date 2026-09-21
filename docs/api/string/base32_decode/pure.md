@@ -20,9 +20,9 @@ string::base32_decode::pure() {
 		local -i a b c d e f g h
 
 		# uppercase input since base32 alphabet is uppercase only
-		_str="${s^^}"
+		_str="${_str^^}"
 
-		for (( i=0; i<${#s}; i+=8 )); do
+		for (( i=0; i<${#_str}; i+=8 )); do
 				local c0="${_str:$i:1}" c1="${_str:$((i+1)):1}" c2="${_str:$((i+2)):1}" c3="${_str:$((i+3)):1}"
 				local c4="${_str:$((i+4)):1}" c5="${_str:$((i+5)):1}" c6="${_str:$((i+6)):1}" c7="${_str:$((i+7)):1}"
 				# Use case for reliable index lookup (base32 alphabet: A-Z, 2-7)
@@ -36,10 +36,10 @@ string::base32_decode::pure() {
 				case "$c7" in A) h=0;; B) h=1;; C) h=2;; D) h=3;; E) h=4;; F) h=5;; G) h=6;; H) h=7;; I) h=8;; J) h=9;; K) h=10;; L) h=11;; M) h=12;; N) h=13;; O) h=14;; P) h=15;; Q) h=16;; R) h=17;; S) h=18;; T) h=19;; U) h=20;; V) h=21;; W) h=22;; X) h=23;; Y) h=24;; Z) h=25;; 2) h=26;; 3) h=27;; 4) h=28;; 5) h=29;; 6) h=30;; 7) h=31;; *) h=0;; esac
 
 				printf "\\$(printf '%03o' $(( (a << 3) | (b >> 2) )))"
-				(( i+2 < ${#s} )) && printf "\\$(printf '%03o' $(( ((b & 3) << 6) | (c << 1) | (d >> 4) )))"
-				(( i+4 < ${#s} )) && printf "\\$(printf '%03o' $(( ((d & 15) << 4) | (e >> 1) )))"
-				(( i+5 < ${#s} )) && printf "\\$(printf '%03o' $(( ((e & 1) << 7) | (f << 2) | (g >> 3) )))"
-				(( i+7 < ${#s} )) && printf "\\$(printf '%03o' $(( ((g & 7) << 5) | h )))"
+				(( i+2 < ${#_str} )) && printf "\\$(printf '%03o' $(( ((b & 3) << 6) | (c << 1) | (d >> 4) )))"
+				(( i+4 < ${#_str} )) && printf "\\$(printf '%03o' $(( ((d & 15) << 4) | (e >> 1) )))"
+				(( i+5 < ${#_str} )) && printf "\\$(printf '%03o' $(( ((e & 1) << 7) | (f << 2) | (g >> 3) )))"
+				(( i+7 < ${#_str} )) && printf "\\$(printf '%03o' $(( ((g & 7) << 5) | h )))"
 		done
 		echo
 }

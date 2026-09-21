@@ -1,6 +1,6 @@
 # `process::comm`
 
-**Signature:** `process::comm(<pid>)`
+**Signature:** `process::comm(<pid>, [cache_var])`
 
 **Module:** [`process`](../process.md) — [Guide](../guide/index.md)
 
@@ -15,13 +15,15 @@ Echo the short command name (comm).
 | Name | Type | Required | Description |
 |------|------|----------|-------------|
 | `<pid>` | string | Yes | |
+| `cache_var` | variable | No | |
 
 ## Source
 
 ```bash
 process::comm() {
-		_process::parse_stat "$1" || return 1
-		echo "${_PROCESS_STAT_CACHE[$1:comm]}"
+		local -n _c="${2:-_PROCESS_STAT_CACHE}"
+		_process::parse_stat "$1" _c || return 1
+		echo "${_c[$1:comm]}"
 }
 ```
 

@@ -1,6 +1,6 @@
 # `log::init`
 
-**Signature:** `log::init()`
+**Signature:** `log::init([_ctx])`
 
 **Module:** [`log`](../log.md) — [Guide](../guide/index.md)
 
@@ -8,23 +8,27 @@
 
 ## Description
 
---- DEFAULTS ---
+--- INIT ---
 
+## Parameters
+
+| Name | Type | Required | Description |
+|------|------|----------|-------------|
+| `_ctx` | string | No | |
 
 ## Source
 
 ```bash
 log::init() {
-		LOG_FMT="${LOG_FMT:-%datetime% [%severity%] %message%}"
-		LOG_FILE="${LOG_FILE:-}"
-		LOG_TO_STDOUT="${LOG_TO_STDOUT:-2#0011}"
-		if [[ -z "${LOG_COLOUR+x}" ]]; then
-				# Auto-detect: enable if terminal supports colour
-				if [[ -t 1 && "${TERM:-}" != "dumb" && ( -n "${COLORTERM:-}" || "${TERM:-}" == *color* || "${TERM:-}" == *256* ) ]]; then
-						LOG_COLOUR=1
-				else
-						LOG_COLOUR=0
-				fi
+		if [[ $# -gt 0 ]] && declare -p "$1" 2>/dev/null | grep -q 'declare.*-A'; then
+				local -n _lctx="$1"
+				_log::ensure_defaults
+				[[ -z "${_lctx[fmt]:-}" ]]         && _lctx[fmt]="${_LOG_CONFIG[fmt]}"
+				[[ -z "${_lctx[file]:-}" ]]        && _lctx[file]="${_LOG_CONFIG[file]}"
+				[[ -z "${_lctx[stdout_mask]:-}" ]] && _lctx[stdout_mask]="${_LOG_CONFIG[stdout_mask]}"
+				[[ -z "${_lctx[colour]+x}" ]]      && _lctx[colour]="${_LOG_CONFIG[colour]}"
+		else
+				_log::ensure_defaults
 		fi
 }
 ```

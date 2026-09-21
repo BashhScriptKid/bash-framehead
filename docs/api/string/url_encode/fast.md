@@ -23,7 +23,7 @@ Fast variant using nameref
 string::url_encode::fast() {
 		local -n _string_url_encode_result="$1"
 		local _str="$2" encoded="" i char hex
-		for (( i=0; i<${#s}; i++ )); do
+		for (( i=0; i<${#_str}; i++ )); do
 				char="${_str:$i:1}"
 				case "$char" in
 						[a-zA-Z0-9.~_-]) encoded+="$char" ;;

@@ -17,7 +17,7 @@ plain → dot.case
 string::plain_to_dot() {
 	local input; _string::read_input input "$@"
 	local _str="${input// /.}"
-	echo "${s,,}"
+	echo "${_str,,}"
 }
 ```
 

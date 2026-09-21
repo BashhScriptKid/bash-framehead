@@ -17,7 +17,7 @@ path/case → CONSTANT_CASE
 string::path_to_constant() {
 	local input; _string::read_input input "$@"
 	local _str="${input//\//_}"
-	echo "${s^^}"
+	echo "${_str^^}"
 }
 ```
 

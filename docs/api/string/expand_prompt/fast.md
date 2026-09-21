@@ -22,6 +22,10 @@ Fast variant using nameref
 ```bash
 string::expand_prompt::fast() {
 	local -n _string_expand_prompt_result="$1"
+	(( _RUNTIME_FEATURES & 1 )) || {
+		echo "string::expand_prompt::fast: requires Bash 4.4+ (\${var@P})" >&2
+		return 1
+	}
 	printf -v _string_expand_prompt_result '%s' "${2@P}"
 }
 ```

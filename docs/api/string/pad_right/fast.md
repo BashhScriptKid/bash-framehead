@@ -25,14 +25,14 @@ Fast variant using nameref
 string::pad_right::fast() {
 	local -n _string_pad_right_result="$1"
 	local _str="$2" width="$3" char="${4:- }"
-	local len="${#s}"
+	local len="${#_str}"
 	if ((len >= width)); then
 		_string_pad_right_result="$_str"
 		return
 	fi
 	local result=""
 	for ((i = 0; i < width - len; i++)); do result+="$char"; done
-	_string_pad_right_result="${s}${result}"
+	_string_pad_right_result="${_str}${result}"
 }
 ```
 

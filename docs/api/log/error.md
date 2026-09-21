@@ -1,6 +1,6 @@
 # `log::error`
 
-**Signature:** `log::error(message, [exit_code])`
+**Signature:** `log::error([ctx], message, [exit_code])`
 
 **Module:** [`log`](../log.md) — [Guide](../guide/index.md)
 
@@ -14,6 +14,7 @@ Log an error message, optionally exiting with a given code
 
 | Name | Type | Required | Description |
 |------|------|----------|-------------|
+| `ctx` | string | No | |
 | `message` | string | Yes | |
 | `exit_code` | integer | No | |
 
@@ -27,9 +28,16 @@ Example:
 
 ```bash
 log::error() {
+		local _ctx_name
+		if [[ $# -gt 0 ]] && declare -p "$1" 2>/dev/null | grep -q 'declare.*-A'; then
+				_ctx_name="$1"; shift
+		else
+				_log::ensure_defaults
+				_ctx_name="_LOG_CONFIG"
+		fi
 		local msg="$1"
 		local exit_code="${2:-}"
-		_log::emit "ERROR" $LOG_ERROR "$msg" "${BASH_LINENO[0]}" "${FUNCNAME[1]}"
+		_log::emit "$_ctx_name" "ERROR" $LOG_ERROR "$msg" "${BASH_LINENO[0]}" "${FUNCNAME[1]}"
 		if [[ -n "$exit_code" && "$exit_code" =~ ^-?[0-9]+$ ]]; then
 				exit "$exit_code"
 		fi

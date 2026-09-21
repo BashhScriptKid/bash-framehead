@@ -21,7 +21,7 @@
 ```bash
 array::clear() {
 		[[ -v "$1" ]] || { echo "array::clear: '$1' is not set" >&2; return 1; }
-		if _runtime::min_bash 5.2; then
+		if runtime::features::has unset_array_all; then
 				unset "$1[@]"
 		else
 				local -n _array_clear_ref="$1" 2>/dev/null || return 1

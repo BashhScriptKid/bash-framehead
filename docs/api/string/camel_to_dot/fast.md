@@ -29,7 +29,7 @@ string::camel_to_dot::fast() {
 	_str="${_str//-/ }"
 	_str="${_str//./ }"
 	_str="${_str//\// }"
-	_str="${s,,}"
+	_str="${_str,,}"
 	_string_camel_to_dot_result="${_str// /.}"
 }
 ```

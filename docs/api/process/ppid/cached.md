@@ -1,6 +1,6 @@
 # `process::ppid::cached`
 
-**Signature:** `process::ppid::cached(<pid>)`
+**Signature:** `process::ppid::cached(<pid>, [cache_var])`
 
 **Module:** [`process`](../../process.md) — [Guide](../../guide/index.md)
 
@@ -15,13 +15,15 @@ Echo the parent PID (cached — parses /proc/pid/stat once).
 | Name | Type | Required | Description |
 |------|------|----------|-------------|
 | `<pid>` | string | Yes | |
+| `cache_var` | variable | No | |
 
 ## Source
 
 ```bash
 process::ppid::cached() {
-		_process::parse_stat "$1" || { echo "0"; return 1; }
-		echo "${_PROCESS_STAT_CACHE[$1:ppid]}"
+		local -n _c="${2:-_PROCESS_STAT_CACHE}"
+		_process::parse_stat "$1" _c || { echo "0"; return 1; }
+		echo "${_c[$1:ppid]}"
 }
 ```
 

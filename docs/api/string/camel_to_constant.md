@@ -19,7 +19,7 @@ string::camel_to_constant() {
 	local words
 	words=$(_string::to_words "$input")
 	local _str="${words// /_}"
-	echo "${s^^}"
+	echo "${_str^^}"
 }
 ```
 

@@ -23,7 +23,7 @@ string::base64_decode::pure() {
 		# strip padding
 		_str="${_str//=}"
 
-		for (( i=0; i<${#s}; i+=4 )); do
+		for (( i=0; i<${#_str}; i+=4 )); do
 				local c0="${_str:$i:1}" c1="${_str:$((i+1)):1}" c2="${_str:$((i+2)):1}" c3="${_str:$((i+3)):1}"
 				# Use case for reliable index lookup (avoids issues with +/ in patterns)
 				case "$c0" in A) a=0;; B) a=1;; C) a=2;; D) a=3;; E) a=4;; F) a=5;; G) a=6;; H) a=7;; I) a=8;; J) a=9;; K) a=10;; L) a=11;; M) a=12;; N) a=13;; O) a=14;; P) a=15;; Q) a=16;; R) a=17;; S) a=18;; T) a=19;; U) a=20;; V) a=21;; W) a=22;; X) a=23;; Y) a=24;; Z) a=25;; a) a=26;; b) a=27;; c) a=28;; d) a=29;; e) a=30;; f) a=31;; g) a=32;; h) a=33;; i) a=34;; j) a=35;; k) a=36;; l) a=37;; m) a=38;; n) a=39;; o) a=40;; p) a=41;; q) a=42;; r) a=43;; s) a=44;; t) a=45;; u) a=46;; v) a=47;; w) a=48;; x) a=49;; y) a=50;; z) a=51;; 0) a=52;; 1) a=53;; 2) a=54;; 3) a=55;; 4) a=56;; 5) a=57;; 6) a=58;; 7) a=59;; 8) a=60;; 9) a=61;; +) a=62;; /) a=63;; *) a=0;; esac
@@ -36,8 +36,8 @@ string::base64_decode::pure() {
 				byte3=$(( ((c & 3) << 6) | d ))
 
 				printf "\\$(printf '%03o' $byte1)"
-				(( i+2 < ${#s} )) && printf "\\$(printf '%03o' $byte2)"
-				(( i+3 < ${#s}  )) && printf "\\$(printf '%03o' $byte3)"
+				(( i+2 < ${#_str} )) && printf "\\$(printf '%03o' $byte2)"
+				(( i+3 < ${#_str}  )) && printf "\\$(printf '%03o' $byte3)"
 		done
 		echo
 }

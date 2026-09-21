@@ -29,7 +29,7 @@ string::camel_to_plain::fast() {
 	_str="${_str//-/ }"
 	_str="${_str//./ }"
 	_str="${_str//\// }"
-	_string_camel_to_plain_result="${s,,}"
+	_string_camel_to_plain_result="${_str,,}"
 }
 ```
 

@@ -21,7 +21,11 @@ Expand escape sequences: \n → newline, \t → tab, \\ → \, etc.
 ```bash
 string::expand_escapes() {
 	local input; _string::read_input input "$@"
-	printf '%s\n' "${input@E}"
+	if (( _RUNTIME_FEATURES & 1 )); then
+		printf '%s\n' "${input@E}"
+	else
+		printf '%b\n' "$input"
+	fi
 }
 ```
 
