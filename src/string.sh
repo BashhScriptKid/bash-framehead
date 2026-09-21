@@ -212,13 +212,18 @@ string::title::fast() {
 #
 # Wrappers around Bash 4.4+ ${var@operator} parameter expansions.
 # These are among the most underused features in modern Bash.
+#
+# The @operator guard is `(( _RUNTIME_FEATURES & 1 ))`: a read of bit 0 of
+# the runtime capability register, which runtime.sh fills once from
+# BASH_VERSINFO. One register read beats repeating the version comparison
+# in every wrapper (the thresholds live in exactly one place).
 
 # Shell-quote a value for safe reuse in eval/command construction.
 # Usage: string::quote str
 #        echo "str" | string::quote
 string::quote() {
 	local input; _string::read_input input "$@"
-	if runtime::has_param_transform; then
+	if (( _RUNTIME_FEATURES & 1 )); then
 		printf '%s\n' "${input@Q}"
 	else
 		printf '%q\n' "$input"
@@ -229,7 +234,7 @@ string::quote() {
 # Usage: string::quote::fast result_var str
 string::quote::fast() {
 	local -n _string_quote_result="$1"
-	if runtime::has_param_transform; then
+	if (( _RUNTIME_FEATURES & 1 )); then
 		printf -v _string_quote_result '%s' "${2@Q}"
 	else
 		printf -v _string_quote_result '%q' "$2"
@@ -241,7 +246,7 @@ string::quote::fast() {
 #        echo "str" | string::expand_escapes
 string::expand_escapes() {
 	local input; _string::read_input input "$@"
-	if runtime::has_param_transform; then
+	if (( _RUNTIME_FEATURES & 1 )); then
 		printf '%s\n' "${input@E}"
 	else
 		printf '%b\n' "$input"
@@ -252,7 +257,7 @@ string::expand_escapes() {
 # Usage: string::expand_escapes::fast result_var str
 string::expand_escapes::fast() {
 	local -n _string_expand_escapes_result="$1"
-	if runtime::has_param_transform; then
+	if (( _RUNTIME_FEATURES & 1 )); then
 		printf -v _string_expand_escapes_result '%s' "${2@E}"
 	else
 		printf -v _string_expand_escapes_result '%b' "$2"
@@ -263,7 +268,7 @@ string::expand_escapes::fast() {
 # Usage: string::expand_prompt str
 #        echo "str" | string::expand_prompt
 string::expand_prompt() {
-	runtime::has_param_transform || {
+	(( _RUNTIME_FEATURES & 1 )) || {
 		echo "string::expand_prompt: requires Bash 4.4+ (\${var@P})" >&2
 		return 1
 	}
@@ -275,7 +280,7 @@ string::expand_prompt() {
 # Usage: string::expand_prompt::fast result_var str
 string::expand_prompt::fast() {
 	local -n _string_expand_prompt_result="$1"
-	runtime::has_param_transform || {
+	(( _RUNTIME_FEATURES & 1 )) || {
 		echo "string::expand_prompt::fast: requires Bash 4.4+ (\${var@P})" >&2
 		return 1
 	}
@@ -288,7 +293,7 @@ string::expand_prompt::fast() {
 # Usage: string::var_attrs varname
 string::var_attrs() {
 	[[ -v "$1" ]] || { echo "unset"; return 1; }
-	if runtime::has_param_transform; then
+	if (( _RUNTIME_FEATURES & 1 )); then
 		echo "${!1@a}"
 		return
 	fi
@@ -302,7 +307,7 @@ string::var_attrs() {
 # Usage: string::var_def varname
 string::var_def() {
 	[[ -v "$1" ]] || return 1
-	if runtime::has_param_transform; then
+	if (( _RUNTIME_FEATURES & 1 )); then
 		echo "${!1@A}"
 	else
 		declare -p "$1" 2>/dev/null
