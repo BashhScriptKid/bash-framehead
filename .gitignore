@@ -9,6 +9,7 @@
 # Release builds — bfh.[o][f][m][e].sh (attached to releases, not tracked)
 /bfh.sh
 /bfh.*.sh
+/dist/
 /fb0.bmp
 /SELECT*
 
