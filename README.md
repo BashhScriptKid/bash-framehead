@@ -87,28 +87,33 @@ source "$(dirname "$0")/bash-framehead.sh"
 
 ## Modules
 
-18 modules, ~785 functions across 1,117 API definitions (including `::fast` variants).
+22 modules, 1,890 functions (public API + private helpers, per `./main.sh stat`).
 
 | Module | Functions | Description |
 |--------|-----------|-------------|
-| `runtime` | 54 | Shell state, OS detection, terminal capabilities |
-| `string` | 204 | Inspection, case, naming conventions, trimming, encoding |
-| `math` | 150 | Integer/float arithmetic, vec2/vec3, matrices, trigonometry |
-| `fs` | 79 | Path manipulation, file checks, I/O, temp files, directory ops |
-| `array` | 42 | Construction, transformation, filtering, set ops, sorting |
-| `net` | 38 | Connectivity, DNS, HTTP, interfaces, whois |
+| `kernel` | 422 | Kernel introspection and control (`/proc`, sysctl, modules) |
+| `string` | 219 | Inspection, case, naming conventions, trimming, encoding |
+| `pfloat` | 157 | Fixed-point and IEEE 754 floating-point arithmetic |
+| `math` | 155 | Integer/float arithmetic, vec2/vec3, matrices, trigonometry |
+| `device` | 111 | Block/character device inspection, classification |
+| `terminal` | 94 | Cursor control, screen buffer, input handling, shopt |
+| `runtime` | 89 | Shell state, OS detection, terminal capabilities, feature register |
+| `fs` | 79 | Path manipulation, file checks, I/O, temp files, dirs, FIFOs |
+| `timedate` | 75 | Timestamps, dates, times, durations, timezones |
+| `array` | 74 | Construction, transformation, filtering, set ops, sorting |
 | `colour` | 65 | ANSI escape codes, 4/8/24-bit colour, text styling |
-| `device` | 25 | Block/character device inspection, classification |
+| `process` | 61 | Process query, control, locking, services |
+| `net` | 58 | Connectivity, DNS, HTTP, interfaces, whois |
 | `git` | 35 | Repo state, branches, commits, remotes, tags |
-| `hardware` | 36 | CPU, GPU, RAM, disk, partitions, battery |
-| `hash` | 25 | Crypto + non-crypto hashing, HMAC, UUID5 |
-| `log` | 10 | Structured logging with severity levels and routing |
-| `pfloat` | 129 | Fixed-point and IEEE 754 floating-point arithmetic |
+| `hardware` | 34 | CPU, GPU, RAM, disk, partitions, battery |
+| `binary` | 25 | Endian packing and byte/int primitives |
+| `random` | 24 | PRNG algorithms — from LCG to ISAAC |
+| `hash` | 23 | Crypto + non-crypto hashing, HMAC, UUID5 |
+| `pubsub` | 6 | Named-pipe publish/subscribe |
+| `log` | 6 | Structured logging with severity levels and routing |
 | `pm` | 5 | Cross-distribution package manager abstraction |
-| `process` | 51 | Process query, control, locking, services |
-| `random` | 25 | PRNG algorithms — from LCG to ISAAC |
-| `terminal` | 74 | Cursor control, screen buffer, input handling, shopt |
-| `timedate` | 76 | Timestamps, dates, times, durations, timezones |
+| `debug` | 4 | Variable dump and stack introspection |
+| `fifo` | 3 | Named-pipe helpers (in `fs.sh`) |
 
 Full documentation lives in [`docs/`](./docs/). The [Getting Started guide](./docs/guides/getting-started.md) covers first use, the [examples](./docs/guides/examples/) walk through real patterns, and the [API Dictionary](./docs/api/index.md) lists every function alphabetically.
 
@@ -216,9 +221,27 @@ Including a pre-compiled file risks it drifting out of sync with the source in `
 ## Requirements
 
 - **Bash 4.3+** (namerefs; Bash 4.4 `${var@Q}` / `${!ref@a}` transforms are feature-detected and fall back to `printf %q` / `declare -p` on older shells)
-- **Bash 5.0+** for a handful of functions (guarded with `runtime::is_minimum_bash 5`)
+- **Bash 5.0+** for a handful of functions (guarded by the capability API below)
 - Standard GNU coreutils (`awk`, `sed`, `find`, `sort`)
 - Optional: `bc` for floating point math, `curl`/`wget` for networking, `openssl` for crypto hashes, `git` for git operations
+
+### Capability detection
+
+Optional shell features are probed once into a cached register (`_RUNTIME_FEATURES`,
+derived fork-free from `BASH_VERSINFO`) and read cheaply thereafter:
+
+```bash
+runtime::features               # list every known feature (id, name, yes/no)
+runtime::features::has nameref  # 0 if supported, 1 otherwise
+runtime::features::mask         # cached register as a hex bitmask
+runtime::features::probe        # slow audit: execute each feature to verify
+runtime::has_param_transform    # hot-path predicate for ${var@Q}
+```
+
+Call sites degrade gracefully: `string::quote` falls back to `printf %q`,
+`debug::vardump` to `declare -p`, and `ext/dotenv`/`ext/dbus` to portable
+paths when a feature is unavailable. The version thresholds live in exactly
+one place, so modules never repeat `BASH_VERSINFO` comparisons.
 
 ---
 

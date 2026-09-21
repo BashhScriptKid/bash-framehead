@@ -353,6 +353,8 @@ runtime::bash_version::major() {
 	echo "${BASH_VERSINFO[0]}"
 }
 
+# Historical: prefer runtime::features::has <feature> for capability checks --
+# it reads the cached register and degrades per feature. Kept as public API.
 # Default to 3, assuming that's what's at least needed for this framework (not final)
 runtime::is_minimum_bash() {
 	((BASH_VERSINFO[0] >= ${1:-3}))
@@ -379,6 +381,7 @@ runtime::is_minimum_bash() {
 #   8    globsort           5.3   GLOBSORT
 #   9    unset_array_all    5.2   unset arr[@] clears the array
 #   10   wait_n_p           5.1   wait -n -p
+#   11   mapfile_delim      4.4   mapfile -d ''
 _RUNTIME_FEATURES=0
 _RUNTIME_FEATURES_READY=0
 
@@ -395,7 +398,8 @@ _runtime::features_scan() {
 		((_ver >= 503) << 7) | \
 		((_ver >= 503) << 8) | \
 		((_ver >= 502) << 9) | \
-		((_ver >= 501) << 10) ))
+		((_ver >= 501) << 10) | \
+		((_ver >= 404) << 11) ))
 	_RUNTIME_FEATURES_READY=1
 }
 
@@ -415,6 +419,7 @@ _runtime::feature_probe() {
 		globsort)         (( BASH_VERSINFO[0] > 5 || (BASH_VERSINFO[0] == 5 && BASH_VERSINFO[1] >= 3) )); return ;;
 		unset_array_all)  _probe='__a=(1 2); unset "__a[@]"; (( ${#__a[@]} == 0 ))' ;;
 		wait_n_p)         (( BASH_VERSINFO[0] > 5 || (BASH_VERSINFO[0] == 5 && BASH_VERSINFO[1] >= 1) )); return ;;
+		mapfile_delim)    _probe='mapfile -d "" -t __a < <(printf "a\0b"); (( ${#__a[@]} == 2 ))' ;;
 		*)                return 1 ;;
 	esac
 	( eval "$_probe" ) >/dev/null 2>&1
@@ -428,7 +433,7 @@ _runtime::feature_probe() {
 #   runtime::features::probe     slow audit: execute each feature
 runtime::features() {
 	(( _RUNTIME_FEATURES_READY )) || _runtime::features_scan
-	local -a _names=(param_transform case_modify nameref assoc_array assoc_dump assoc_kv epoch_realtime bash_monoseconds globsort unset_array_all wait_n_p)
+	local -a _names=(param_transform case_modify nameref assoc_array assoc_dump assoc_kv epoch_realtime bash_monoseconds globsort unset_array_all wait_n_p mapfile_delim)
 	local _id _state
 	printf 'bash %s\n' "${BASH_VERSION:-unknown}"
 	for ((_id = 0; _id < ${#_names[@]}; _id++)); do
@@ -452,6 +457,7 @@ runtime::features::has() {
 		globsort)         _bit=8 ;;
 		unset_array_all)  _bit=9 ;;
 		wait_n_p)         _bit=10 ;;
+		mapfile_delim)    _bit=11 ;;
 		*)                return 1 ;;
 	esac
 	(( _RUNTIME_FEATURES & (1 << _bit) ))
@@ -463,7 +469,7 @@ runtime::features::mask() {
 }
 
 runtime::features::probe() {
-	local -a _names=(param_transform case_modify nameref assoc_array assoc_dump assoc_kv epoch_realtime bash_monoseconds globsort unset_array_all wait_n_p)
+	local -a _names=(param_transform case_modify nameref assoc_array assoc_dump assoc_kv epoch_realtime bash_monoseconds globsort unset_array_all wait_n_p mapfile_delim)
 	local _id _state
 	for ((_id = 0; _id < ${#_names[@]}; _id++)); do
 		_runtime::feature_probe "${_names[_id]}" && _state=yes || _state=no

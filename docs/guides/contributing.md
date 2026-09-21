@@ -18,7 +18,7 @@ Open an issue before writing code if you're adding a new module — modules have
 
 **No horizontal dependencies.** A module can only depend on `runtime.sh`. It must not call functions from `string.sh`, `fs.sh`, or any other module. If you need logic from another module, either copy it inline as a private helper or extract the shared piece to `runtime.sh`.
 
-`runtime.sh` is the one exception — all modules may use `runtime::*` functions (like `runtime::has_command`, `runtime::os`, `runtime::is_minimum_bash`).
+`runtime.sh` is the one exception — all modules may use `runtime::*` functions (like `runtime::has_command`, `runtime::os`, `runtime::features::has`). For optional shell features, use `runtime::features::has <name>` (it reads the cached capability register) instead of inline `BASH_VERSINFO` comparisons.
 
 **No side effects.** Functions must not mutate global state unless the function name explicitly promises side effects (like `process::lock::acquire` or `terminal::screen::alternate_enter`).
 

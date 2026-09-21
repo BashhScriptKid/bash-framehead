@@ -260,7 +260,12 @@ dotenv::load_assoc() {
 				_k="${_kv%%=*}"
 				_v="${_kv#*=}"
 
-				# Safe indirect assignment via printf -v into the named array
-				printf -v "${_varname}[${_k@Q}]" '%s' "$_v"
+				# Safe indirect assignment via printf -v into the named
+				# array. ${_k@Q} needs Bash 4.4; direct subscript otherwise.
+				if runtime::has_param_transform; then
+						printf -v "${_varname}[${_k@Q}]" '%s' "$_v"
+				else
+						printf -v "${_varname}[${_k}]" '%s' "$_v"
+				fi
 		done < "$_file"
 }

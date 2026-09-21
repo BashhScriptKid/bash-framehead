@@ -770,7 +770,15 @@ dbus::fromsig() {
 	# Tokenize the value buffer (NUL-separated, since values may contain
 	# embedded newlines from resolved \n escapes).
 	local _dbus_tokens=() _dbus_tok_idx=0
-	mapfile -d '' -t _dbus_tokens < <(_dbus::tokenize_values "$rest")
+	if runtime::features::has mapfile_delim; then
+		mapfile -d '' -t _dbus_tokens < <(_dbus::tokenize_values "$rest")
+	else
+		# Bash 4.3 fallback: read -d (Bash 4.0+) is NUL-delimited here.
+		local _dbus_token
+		while IFS= read -r -d '' _dbus_token; do
+			_dbus_tokens+=("$_dbus_token")
+		done < <(_dbus::tokenize_values "$rest")
+	fi
 
 	# Walk top-level types.
 	local type

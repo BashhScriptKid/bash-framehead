@@ -148,7 +148,7 @@ tmp=$(fs::temp::file::auto "mytask-")  # removed on EXIT automatically
 
 - **Don't source modules directly** — use `main.sh` or the compiled artifact; `runtime.sh` must load first
 - **`bc` is required** for `math::*f`, trig, and matrix determinant/inverse
-- **Bash 5.0+** required for `array::unique::fast` (uses associative arrays)
+- **Capability detection** — use `runtime::features::has <feature>` (`param_transform`, `nameref`, `assoc_array`, `assoc_dump`, `assoc_kv`, `epoch_realtime`, `bash_monoseconds`, `globsort`, `unset_array_all`, `wait_n_p`, `mapfile_delim`) instead of inline `BASH_VERSINFO` checks; it reads the cached register. `array::unique::fast` needs an associative array (Bash 4.0+) and degrades cleanly.
 - **Matrix functions** use flat space-separated element lists with dimension strings (`"RxC"`)
 - **pfloat** fixed-point needs `pfloat_SCALE` set before use; IEEE 754 operates on raw 64-bit integers
 - **Some functions need external tools** — `net::fetch` needs curl/wget, `hash::sha256` needs sha256sum, etc. Check the module docs.
